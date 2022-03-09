@@ -6,6 +6,7 @@ authors = [
     "Alec Gunny <alec.gunny@ligo.org>",
     "Will Benoit <william.benoit@ligo.org>",
 ]
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.10"
