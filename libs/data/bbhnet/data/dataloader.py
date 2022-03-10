@@ -43,12 +43,6 @@ class RandomWaveformDataset:
         assert 0 <= waveform_frac <= 1
         assert 0 <= glitch_frac <= 1
 
-        # this one actually won't be sufficient:
-        # e.g. if they add up to 0.99 but our batch
-        # size is 32, they still won't leave any room
-        # for background
-        assert (waveform_frac + glitch_frac) <= 1
-
         # load in the background data
         # TODO: maybe these are gwf and we resample?
         with h5py.File(hanford_background, "r") as f:
