@@ -3,7 +3,7 @@ from typing import Optional
 import h5py
 import numpy as np
 import torch
-from gwpy.filter_design import fir_from_transfer
+from gwpy.signal.filter_design import fir_from_transfer
 from scipy import signal
 
 DEFAULT_FFTLENGTH = 2
@@ -18,7 +18,7 @@ def _build_filter(timeseries: np.ndarray, sample_rate: float):
             nperseg=nfft,
             scaling="density",
             average="median",
-        )
+        )[1]
         ** 0.5
     )
     return fir_from_transfer(1 / asd, ntaps=nfft, window="hanning", ncorner=0)
@@ -68,9 +68,8 @@ class RandomWaveformDataset:
                 device
             )
 
-        self.whitening_filter = np.stack([hanford_filter, livingston_filter])[
-            :, None
-        ]
+        whitening_filter = np.stack([hanford_filter, livingston_filter])
+        self.whitening_filter = torch.Tensor(whitening_filter[:, None])
         self.whitening_scale = np.sqrt(2 / sample_rate)
 
         # ensure that we have the same amount of
@@ -106,8 +105,9 @@ class RandomWaveformDataset:
 
         # TODO: do we want to use these as max fractions
         # and sample the actual number randomly at loading time?
-        self.num_waveforms = int(self.waveform_frac * batch_size)
-        self.num_glitches = int(self.glitch_frac * batch_size)
+        self.num_waveforms = int(waveform_frac * batch_size)
+        self.num_glitches = int(glitch_frac * batch_size)
+        assert (self.num_waveforms + self.num_glitches) < batch_size
 
         self.kernel_size = int(kernel_length * sample_rate)
         self.batch_size = batch_size
@@ -159,19 +159,23 @@ class RandomWaveformDataset:
             livingston = self.livingston_background[
                 l_idx : l_idx + self.kernel_size
             ]
-            X.append([hanford, livingston])
+            X.extend([hanford, livingston])
 
         # TODO: not sure torch will like that you're
         # cat-ing lists of lists. Will stack work?
-        return torch.cat(X, axis=0)
+        X = torch.stack(X, dim=0).reshape(self.batch_size, 2, -1)
+        return X
 
     def inject_waveforms(self, background, waveforms):
         # TODO: what does this look like?
         raise NotImplementedError
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
-        X = X - X.mean(axis=-1)
-        X = torch.functional.conv1d(
+        X = X.transpose(2, 0)
+        X = X - X.mean(axis=0)
+        X = X.transpose(0, 2)
+
+        X = torch.nn.functional.conv1d(
             X, self.whitening_filter, groups=2, padding="same"
         )
         return X * self.whitening_scale

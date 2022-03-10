@@ -30,7 +30,7 @@ def data_length():
 
 
 @pytest.fixture
-def hanford_background(sample_rate, data_dir):
+def hanford_background(sample_rate, data_dir, data_length):
     x = np.random.randn(sample_rate * data_length)
     with h5py.File(data_dir / "hanford.h5", "w") as f:
         f["hoft"] = x
@@ -38,7 +38,7 @@ def hanford_background(sample_rate, data_dir):
 
 
 @pytest.fixture
-def livingston_background(sample_rate, data_dir):
+def livingston_background(sample_rate, data_dir, data_length):
     x = np.random.randn(sample_rate * data_length)
     with h5py.File(data_dir / "livingston.h5", "w") as f:
         f["hoft"] = x
