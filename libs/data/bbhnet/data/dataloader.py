@@ -3,30 +3,19 @@ from typing import Optional
 import h5py
 import numpy as np
 import torch
+from gwpy.timeseries import TimeSeries
 from gwpy.signal.filter_design import fir_from_transfer
 from scipy import signal
 
 DEFAULT_FFTLENGTH = 2
 
 
-def _build_time_domain_filter(timeseries: np.ndarray, sample_rate: float):
-    """
-    Create a time-domain filter for whitening using the
-    indicated timeseries as background.
-    """
-
-    nfft = int(DEFAULT_FFTLENGTH * sample_rate)
-    asd = (
-        signal.welch(
-            timeseries,
-            fs=sample_rate,
-            nperseg=nfft,
-            scaling="density",
-            average="median",
-        )[1]
-        ** 0.5
-    )
-    return fir_from_transfer(1 / asd, ntaps=nfft, window="hanning", ncorner=0)
+def _build_filter(timeseries: np.ndarray, sample_rate: float):
+    ts = TimeSeries(timeseries, dt=1 / sample_rate)
+    asd = ts.asd(fftlength=DEFAULT_FFTLENGTH, window="hanning", method="median")
+    asd = asd.interpolate(1)
+    ntaps = int(DEFAULT_FFTLENGTH * sample_rate)
+    return fir_from_transfer(1 / asd.value, ntaps=ntaps, window="hanning", ncorner=0)
 
 
 class RandomWaveformDataset:
@@ -72,7 +61,12 @@ class RandomWaveformDataset:
             )
 
         whitening_filter = np.stack([hanford_filter, livingston_filter])
-        self.whitening_filter = torch.Tensor(whitening_filter[:, None])
+        self.whitening_filter = torch.Tensor(
+            whitening_filter[:, None]
+        ).to(device)
+        self.whitening_window = torch.Tensor(
+            signal.windows.hann(whitening_filter.shape[-1])
+        ).to(device)
         self.whitening_scale = np.sqrt(2 / sample_rate)
 
         # ensure that we have the same amount of
@@ -223,6 +217,7 @@ class RandomWaveformDataset:
         X = X.transpose(2, 0)
         X = X - X.mean(axis=0)
         X = X.transpose(0, 2)
+        X *= self.whitening_window
 
         # convolve the detrended data with the time-domain
         # filters constructed during initialization from

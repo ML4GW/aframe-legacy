@@ -85,8 +85,13 @@ def test_random_waveform_dataset_whitening(
 
     asds = list(dataset.whitening_filter.numpy()[:, 0])
     for x, y in zip(X, whitened):
-        for x_ifo, y_ifo, asd in zip(x, y, asds):
-            ts = TimeSeries(x_ifo, dt=1 / sample_rate)
-            fs = FrequencySeries(asd, df=1 / data_length)
-            expected = ts.whiten(asd=fs)
-            assert (expected == y_ifo).all()
+        hanford_ts = TimeSeries(
+            dataset.hanford_background.numpy(), dt=1 / sample_rate
+        )
+        hanford_asd = hanford_ts.asd(fftlength=2)
+        hanford_whitened = TimeSeries(x[0], dt=1 / sample_rate).whiten(
+            asd=hanford_asd
+        ).value
+        err = np.abs(hanford_whitened - y[0]) / np.abs(hanford_whitened)
+        assert np.percentile(err, 80) < 0.02
+        assert np.percentile(err, 95) < 0.1
