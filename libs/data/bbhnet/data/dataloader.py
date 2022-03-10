@@ -227,4 +227,5 @@ class RandomWaveformDataset:
             y[-self.num_waveforms :] = 1
 
         X = self.whiten(X)
+        self._batch_idx += 1
         return X, y
