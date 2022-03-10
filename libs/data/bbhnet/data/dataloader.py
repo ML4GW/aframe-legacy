@@ -183,6 +183,10 @@ class RandomWaveformDataset:
         # create an array of all background
         X = self.sample_from_background(independent=True)
 
+        # create a target tensor, marking all
+        # the glitch data as 0.
+        y = torch.zeros((self.batch_size,))
+
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitches is not None:
@@ -216,11 +220,7 @@ class RandomWaveformDataset:
                 self.waveforms, self.num_waveforms
             )
             self.inject_waveforms(X[-self.num_waveforms :], waveforms)
+            y[-self.num_waveforms :] = 1
 
         X = self.whiten(X)
-
-        # create a target tensor, marking all
-        # the glitch data as 0.
-        y = torch.zeros((self.batch_size,))
-        y[-self.num_waveforms :] = 1
         return X, y
