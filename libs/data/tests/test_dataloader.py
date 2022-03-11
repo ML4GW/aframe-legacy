@@ -82,11 +82,9 @@ def zeros_livingston_background(sample_rate, data_dir, data_length):
 
 
 @pytest.fixture
-def negative_glitches(sample_rate, data_dir, glitch_length):
+def zeros_glitches(sample_rate, data_dir, glitch_length):
     num_glitches = 128
-    x = -np.arange(sample_rate * glitch_length * num_glitches) - 1
-    x = x.reshape(num_glitches, -1)
-
+    x = np.zeros((num_glitches, sample_rate * glitch_length))
     with h5py.File(data_dir / "glitches.h5", "w") as f:
         f["hanford"] = x
         f["livingston"] = x
@@ -190,21 +188,21 @@ def test_random_waveform_dataset_whitening(
 
 
 def test_glitch_sampling(
-    zeros_hanford_background,
-    zeros_livingston_background,
-    negative_glitches,
+    sequential_hanford_background,
+    sequential_livingston_background,
+    zeros_glitches,
     glitch_frac,
     sample_rate,
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        zeros_hanford_background,
-        zeros_livingston_background,
+        sequential_hanford_background,
+        sequential_livingston_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
         glitch_frac=glitch_frac,
-        glitch_dataset=negative_glitches,
+        glitch_dataset=zeros_glitches,
         batches_per_epoch=10,
         device="cpu",
     )
@@ -216,7 +214,7 @@ def test_glitch_sampling(
     for X, _ in dataset:
         for i in range(dataset.num_glitches):
             x = X[i].numpy()
-            assert (np.diff(x[0]) < 0).all() or (np.diff(x[1]) < 0).all()
+            assert (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
         for i in range(dataset.num_glitches, batch_size):
             x = X[i].numpy()
-            assert not ((np.diff(x[0]) < 0).all() or (np.diff(x[1]) < 0).all())
+            assert not ((np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all())
