@@ -224,14 +224,15 @@ def test_glitch_sampling(
 
     for X, _ in dataset:
         X = X.cpu().numpy()
-        for i in range(dataset.num_glitches):
-            x = X[i]
-            assert (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
-        for i in range(dataset.num_glitches, batch_size):
-            x = X[i]
-            assert not (
-                (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
-            )
+        for i, x in enumerate(X):
+            # check if either ifo channel is all zeros
+            # and so is a "glitch"
+            is_glitch = (x == 0).all(axis=-1)
+
+            # check that either this sample is one of the
+            # first `num_glitches` in the batch or does not
+            # have a glitch
+            assert (i < dataset.num_glitches) ^ (not is_glitch.any())
 
     if device == "cpu":
         return
