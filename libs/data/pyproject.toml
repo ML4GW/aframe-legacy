@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
-scipy = "^1.7.3"
+scipy = "<1.8"
 h5py = "^3.6"
 # torch = "^1.10"
 # gwpy = "^2.1"
