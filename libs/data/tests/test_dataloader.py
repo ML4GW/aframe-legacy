@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 from pathlib import Path
 
 import h5py
@@ -9,6 +10,11 @@ import torch
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.data import dataloader
+
+
+@pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])
+def device(request):
+    return request.param
 
 
 @pytest.fixture(scope="session")
@@ -95,6 +101,7 @@ def test_random_waveform_dataset(
     sequential_hanford_background,
     sequential_livingston_background,
     sample_rate,
+    device,
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
@@ -104,26 +111,26 @@ def test_random_waveform_dataset(
         sample_rate=sample_rate,
         batch_size=batch_size,
         batches_per_epoch=10,
-        device="cpu",
+        device=device,
     )
 
     # test the background sampling method to make sure
     # that the base batch is generated properly
-    X = dataset.sample_from_background(independent=True)
+    X = dataset.sample_from_background(independent=True).cpu().numpy()
 
     # make sure that we're not sampling in order
-    assert not (np.diff(X[:, 0, 0].numpy()) == 1).all()
+    assert not (np.diff(X[:, 0, 0]) == 1).all()
 
     # now make sure each timeseries is sequential
     # and that the two interferometers don't match
     for x in X:
         assert not (x[0] == x[1]).all()
         for x_ifo in x:
-            assert (np.diff(x_ifo.numpy()) == 1).all()
+            assert (np.diff(x_ifo) == 1).all()
 
     # make sure if we're sampling non-independently
     # that the data from both interferometers matches
-    X = dataset.sample_from_background(independent=False)
+    X = dataset.sample_from_background(independent=False).cpu().numpy()
     for x in X:
         assert (x[0] == x[1]).all()
 
@@ -132,7 +139,7 @@ def test_random_waveform_dataset(
     for i, (X, y) in enumerate(dataset):
         assert X.shape == (batch_size, 2, sample_rate)
         assert y.shape == (batch_size,)
-        assert not y.any()
+        assert not y.cpu().numpy().any()
 
     assert i == 9
 
@@ -142,6 +149,7 @@ def test_random_waveform_dataset_whitening(
     random_livingston_background,
     sample_rate,
     data_length,
+    device,
 ):
     """
     Test the `.whiten` method to make sure that it
@@ -159,21 +167,22 @@ def test_random_waveform_dataset_whitening(
         sample_rate=sample_rate,
         batch_size=batch_size,
         batches_per_epoch=10,
-        device="cpu",
+        device=device,
     )
 
     # whiten a random batch of data manually
     X = np.random.randn(32, 2, sample_rate)
-    whitened = dataset.whiten(torch.Tensor(X)).numpy()
+    whitened = dataset.whiten(torch.Tensor(X).to(device)).cpu().numpy()
 
     # for each sample, whiten the sample using the
     # corresponding background ASD with gwpy and
     # ensure that the results are reasonably close
+    errs = []
     for x, w in zip(X, whitened):
         for i, bkgrd in enumerate(
             [dataset.hanford_background, dataset.livingston_background]
         ):
-            bkgrd_ts = TimeSeries(bkgrd.numpy(), dt=1 / sample_rate)
+            bkgrd_ts = TimeSeries(bkgrd.cpu().numpy(), dt=1 / sample_rate)
             bkgrd_asd = bkgrd_ts.asd(fftlength=2)
             ts = TimeSeries(x[i], dt=1 / sample_rate)
             ts = ts.whiten(asd=bkgrd_asd).value
@@ -182,9 +191,10 @@ def test_random_waveform_dataset_whitening(
             # whitening methods is in the realm of the reasonable.
             # We could make these bounds tighter for most sample
             # rates of interest, but the 512 just has too much noise
-            err = np.abs(ts - w[i]) / np.abs(ts)
-            assert np.percentile(err, 80) < 0.02
-            assert np.percentile(err, 95) < 0.1
+            errs.extend(np.abs(ts - w[i]) / np.abs(ts))
+
+    assert np.percentile(errs, 90) < 0.001
+    assert np.percentile(errs, 99) < 0.01
 
 
 def test_glitch_sampling(
@@ -193,6 +203,7 @@ def test_glitch_sampling(
     zeros_glitches,
     glitch_frac,
     sample_rate,
+    device,
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
@@ -204,7 +215,7 @@ def test_glitch_sampling(
         glitch_frac=glitch_frac,
         glitch_dataset=zeros_glitches,
         batches_per_epoch=10,
-        device="cpu",
+        device=device,
     )
     expected_num = int(glitch_frac * batch_size)
     if expected_num == 0:
@@ -212,11 +223,22 @@ def test_glitch_sampling(
     assert dataset.num_glitches == expected_num
 
     for X, _ in dataset:
+        X = X.cpu().numpy()
         for i in range(dataset.num_glitches):
-            x = X[i].numpy()
+            x = X[i]
             assert (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
         for i in range(dataset.num_glitches, batch_size):
-            x = X[i].numpy()
+            x = X[i]
             assert not (
                 (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
             )
+
+    if device == "cpu":
+        return
+
+    dataset.batches_per_epoch = 100
+    start_time = time.time()
+    for _ in dataset:
+        continue
+    end_time = time.time()
+    assert ((end_time - start_time) / 100) < 0.05
