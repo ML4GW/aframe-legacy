@@ -9,7 +9,12 @@ from scipy import signal
 DEFAULT_FFTLENGTH = 2
 
 
-def _build_filter(timeseries: np.ndarray, sample_rate: float):
+def _build_time_domain_filter(timeseries: np.ndarray, sample_rate: float):
+    """
+    Create a time-domain filter for whitening using the
+    indicated timeseries as background.
+    """
+
     nfft = int(DEFAULT_FFTLENGTH * sample_rate)
     asd = (
         signal.welch(
@@ -47,7 +52,9 @@ class RandomWaveformDataset:
         # TODO: maybe these are gwf and we resample?
         with h5py.File(hanford_background, "r") as f:
             hanford_bkgrd = f["hoft"][:]
-            hanford_filter = _build_filter(hanford_bkgrd, sample_rate)
+            hanford_filter = _build_time_domain_filter(
+                hanford_bkgrd, sample_rate
+            )
 
             # move everything onto the GPU up front so that
             # we don't have to pay for transfer time later.
@@ -57,7 +64,9 @@ class RandomWaveformDataset:
             self.hanford_background = torch.Tensor(hanford_bkgrd).to(device)
         with h5py.File(livingston_background, "r") as f:
             livingston_bkgrd = f["hoft"][:]
-            livingston_filter = _build_filter(livingston_bkgrd, sample_rate)
+            livingston_filter = _build_time_domain_filter(
+                livingston_bkgrd, sample_rate
+            )
             self.livingston_background = torch.Tensor(livingston_bkgrd).to(
                 device
             )
@@ -107,36 +116,68 @@ class RandomWaveformDataset:
         self.batch_size = batch_size
         self.batches_per_epoch = batches_per_epoch
 
-    def __iter__(self):
-        self._batch_idx = 0
-        return self
+    def sample_from_array(self, array: torch.Tensor, N: int) -> torch.Tensor:
+        """Sample kernels from an array of timeseries
 
-    def sample_from_array(self, array, N):
-        # do this all with numpy for now to avoid data transfer
-        # sample a bunch of indices of samples to grab
+        For an array of timeseries of shape
+        (num_timeseries, self.sample_rate * length),
+        where length is some characteristic length of the
+        type of event contained in each timeseries, and the
+        event in question is assumed to "trigger" in the
+        middle of each timeseries.
+
+        First uniformly samples `N` timeseries to sample
+        kernels from, then uniformly samples a kernel
+        from that timeseries that contains the trigger.
+        """
+
+        # sample `N` timeseries to sample kernels from
         idx = np.random.choice(len(array), size=N, replace=False)
 
-        # for each index, grab a random kernel-sized
-        # stretch of the sampled timeseries
+        # for each timeseries, grab a random kernel-sized
         # TODO: is there a good way to do this with array ops?
         samples = []
         for i in idx:
-            start = np.random.randint(array.shape[-1] - self.kernel_size)
+            # sample from within a kernel's length of
+            # the center of array, where it is assumed
+            # that the "trigger" of the relevant event will live
+            start = np.random.randint(array.shape[-1] // 2 - self.kernel_size)
             stop = start + self.kernel_size
+
+            # unfortunately can't think of a cleaner
+            # way to make sure wer'e slicing from the
+            # last dimension
             if len(array.shape) == 2:
                 samples.append(array[i, start:stop])
             else:
                 samples.append(array[i, :, start:stop])
 
-        # return the list of samples
-        return samples
+        # stack the samples into a tensor
+        return torch.stack(samples)
 
     def sample_from_background(self, independent: bool = True):
+        """Sample a batch of kernels from the background data
+
+        Randomly sample kernels from the interferometer
+        background timeseries in a uniform manner. If
+        `independent == True`, kernels will be sampled
+        from each interferometer independently and then
+        concatenate to simulate fully random time-shifting.
+        """
+
+        # sample kernel start indices uniformly
+        # from the hanford background data ensuring
+        # that the corresponding stop index will fall
+        # within the timeseries
         hanford_start = np.random.choice(
             len(self.hanford_background) - self.kernel_size,
             size=self.batch_size,
             replace=False,
         )
+
+        # if sampling indepdently, create a second set
+        # of start indices for the livingston background
+        # data. Otherwise, use the same indices as for hanford
         if independent:
             livingston_start = np.random.choice(
                 len(self.livingston_background) - self.kernel_size,
@@ -146,6 +187,7 @@ class RandomWaveformDataset:
         else:
             livingston_start = hanford_start
 
+        # grab kernels for each start index from the background
         # TODO: is there a good way to do this with array ops?
         X = []
         for h_idx, l_idx in zip(hanford_start, livingston_start):
@@ -155,8 +197,9 @@ class RandomWaveformDataset:
             ]
             X.extend([hanford, livingston])
 
-        # TODO: not sure torch will like that you're
-        # cat-ing lists of lists. Will stack work?
+        # stack everything to make a (batch_size * 2, sample_rate)
+        # sized tensor, then reshape to move the two
+        # interferometers to the 1st dimension
         X = torch.stack(X, dim=0).reshape(self.batch_size, 2, -1)
         return X
 
@@ -165,14 +208,38 @@ class RandomWaveformDataset:
         raise NotImplementedError
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
+        """Detrend and time-domain filter an array
+
+        Use the time-domain filters built from the
+        background data used to initialize the dataset
+        to whiten an array of data.
+        """
+
+        # do a constant detrend along the time axis,
+        # transposing to ensure that the last two dimensions
+        # of the original and dimension-reduced tensors match.
+        # TODO: will using X.mean(axis=-1, keepdims=True)
+        # allow us to avoid these transposes?
         X = X.transpose(2, 0)
         X = X - X.mean(axis=0)
         X = X.transpose(0, 2)
 
+        # convolve the detrended data with the time-domain
+        # filters constructed during initialization from
+        # the background data, using groups to ensure that
+        # the convolution is performed independently for
+        # each interferometer channel
         X = torch.nn.functional.conv1d(
             X, self.whitening_filter, groups=2, padding="same"
         )
+
+        # scale by sqrt(2 / sample_rate) for some signal
+        # processing reason beyond my understanding
         return X * self.whitening_scale
+
+    def __iter__(self):
+        self._batch_idx = 0
+        return self
 
     def __next__(self):
         if self._batch_idx >= self.batches_per_epoch:
