@@ -217,4 +217,6 @@ def test_glitch_sampling(
             assert (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
         for i in range(dataset.num_glitches, batch_size):
             x = X[i].numpy()
-            assert not ((np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all())
+            assert not (
+                (np.diff(x[0]) == 0).all() or (np.diff(x[1]) == 0).all()
+            )

@@ -398,7 +398,7 @@ class RandomWaveformDataset:
             # glitches
             if num_livingston > 0:
                 livingston_glitches = self.sample_from_array(
-                     self.livingston_glitches, num_livingston
+                    self.livingston_glitches, num_livingston
                 )
                 X[num_hanford : self.num_glitches, 1] = livingston_glitches
 
