@@ -255,12 +255,16 @@ class RandomWaveformDataset:
 
         # for each timeseries, grab a random kernel-sized
         # TODO: is there a good way to do this with array ops?
+        sample_start = min(
+            array.shape[-1] // 2 - 1, array.shape[-1] - self.kernel_size
+        )
+
         samples = []
         for i in idx:
             # sample from within a kernel's length of
             # the center of array, where it is assumed
             # that the "trigger" of the relevant event will live
-            start = np.random.randint(array.shape[-1] // 2 - self.kernel_size)
+            start = np.random.randint(sample_start)
             stop = start + self.kernel_size
 
             # unfortunately can't think of a cleaner
@@ -383,18 +387,20 @@ class RandomWaveformDataset:
             # replace the hanford channel of the
             # existing background data with some
             # sampled hanford glitches
-            hanford_glitches = self.sample_from_array(
-                self.hanford_glitches, num_hanford
-            )
-            X[:num_hanford, 0] = hanford_glitches
+            if num_hanford > 0:
+                hanford_glitches = self.sample_from_array(
+                    self.hanford_glitches, num_hanford
+                )
+                X[:num_hanford, 0] = hanford_glitches
 
             # replace the livingston channel of the existing
             # background data with some sampled livingston
             # glitches
-            livingston_glitches = self.sample_from_array(
-                self.livingston_glitches, num_livingston
-            )
-            X[num_hanford : self.num_glitches, 1] = livingston_glitches
+            if num_livingston > 0:
+                livingston_glitches = self.sample_from_array(
+                     self.livingston_glitches, num_livingston
+                )
+                X[num_hanford : self.num_glitches, 1] = livingston_glitches
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
