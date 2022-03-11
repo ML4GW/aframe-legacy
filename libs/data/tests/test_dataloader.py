@@ -29,7 +29,7 @@ def data_length():
     return 128
 
 
-@pytest.fixture(params=[0.1, 0.5, 0.9])
+@pytest.fixture(params=[0.01, 0.1, 0.5, 0.9])
 def glitch_frac(request):
     return request.param
 
@@ -83,8 +83,11 @@ def zeros_livingston_background(sample_rate, data_dir, data_length):
 
 @pytest.fixture
 def negative_glitches(sample_rate, data_dir, glitch_length):
-    x = -np.arange(sample_rate * glitch_length) - 1
-    with open(data_dir / "glitches.h5", "w") as f:
+    num_glitches = 128
+    x = -np.arange(sample_rate * glitch_length * num_glitches) - 1
+    x = x.reshape(num_glitches, -1)
+
+    with h5py.File(data_dir / "glitches.h5", "w") as f:
         f["hanford"] = x
         f["livingston"] = x
     return data_dir / "glitches.h5"
@@ -181,7 +184,7 @@ def test_random_waveform_dataset_whitening(
             # whitening methods is in the realm of the reasonable.
             # We could make these bounds tighter for most sample
             # rates of interest, but the 512 just has too much noise
-            err = np.abs(ts - w[0]) / np.abs(ts)
+            err = np.abs(ts - w[i]) / np.abs(ts)
             assert np.percentile(err, 80) < 0.02
             assert np.percentile(err, 95) < 0.1
 
@@ -205,7 +208,10 @@ def test_glitch_sampling(
         batches_per_epoch=10,
         device="cpu",
     )
-    assert dataset.num_glitches == int(glitch_frac * batch_size)
+    expected_num = int(glitch_frac * batch_size)
+    if expected_num == 0:
+        expected_num = 1
+    assert dataset.num_glitches == expected_num
 
     for X, _ in dataset:
         for i in range(dataset.num_glitches):

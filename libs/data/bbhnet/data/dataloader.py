@@ -188,6 +188,7 @@ class RandomWaveformDataset:
             # if we specified waveforms, make sure we're
             # actually planning on using them
             assert waveform_frac > 0
+            self.num_waveforms = max(1, int(waveform_frac * batch_size))
 
             with h5py.File(waveform_dataset, "r") as f:
                 # should have shape:
@@ -199,6 +200,7 @@ class RandomWaveformDataset:
             # likewise, ensure that we didn't indicate that
             # we expected any waveforms in the batch
             assert waveform_frac == 0
+            self.num_waveforms = 0
             self.waveforms = None
 
         # load in any glitches if we specified them
@@ -208,20 +210,21 @@ class RandomWaveformDataset:
             # if we specified glitches, make sure we're
             # actually planning on using them
             assert glitch_frac > 0
+            self.num_glitches = max(1, int(glitch_frac * batch_size))
 
             with h5py.File(glitch_dataset, "r") as f:
-                self.hanford_glitches = f["hanford"][:]
-                self.livingston_glitches = f["livingston"]
+                self.hanford_glitches = torch.Tensor(f["hanford"][:]).to(
+                    device
+                )
+                self.livingston_glitches = torch.Tensor(f["livingston"][:]).to(
+                    device
+                )
         else:
             # likewise, ensure that we didn't indicate that
             # we expected any glitches in the batch
             assert glitch_frac == 0
-            self.glitches = None
-
-        # TODO: do we want to use these as max fractions
-        # and sample the actual number randomly at loading time?
-        self.num_waveforms = int(waveform_frac * batch_size)
-        self.num_glitches = int(glitch_frac * batch_size)
+            self.num_glitches = 0
+            self.hanford_glitches = self.livingston_glitches = None
 
         # make sure that we have at least _some_
         # pure background in each batch
@@ -371,7 +374,7 @@ class RandomWaveformDataset:
 
         # replace some of this data with glitches if
         # we have glitch data to use
-        if self.glitches is not None:
+        if self.hanford_glitches is not None:
             # break up the number of glitches randomly
             # between hanford and livingston
             num_hanford = np.random.randint(self.num_glitches)
@@ -383,7 +386,7 @@ class RandomWaveformDataset:
             hanford_glitches = self.sample_from_array(
                 self.hanford_glitches, num_hanford
             )
-            X[:num_hanford, 0] = torch.stack(hanford_glitches)
+            X[:num_hanford, 0] = hanford_glitches
 
             # replace the livingston channel of the existing
             # background data with some sampled livingston
@@ -391,9 +394,7 @@ class RandomWaveformDataset:
             livingston_glitches = self.sample_from_array(
                 self.livingston_glitches, num_livingston
             )
-            X[num_hanford : self.num_glitches, 1] = torch.stack(
-                livingston_glitches
-            )
+            X[num_hanford : self.num_glitches, 1] = livingston_glitches
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
