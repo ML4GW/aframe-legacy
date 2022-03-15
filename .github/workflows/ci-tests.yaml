@@ -20,4 +20,4 @@ jobs:
         name: run dataloader tests
         env:
           test_dir: /github/workspace/libs/data
-        runs: pinto run $test_dir pytest $test_dir/tests -m "not gpu"
+        run: pinto run $test_dir pytest $test_dir/tests -m "not gpu"
