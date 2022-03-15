@@ -7,13 +7,11 @@ on:
       - main
 
 jobs:
-  library-ci-tests:
+  ci-tests:
     if: github.repository_owner == 'ML4GW'
     runs-on: ubuntu-latest
     permissions:
       packages: read
-  ci-tests:
-    runs-on: ubuntu-latest
     container:
       image: ghcr.io/ml4gw/pinto:main
       credentials:
