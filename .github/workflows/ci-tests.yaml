@@ -1,0 +1,23 @@
+name: ci-tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci-tests:
+    container:
+      image: ghcr.io/ml4gw/pinto:main
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
+      volumes:
+        - ${{ github.workspace }}:/github/workspace
+    steps:
+      -
+        name: run dataloader tests
+        env:
+          test_dir: /github/workspace/libs/data
+        runs: pinto run $test_dir pytest $test_dir/tests -m "not gpu"
