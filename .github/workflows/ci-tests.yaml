@@ -13,6 +13,7 @@ jobs:
     permissions:
       packages: read
   ci-tests:
+    runs-on: ubuntu-latest
     container:
       image: ghcr.io/ml4gw/pinto:main
       credentials:
