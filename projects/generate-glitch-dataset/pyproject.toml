@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "generate_glitches"
+version = "0.0.1"
+description = "Generate a glitch dataset for training/validation"
+authors = ["Ethan Marx <emarx@mit.edu>",]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+"hermes.typeo" = "^0.1.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+
+[tool.poetry.scripts]
+simulate = "generate_waveforms:main"
+
+[build-system]
+requires = ["poetry>=1.2"]
+build-backend = "poetry.masonry.api"
