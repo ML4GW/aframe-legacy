@@ -1,13 +1,12 @@
 import glob
 import h5py
-import os
+import logging
 
 import numpy as np
 
 from gwpy.timeseries import TimeSeries
 from gwpy.segments import Segment, SegmentList
-
-import utils as utils
+from hermes.typeo import typeo
 
 
 '''
@@ -20,7 +19,58 @@ Of note is the clustering timescale of 1 second
 
 '''
 
+def veto(times: list, segmentlist: SegmentList):
 
+    """
+    Remove events from a list of times based on a segmentlist
+    A time ``t`` will be vetoed if ``start <= t <= end`` for any veto
+    segment in the list.
+    
+    Arguments:
+    - times: the times of event triggers to veto
+    - segmentliss: the list of veto segments to use
+   
+    Returns:
+    - keep_args: the arguments of the orignal times array that are not vetoed
+    """
+
+    # find args that sort times and create sorted times array
+    sorted_args = np.argsort(times)
+    sorted_times = times[sorted_args]
+
+    # initiate array of args to keep; refers to original args of unsorted times array
+    keep_args = []
+
+    # initiate loop variables; extract first segment 
+    j = 0
+    a, b = segmentlist[j]
+    i = 0
+
+    while i < sorted_times.size:
+        t = sorted_times[i]
+
+        # if before start, not in vetoed segment; move to next trigger now
+        if t < a:
+
+            # original arg is the ith sorted arg
+            original_arg = sorted_args[i]
+            keep_args.append(original_arg)
+            i += 1
+            continue
+
+        # if after end, find the next segment and check this trigger again
+        if t > b:
+            j += 1
+            try:
+                a, b = segmentlist[j]
+                continue
+            except IndexError:
+                break
+
+        # otherwise it must be in veto segment; move on to next trigger
+        i += 1
+
+    return keep_args 
 
 
 def generate_glitch_dataset(
@@ -30,7 +80,7 @@ def generate_glitch_dataset(
     stop: float,
     window: float,
     sample_rate: float = 4096,
-    omicron_dir: str ='/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/',
+    omicron_dir: str='/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/',
     vetoes: SegmentList = None,
 ):
 
@@ -44,7 +94,7 @@ def generate_glitch_dataset(
     - stop: stop gpstime
     - window: half window around trigger time to query data for
     - sample_rate: sampling frequency
-    - omicron_dir: base directory of omicron triggers (see /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/)
+    - omicron_trigfile: base directory of omicron triggers (see /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/)
     """
      
     glitches = [] 
@@ -63,18 +113,17 @@ def generate_glitch_dataset(
         # get path for this gps day 
         omicron_path = omicron_dir + f'{day}/'
         
-        # do we want pre or post vetoes? I presume we want to use some glitches found in vetoes (CAT3, not CAT1)
         trig_file = glob.glob(omicron_path + f'/*/PostProc/unclustered/triggers_unclustered_{ifo}.txt')[0]
         
                           
         # load in triggers 
         triggers = np.loadtxt(trig_file)
-        print(len(triggers)) 
+        
         # if passed, apply vetos
         if vetoes is not None:
             not_vetoed_args = utils.veto(triggers[:,0], vetoes)
             triggers = triggers[not_vetoed_args]
-        print(len(triggers))
+        
         # restrict triggers to within gps start and stop times
         times = triggers[:,0]
         time_args = np.logical_and(times > start, times < stop)
@@ -84,18 +133,17 @@ def generate_glitch_dataset(
         day_snrs = triggers[:,2] # second column is snrs
         snr_thresh_args = np.where(day_snrs > snr_thresh) 
         triggers = triggers[snr_thresh_args] 
-    
-        snrs.extend(day_snrs) 
+        snrs.extend(triggers[:,2]) 
         
         # query data for each trigger
         for trigger in triggers:
             time = trigger[0]
-            trig_data = TimeSeries.fetch_open_data(ifo, time-window, time+window) 
-            
+            trig_data = TimeSeries.fetch_open_data(ifo, time-window, time+window,verbose=False) 
             glitches.append(trig_data) 
-        
+    
     return glitches, snrs
  
+@typeo
 def main(
     snr_thresh: float,
     start: float,
@@ -104,9 +152,8 @@ def main(
     sample_rate: float = 4096,
     outdir: str = './',
     omicron_dir: str ='/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/',
-    H1_veto_file: str=None,
-    L1_veto_file: str=None
-
+    H1_veto_file=None,
+    L1_veto_file=None
 ):
    
     """Simulates a set of glitches for both H1 and L1 that can be added to background
@@ -122,6 +169,9 @@ def main(
     - H1_veto_file: path to file containing vetoes for H1
     - L1_veto_file: path to file containing vetoes for L1
     """ 
+    
+    H1_vetoes = None
+    L1_vetoes = None
     
     # if passed, load in H1 vetoes and convert to gwpy SegmentList object 
     if H1_veto_file is not None:
@@ -165,7 +215,6 @@ def main(
     glitch_file = os.path.join(outdir, 'glitches.h5') 
     
     with h5py.File(glitch_file, 'w') as f:
-        # not sure what format we want here
         f.create_dataset("H1_glitches", data=H1_glitches)
         f.create_dataset("H1_snrs", data = H1_snrs)
         
@@ -175,6 +224,4 @@ def main(
     return glitch_file
 
 if __name__ == "__main__":
-    H1_veto_file = '/home/olib/public_html/Ethan/O3b_offline/back_train_lowfreq/vetoes/H1Cat1.txt'
-    L1_veto_file = '/home/olib/public_html/Ethan/O3b_offline/back_train_lowfreq/vetoes/L1Cat1.txt'
-    main(snr_thresh=10, start=1256665622 , stop=1256699999, window=1, sample_rate=4096, H1_veto_file=H1_veto_file, L1_veto_file=L1_veto_file) 
+    main()    
