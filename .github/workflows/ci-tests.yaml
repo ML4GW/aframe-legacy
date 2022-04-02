@@ -31,3 +31,8 @@ jobs:
         env:
           test_dir: /github/workspace/projects/generate_waveforms
         run: pinto run $test_dir pytest $test_dir/tests
+      -
+        name: run injection tests
+        env:
+          test_dir: /github/workspace/libs/injection/bbhnet/injection
+        run: pinto run $test_dir pytest $test_dir/tests
