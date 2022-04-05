@@ -16,7 +16,6 @@ def _build_time_domain_filter(
     Create a time-domain filter for whitening using the
     indicated timeseries as background. Replicating the
     behavior of `gwpy.timeseries.TimeSeries.whiten`.
-
     Args:
         timeseries:
             Background timeseries whose spectrum to
@@ -59,13 +58,11 @@ class RandomWaveformDataset:
         device: torch.device = "cuda",
     ) -> None:
         """Iterable dataset which can sample and inject auxiliary data
-
         Iterable dataset for use with torch.data.DataLoader which
         generates tensors of background data from the two LIGO
         interferometers. Optionally can inject simulated waveforms
         and insert real glitch data which are sampled from HDF5
         datasets.
-
         Background data is sample uniformly and independently for
         both interferometers, simulating arbitrary time-shifts.
         The cost of this is that we abandon the traditional notion
@@ -75,7 +72,6 @@ class RandomWaveformDataset:
         kwarg is used to determine how many batches to produce
         before to raising a `StopIteration` to move on to tasks
         like validation.
-
         Args:
             hanford_background:
                 Path to HDF5 file containing background data for
@@ -237,14 +233,12 @@ class RandomWaveformDataset:
 
     def sample_from_array(self, array: torch.Tensor, N: int) -> torch.Tensor:
         """Sample kernels from an array of timeseries
-
         For an array of timeseries of shape
         (num_timeseries, self.sample_rate * length),
         where length is some characteristic length of the
         type of event contained in each timeseries, and the
         event in question is assumed to "trigger" in the
         middle of each timeseries.
-
         First uniformly samples `N` timeseries to sample
         kernels from, then uniformly samples a kernel
         from that timeseries that contains the trigger.
@@ -280,7 +274,6 @@ class RandomWaveformDataset:
 
     def sample_from_background(self, independent: bool = True):
         """Sample a batch of kernels from the background data
-
         Randomly sample kernels from the interferometer
         background timeseries in a uniform manner. If
         `independent == True`, kernels will be sampled
@@ -332,7 +325,6 @@ class RandomWaveformDataset:
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
         """Detrend and time-domain filter an array
-
         Use the time-domain filters built from the
         background data used to initialize the dataset
         to whiten an array of data.
