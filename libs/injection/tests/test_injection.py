@@ -11,6 +11,8 @@ from gwpy.timeseries import TimeSeries
 
 from bbhnet.injection import inject_signals
 
+TEST_DIR = Path(__file__).resolve().parent
+
 
 @pytest.fixture(scope="session")
 def data_dir():
@@ -59,11 +61,9 @@ def waveform_duration(request):
     return request.param
 
 
-@pytest.fixture(
-    params=["prior_files/nonspin_BBH.prior", "prior_files/precess_tides.prior"]
-)
+@pytest.fixture(params=["nonspin_BBH.prior", "precess_tides.prior"])
 def prior_file(request):
-    return str(Path(__file__).resolve().parent / request.param)
+    return str(TEST_DIR / "prior_files" / request.param)
 
 
 @pytest.fixture(params=[[2, 5], [25, 50], [100, 500]])
@@ -146,7 +146,7 @@ def test_snr_range(data_dir, ifos, H1_frame, L1_frame, snr_range):
         frame_files,
         channels,
         ifos,
-        prior_file="prior_files/nonspin_BBH.prior",
+        prior_file=str(TEST_DIR / "prior_files" / "nonspin_BBH.prior"),
         n_samples=n_samples,
         outdir=data_dir,
         waveform_duration=waveform_duration,
@@ -179,7 +179,7 @@ def test_signal_injected(data_dir, ifos, H1_frame, L1_frame):
         frame_files,
         channels,
         ifos,
-        prior_file="prior_files/nonspin_BBH.prior",
+        prior_file=str(TEST_DIR / "prior_files" / "nonspin_BBH.prior"),
         n_samples=n_samples,
         outdir=data_dir,
         waveform_duration=waveform_duration,
