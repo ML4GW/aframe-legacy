@@ -24,6 +24,11 @@ jobs:
         with:
           submodules: recursive
       -
+        name: run injection tests
+        env:
+          test_dir: /github/workspace/libs/injection
+        run: pinto run $test_dir pytest $test_dir/bbhnet/injection/tests
+      -
         name: install gcc
         run: apt update && apt install -y build-essential
       -
@@ -31,8 +36,3 @@ jobs:
         env:
           test_dir: /github/workspace/projects/generate_waveforms
         run: pinto run $test_dir pytest $test_dir/tests
-      -
-        name: run injection tests
-        env:
-          test_dir: /github/workspace/libs/injection
-        run: pinto run $test_dir pytest $test_dir/bbhnet/injection/tests
