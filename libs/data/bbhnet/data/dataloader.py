@@ -353,7 +353,7 @@ class RandomWaveformDataset:
         }
 
         signals = np.zeros((len(background), 2, self.kernel_size))
-        for i, ifo in enumerate(["h1", "l1"]):
+        for i, ifo in enumerate(["H1", "L1"]):
             signal = project_raw_gw(
                 waveforms,
                 sample_params,
