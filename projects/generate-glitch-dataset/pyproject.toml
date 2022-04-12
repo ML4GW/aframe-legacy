@@ -5,6 +5,15 @@ description = "Generate a glitch dataset for training/validation"
 authors = ["Ethan Marx <emarx@mit.edu>",]
 license = "MIT"
 
+[tool.typeo]
+omicron_dir = "${OMICRON_DIR}"   
+out_dir = "${OUT_DIR}"
+snr_thresh = 8
+window = 2
+start = 1262304000
+stop = 1262404000
+
+
 [tool.poetry.dependencies]
 python = ">3.8,<3.11"
 "hermes.typeo" = "^0.1.4"
