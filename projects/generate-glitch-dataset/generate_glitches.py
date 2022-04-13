@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 from typing import Optional
 
@@ -7,6 +8,7 @@ import numpy as np
 from gwpy.segments import Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 from hermes.typeo import typeo
+from tqdm import tqdm
 
 """
 Tools to generate a dataset of glitches from omicron triggers.
@@ -35,7 +37,7 @@ def veto(times: list, segmentlist: SegmentList):
     - segmentliss: the list of veto segments to use
 
     Returns:
-    - keep_args: the arguments of the orignal times array that are not vetoed
+    - keep_bools: list of booleans; True for the triggers to keep
     """
 
     # find args that sort times and create sorted times array
@@ -43,8 +45,10 @@ def veto(times: list, segmentlist: SegmentList):
     sorted_times = times[sorted_args]
 
     # initiate array of args to keep;
-    # refers to original args of unsorted times array
-    keep_args = []
+    # refers to original args of unsorted times array;
+    # begin with all args being kept
+
+    keep_bools = np.ones(times.shape[0], dtype=bool)
 
     # initiate loop variables; extract first segment
     j = 0
@@ -58,8 +62,6 @@ def veto(times: list, segmentlist: SegmentList):
         if t < a:
 
             # original arg is the ith sorted arg
-            original_arg = sorted_args[i]
-            keep_args.append(original_arg)
             i += 1
             continue
 
@@ -73,9 +75,11 @@ def veto(times: list, segmentlist: SegmentList):
                 break
 
         # otherwise it must be in veto segment; move on to next trigger
+        original_arg = sorted_args[i]
+        keep_bools[original_arg] = False
         i += 1
 
-    return keep_args
+    return keep_bools
 
 
 def generate_glitch_dataset(
@@ -116,8 +120,8 @@ def generate_glitch_dataset(
 
     # if passed, apply vetos
     if vetoes is not None:
-        not_vetoed_args = veto(triggers[:, time_col], vetoes)
-        triggers = triggers[not_vetoed_args]
+        keep_bools = veto(triggers[:, time_col], vetoes)
+        triggers = triggers[keep_bools]
 
     # restrict triggers to within gps start and stop times
     times = triggers[:, time_col]
@@ -130,15 +134,24 @@ def generate_glitch_dataset(
     triggers = triggers[snr_thresh_args]
     snrs.extend(triggers[:, snr_col])
 
-    print(len(triggers))
+    logging.info(f"Querying data for {len(triggers)} triggers")
+
     # query data for each trigger
-    for trigger in triggers:
+    for trigger in tqdm(triggers):
         time = trigger[time_col]
-        trig_data = TimeSeries.fetch_open_data(
-            ifo, time - window, time + window
-        )
+        try:
+            trig_data = TimeSeries.fetch_open_data(
+                ifo, time - window, time + window
+            )
+
+        except ValueError:
+            logging.info(f"Data not available for trigger at time: {time}")
+            continue
+
         glitches.append(trig_data)
 
+    glitches = np.array(glitches)
+    snrs = np.array(snrs)
     return glitches, snrs
 
 
@@ -149,8 +162,8 @@ def main(
     stop: float,
     window: float,
     omicron_dir: str,
+    out_dir: str,
     sample_rate: float = 4096,
-    outdir: str = "./",
     H1_veto_file: Optional[str] = None,
     L1_veto_file: Optional[str] = None,
 ):
@@ -165,15 +178,26 @@ def main(
     - stop: stop gpstime
     - window: half window around trigger time to query data for
     - sample_rate: sampling frequency
-    - outdir: output directory to which signals will be written
+    - out_dir: output directory to which signals will be written
     - omicron_dir: base directory of omicron triggers
             (see /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/)
     - H1_veto_file: path to file containing vetoes for H1
     - L1_veto_file: path to file containing vetoes for L1
     """
 
+    # create logging file in model_dir
+    logging.basicConfig(
+        filename=f"{out_dir}/log.log",
+        format="%(message)s",
+        filemode="w",
+        level=logging.INFO,
+    )
+
     # if passed, load in H1 vetoes and convert to gwpy SegmentList object
     if H1_veto_file is not None:
+
+        logging.info("Applying vetoes to H1 times")
+        logging.info(f"H1 veto file: {H1_veto_file}")
 
         # load in H1 vetoes
         H1_vetoes = np.loadtxt(H1_veto_file)
@@ -187,6 +211,8 @@ def main(
         H1_vetoes = None
 
     if L1_veto_file is not None:
+        logging.info("Applying vetoes to L1 times")
+        logging.info(f"L1 veto file: {L1_veto_file}")
 
         L1_vetoes = np.loadtxt(L1_veto_file)
         L1_vetoes = [Segment(seg[0], seg[1]) for seg in L1_vetoes]
@@ -254,7 +280,7 @@ def main(
         H1_snrs.append(H1_day_snrs)
         L1_snrs.append(L1_day_snrs)
 
-    glitch_file = os.path.join(outdir, "glitches.h5")
+    glitch_file = os.path.join(out_dir, "glitches.h5")
 
     with h5py.File(glitch_file, "w") as f:
         f.create_dataset("H1_glitches", data=H1_glitches)
