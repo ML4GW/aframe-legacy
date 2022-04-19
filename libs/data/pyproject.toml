@@ -13,9 +13,7 @@ packages = [
 python = ">=3.9,<3.11"
 scipy = "<1.8"
 h5py = "^3.6"
-# torch = "^1.10"
-# gwpy = "^2.1"
-# astropy = "^4.0"
+"bbhnet.injection" = {path = "../injection", develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Optional
 
 import h5py
@@ -6,7 +7,15 @@ import torch
 from gwpy.signal.filter_design import fir_from_transfer
 from gwpy.timeseries import TimeSeries
 
+from bbhnet.injection import project_raw_gw
+
 DEFAULT_FFTLENGTH = 2
+
+
+@dataclass
+class DummyWaveformGenerator:
+    sampling_frequency: float
+    duration: float
 
 
 def _build_time_domain_filter(
@@ -130,6 +139,12 @@ class RandomWaveformDataset:
         assert 0 <= waveform_frac <= 1
         assert 0 <= glitch_frac <= 1
 
+        self.sample_rate = sample_rate
+        self.kernel_size = int(kernel_length * sample_rate)
+        self.batch_size = batch_size
+        self.batches_per_epoch = batches_per_epoch
+        self.device = device
+
         # load in the background data and build time-domain
         # filters for whitening using them
         # TODO: maybe these are gwf and we resample?
@@ -191,7 +206,10 @@ class RandomWaveformDataset:
                 # (num_waveforms, 2, sample_rate * num_seconds)
                 # where 2 is for each detector and num_seconds
                 # is however long we had bilby make the waveforms
-                self.waveforms = torch.Tensor(f["waveforms"][:]).to(device)
+                self.waveforms = f["signals"][:]
+            self.waveform_generator = DummyWaveformGenerator(
+                sample_rate, kernel_length
+            )
         else:
             # likewise, ensure that we didn't indicate that
             # we expected any waveforms in the batch
@@ -225,11 +243,6 @@ class RandomWaveformDataset:
         # make sure that we have at least _some_
         # pure background in each batch
         assert (self.num_waveforms + self.num_glitches) < batch_size
-
-        self.sample_rate = sample_rate
-        self.kernel_size = int(kernel_length * sample_rate)
-        self.batch_size = batch_size
-        self.batches_per_epoch = batches_per_epoch
 
     def sample_from_array(self, array: torch.Tensor, N: int) -> torch.Tensor:
         """Sample kernels from an array of timeseries
@@ -319,9 +332,37 @@ class RandomWaveformDataset:
         X = torch.stack(X, dim=0).reshape(self.batch_size, 2, -1)
         return X
 
-    def inject_waveforms(self, background, waveforms):
-        # TODO: what does this look like?
+    def _sample_ra(self, num_samples):
         raise NotImplementedError
+
+    def _sample_dec(self, num_samples):
+        raise NotImplementedError
+
+    def _sample_psi(self, num_samples):
+        raise NotImplementedError
+
+    def _sample_geocent_time(self, num_samples):
+        raise NotImplementedError
+
+    def inject_waveforms(self, background, waveforms):
+        sample_params = {
+            "ra": self._sample_ra(len(background)),
+            "dec": self._sample_dec(len(background)),
+            "psi": self._sample_psi(len(background)),
+            "geocent_time": self._sample_geocent_time(len(background)),
+        }
+
+        signals = np.zeros((len(background), 2, self.kernel_size))
+        for i, ifo in enumerate(["H1", "L1"]):
+            signal = project_raw_gw(
+                waveforms,
+                sample_params,
+                self.waveform_generator,
+                ifo,
+                get_snr=False,
+            )
+            signals[:, i] = signal
+        return background + torch.Tensor(signals).to(self.device)
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
         """Detrend and time-domain filter an array
