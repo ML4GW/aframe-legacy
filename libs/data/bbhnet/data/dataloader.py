@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 import h5py
 import numpy as np
@@ -8,8 +8,9 @@ from gwpy.frequencyseries import FrequencySeries
 from gwpy.signal.filter_design import fir_from_transfer
 from gwpy.timeseries import TimeSeries
 
+from bbhnet.data.glitch_sampler import GlitchSampler
 from bbhnet.data.utils import sample_kernels
-from bbhnet.data.waveforms import WaveformSampler
+from bbhnet.data.waveform_sampler import WaveformSampler
 
 DEFAULT_FFTLENGTH = 2
 PRIORS = PriorDict(
@@ -91,7 +92,7 @@ class RandomWaveformDataset:
         batches_per_epoch: int,
         waveform_sampler: Optional[WaveformSampler] = None,
         waveform_frac: float = 0,
-        glitch_dataset: Optional[str] = None,
+        glitch_sampler: Union[GlitchSampler, str, None] = None,
         glitch_frac: float = 0,
         device: torch.device = "cuda",
     ) -> None:
@@ -136,7 +137,7 @@ class RandomWaveformDataset:
                 The number of batches to produce before raising
                 a `StopIteration` while iterating
             waveform_sampler:
-                A class with `.fit` and `.sample` attributes for
+                An object with `.fit` and `.sample` attributes for
                 sampling interferometer responses to raw waveforms
                 for injection into background data. If left as `None`,
                 no injection will take place at data loading time and
@@ -151,16 +152,21 @@ class RandomWaveformDataset:
             max_snr:
                 Maximum SNR value for sampled waveforms. Must be
                 specified if `waveform_dataset` is not `None`.
-            glitch_dataset:
-                Path to HDF5 file containing glitches from each
-                interferometer contained in `"hanford"` and
-                `"livingston"` dataset keys. Data should be
+            glitch_sampler:
+                Object for sampling glitches for insertion (not injection)
+                into background samples at data loading time. Must
+                include a `.sample` method. If passed a string, should be
+                a path to an HDF5 file containing glitches from each
+                interferometer contained in `"H1_glitches"` and
+                `"L1_glitches"` dataset keys. Data should be
                 sampled at rate `sample_rate`. Glitch triggers
                 should sit in the middle of the time axis of
                 the array containing the glitch timeseries.
                 Glitches will be randomly sampled and inserted in
                 place of the corresponding interferometer channel
-                background at data-loading time.
+                background at data-loading time. If left as `None`,
+                no glitches will be inserted at data loading time
+                and `glitch_frac` should be 0.
             glitch_frac:
                 The fraction of each batch that should consist
                 of inserted glitches, marked as `0.` in the
@@ -247,72 +253,25 @@ class RandomWaveformDataset:
             self.waveform_sampler = waveform_sampler
 
         # load in any glitches if we specified them
-        # TODO: what will the actual field name be?
-        # TODO: will these need to be resampled?
-        if glitch_dataset is not None:
+        if glitch_sampler is not None:
             # if we specified glitches, make sure we're
             # actually planning on using them
             assert glitch_frac > 0
             self.num_glitches = max(1, int(glitch_frac * batch_size))
 
-            with h5py.File(glitch_dataset, "r") as f:
-                self.hanford_glitches = torch.Tensor(f["hanford"][:]).to(
-                    device
-                )
-                self.livingston_glitches = torch.Tensor(f["livingston"][:]).to(
-                    device
-                )
+            if isinstance(glitch_sampler, str):
+                glitch_sampler = GlitchSampler(glitch_sampler, device)
+            self.glitch_sampler = glitch_sampler
         else:
             # likewise, ensure that we didn't indicate that
             # we expected any glitches in the batch
             assert glitch_frac == 0
             self.num_glitches = 0
-            self.hanford_glitches = self.livingston_glitches = None
+            self.glitch_sampler = None
 
         # make sure that we have at least _some_
         # pure background in each batch
         assert (self.num_waveforms + self.num_glitches) < batch_size
-
-    def sample_from_array(self, array: torch.Tensor, N: int) -> torch.Tensor:
-        """Sample kernels from an array of timeseries
-        For an array of timeseries of shape
-        (num_timeseries, self.sample_rate * length),
-        where length is some characteristic length of the
-        type of event contained in each timeseries, and the
-        event in question is assumed to "trigger" in the
-        middle of each timeseries.
-        First uniformly samples `N` timeseries to sample
-        kernels from, then uniformly samples a kernel
-        from that timeseries that contains the trigger.
-        """
-
-        # sample `N` timeseries to sample kernels from
-        idx = np.random.choice(len(array), size=N, replace=False)
-
-        # for each timeseries, grab a random kernel-sized
-        # TODO: is there a good way to do this with array ops?
-        sample_start = min(
-            array.shape[-1] // 2 - 1, array.shape[-1] - self.kernel_size
-        )
-
-        samples = []
-        for i in idx:
-            # sample from within a kernel's length of
-            # the center of array, where it is assumed
-            # that the "trigger" of the relevant event will live
-            start = np.random.randint(sample_start)
-            stop = start + self.kernel_size
-
-            # unfortunately can't think of a cleaner
-            # way to make sure wer'e slicing from the
-            # last dimension
-            if len(array.shape) == 2:
-                samples.append(array[i, start:stop])
-            else:
-                samples.append(array[i, :, start:stop])
-
-        # stack the samples into a tensor
-        return torch.stack(samples)
 
     def sample_from_background(self):  # , independent: bool = True):
         """Sample a batch of kernels from the background data
@@ -377,40 +336,33 @@ class RandomWaveformDataset:
         # create an array of all background
         X = self.sample_from_background()
 
-        # create a target tensor, marking all
-        # the glitch data as 0.
+        # create a target tensor, marking all the glitch data as 0.
         y = torch.zeros((self.batch_size,))
 
         # replace some of this data with glitches if
         # we have glitch data to use
-        if self.hanford_glitches is not None:
-            # break up the number of glitches randomly
-            # between hanford and livingston
-            num_hanford = np.random.randint(self.num_glitches)
-            num_livingston = self.num_glitches - num_hanford
+        if self.glitch_sampler is not None:
+            hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
+                self.num_glitches, self.kernel_size
+            )
 
-            # replace the hanford channel of the
-            # existing background data with some
-            # sampled hanford glitches
-            if num_hanford > 0:
-                hanford_glitches = self.sample_from_array(
-                    self.hanford_glitches, num_hanford
-                )
-                X[:num_hanford, 0] = hanford_glitches
+            if hanford_glitches is not None:
+                X[: len(hanford_glitches), 0] = hanford_glitches
+                idx = len(hanford_glitches)
+            else:
+                idx = 0
 
-            # replace the livingston channel of the existing
-            # background data with some sampled livingston
-            # glitches
-            if num_livingston > 0:
-                livingston_glitches = self.sample_from_array(
-                    self.livingston_glitches, num_livingston
-                )
-                X[num_hanford : self.num_glitches, 1] = livingston_glitches
+            if livingston_glitches is not None:
+                X[
+                    idx : idx + len(livingston_glitches), 1
+                ] = livingston_glitches
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
         if self.waveform_sampler is not None:
-            waveforms = self.waveform_sampler.sample(self.num_waveforms)
+            waveforms = self.waveform_sampler.sample(
+                self.num_waveforms, self.kernel_size
+            )
             waveforms = np.stack(waveforms)
             waveforms = torch.Tensor(waveforms).to(self.device)
 
