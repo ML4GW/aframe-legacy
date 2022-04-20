@@ -4,7 +4,7 @@ import pytest
 from bbhnet.data import utils as data_utils
 
 
-@pytest.fixture(params=[128, 300, 512])
+@pytest.fixture(params=[16, 20, 64])
 def size(request):
     return request.param
 
@@ -20,12 +20,19 @@ def N(request):
 
 
 def test_sample_kernels(ndim, size, N):
-    x = np.arange(100)
+    if ndim == 1 and N is None:
+        xsize = size
+    elif ndim == 1:
+        xsize = N * size * 2
+    else:
+        xsize = 100
+
+    x = np.arange(xsize)
     if ndim > 1:
-        x = np.stack([x + 100 for i in range(8)])
+        x = np.stack([x + i * xsize for i in range(8)])
         if ndim == 3:
             x = x[:, None]
-            x = np.concatenate([x, x + 100], axis=1)
+            x = np.concatenate([x, x + xsize], axis=1)
 
     if ndim == 1 and N is None:
         # must specify number of samples for ndim == 1
@@ -47,10 +54,8 @@ def test_sample_kernels(ndim, size, N):
 
     # make sure that the kernels all have the expected shape
     expected_shape = (size,)
-    if ndim == 2:
-        expected_shape = (8,) + expected_shape
-    elif ndim == 3:
-        expected_shape = (8, 2) + expected_shape
+    if ndim == 3:
+        expected_shape = (2,) + expected_shape
     assert all([i.shape == expected_shape for i in kernels])
 
     # verify kernel content
@@ -64,7 +69,7 @@ def test_sample_kernels(ndim, size, N):
         idx_seen = []
         for i, kernel in enumerate(kernels):
             # make sure the center of the timeseries is in kernel
-            assert 50 in kernel % 100
+            assert xsize // 2 in kernel % xsize
 
             # make sure that the kernel is all contiguous ints
             j = kernel[0]
@@ -73,10 +78,13 @@ def test_sample_kernels(ndim, size, N):
             # keep track of which samples the kernels were
             # sampled from to make sure that there's no
             # overlap if N < len(x)
-            idx_seen.append(j // 100)
+            if N is not None:
+                idx_seen.append(j // xsize)
+            else:
+                assert (j // xsize == i)
 
         # verify that there's no overlapping samples
-        if N <= len(x):
+        if N is not None and N <= len(x):
             assert len(idx_seen) == len(list(set(idx_seen)))
     else:
         # similar tests for 3D case, but need to make
@@ -84,18 +92,21 @@ def test_sample_kernels(ndim, size, N):
         idx_seen = []
         for i, kernel in enumerate(kernels):
             # verify center of timeseries in kernel
-            assert 50 in kernel[0] % 100
+            assert xsize // 2 in kernel[0] % xsize
 
             # verify contiguous ints and that we have
             # the same slice in each channel
             j = kernel[0, 0]
             expected = np.arange(j, j + size)
-            expected = np.stack([expected, expected + 100])
+            expected = np.stack([expected, expected + xsize])
             assert (kernel == expected).all()
 
             # keep track of which samples kernels are from
-            idx_seen.append(j // 100)
+            if N is not None:
+                idx_seen.append(j // xsize)
+            else:
+                assert (j // xsize == i)
 
         # verify no overlapping samples
-        if N <= len(x):
+        if N is not None and N <= len(x):
             assert len(idx_seen) == len(list(set(idx_seen)))

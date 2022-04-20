@@ -59,6 +59,7 @@ def sample_kernels(
     # always make sure that the center of x's
     # 1st axis is in the kernel that we sample
     # if we're doing >1D sampling
+    min_sample_start = max(x.shape[-1] // 2 - size + 1, 0)
     max_sample_start = min(x.shape[-1] // 2 - 1, x.shape[-1] - size)
 
     # now iterate through and grab all the kernels
@@ -75,11 +76,11 @@ def sample_kernels(
         # and we sample from within a kernel's length of
         # the center of each sampled index, where it is assumed
         # that the "trigger" of the relevant event will live
-        start = np.random.randint(max_sample_start)
+        start = np.random.randint(min_sample_start, max_sample_start)
         slc = slice(start, start + size)
 
         # unfortunately can't think of a cleaner
-        # way to make sure wer'e slicing from the
+        # way to make sure we're slicing from the
         # last dimension
         # TODO: won't generalize to >3 dim
         if len(x.shape) == 2:
