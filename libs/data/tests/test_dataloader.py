@@ -1,7 +1,4 @@
-import os
-import shutil
 import time
-from pathlib import Path
 
 import h5py
 import numpy as np
@@ -10,24 +7,6 @@ import torch
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.data import dataloader
-
-
-@pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])
-def device(request):
-    return request.param
-
-
-@pytest.fixture(scope="session")
-def data_dir():
-    data_dir = "tmp"
-    os.makedirs(data_dir, exist_ok=True)
-    yield Path(data_dir)
-    shutil.rmtree(data_dir)
-
-
-@pytest.fixture(params=[512, 4096])
-def sample_rate(request):
-    return request.param
 
 
 @pytest.fixture
@@ -40,51 +19,40 @@ def glitch_frac(request):
     return request.param
 
 
-@pytest.fixture(params=[2, 4])
-def glitch_length(request):
-    return request.param
+# @pytest.fixture
+# def random_hanford_background(sample_rate, data_dir, data_length):
+#     x = np.random.randn(sample_rate * data_length)
+#     return write_timeseries(x, "hanford.h5", data_dir)
 
 
-def write_timeseries(ts, fname, data_dir):
-    with h5py.File(data_dir / fname, "w") as f:
-        f["hoft"] = ts
-    return data_dir / fname
+# @pytest.fixture
+# def random_livingston_background(sample_rate, data_dir, data_length):
+#     x = np.random.randn(sample_rate * data_length)
+#     return write_timeseries(x, "livingston.h5", data_dir)
 
 
-@pytest.fixture
-def random_hanford_background(sample_rate, data_dir, data_length):
-    x = np.random.randn(sample_rate * data_length)
-    return write_timeseries(x, "hanford.h5", data_dir)
+# @pytest.fixture
+# def sequential_hanford_background(sample_rate, data_dir, data_length):
+#     x = np.arange(sample_rate * data_length)
+#     return write_timeseries(x, "hanford.h5", data_dir)
 
 
-@pytest.fixture
-def random_livingston_background(sample_rate, data_dir, data_length):
-    x = np.random.randn(sample_rate * data_length)
-    return write_timeseries(x, "livingston.h5", data_dir)
+# @pytest.fixture
+# def sequential_livingston_background(sample_rate, data_dir, data_length):
+#     x = np.arange(sample_rate * data_length)
+#     return write_timeseries(x, "livingston.h5", data_dir)
 
 
-@pytest.fixture
-def sequential_hanford_background(sample_rate, data_dir, data_length):
-    x = np.arange(sample_rate * data_length)
-    return write_timeseries(x, "hanford.h5", data_dir)
+# @pytest.fixture
+# def zeros_hanford_background(sample_rate, data_dir, data_length):
+#     x = np.zeros((sample_rate * data_length,))
+#     return write_timeseries(x, "hanford.h5", data_dir)
 
 
-@pytest.fixture
-def sequential_livingston_background(sample_rate, data_dir, data_length):
-    x = np.arange(sample_rate * data_length)
-    return write_timeseries(x, "livingston.h5", data_dir)
-
-
-@pytest.fixture
-def zeros_hanford_background(sample_rate, data_dir, data_length):
-    x = np.zeros((sample_rate * data_length,))
-    return write_timeseries(x, "hanford.h5", data_dir)
-
-
-@pytest.fixture
-def zeros_livingston_background(sample_rate, data_dir, data_length):
-    x = np.zeros((sample_rate * data_length,))
-    return write_timeseries(x, "livingston.h5", data_dir)
+# @pytest.fixture
+# def zeros_livingston_background(sample_rate, data_dir, data_length):
+#     x = np.zeros((sample_rate * data_length,))
+#     return write_timeseries(x, "livingston.h5", data_dir)
 
 
 @pytest.fixture

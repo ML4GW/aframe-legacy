@@ -36,6 +36,12 @@ def sample_kernels(
     elif len(x.shape) == 1:
         # this is a 1D array, so we'll just be sampling
         # the N kernels from the existing timeseries
+        if N > (len(x) - size):
+            raise ValueError(
+                "Array of length {} too short to sample {} "
+                "kernels of length {}".format(len(x), size, N)
+            )
+
         idx = np.random.choice(len(x) - size, size=N, replace=False)
     elif N is None:
         # x is >1 dimensional, indicating a sample dimension, and
