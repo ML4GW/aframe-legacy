@@ -9,20 +9,23 @@ def test_glitch_sampler(
     arange_glitches, glitch_length, sample_rate, data_length, device
 ):
     sampler = GlitchSampler(arange_glitches, device)
-    assert len(sampler.hanford) == glitch_length * sample_rate
-    assert len(sampler.livingston) == glitch_length * sample_rate
+    assert sampler.hanford.shape == (10, glitch_length * sample_rate)
+    assert sampler.livingston.shape == (10, glitch_length * sample_rate)
 
     with patch("numpy.random.randint", return_value=4):
         hanford, livingston = sampler.sample(8, data_length)
     assert hanford.shape == (4, data_length)
     assert livingston.shape == (4, data_length)
 
-    for tensor in [hanford, livingston]:
+    hanford, livingston = sampler.sample(8, data_length)
+    glitch_size = glitch_length * sample_rate
+    for i, tensor in enumerate([hanford, livingston]):
         value = tensor.cpu().numpy()
-        assert (glitch_length * sample_rate) // 2 in value
-
-        i = value[0]
-        assert (value == np.arange(i, i + data_length)).all()
+        power = (-1)**i
+        for row in value:
+            j = row[0]
+            assert glitch_size // 2 in row % glitch_size
+            assert (row == np.arange(j, j + power * data_length, power)).all()
 
     with patch("numpy.random.randint", return_value=0):
         hanford, livingston = sampler.sample(8, data_length)

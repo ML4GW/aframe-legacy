@@ -7,6 +7,10 @@ import numpy as np
 import pytest
 
 
+@pytest.fixture
+def data_length():
+   return 128
+
 @pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])
 def device(request):
     return request.param
@@ -34,7 +38,7 @@ def glitch_length(request):
 def write_timeseries(data_dir):
     def func(fname, **kwargs):
         with h5py.File(data_dir / fname, "w") as f:
-            for key, value in kwargs:
+            for key, value in kwargs.items():
                 f[key] = value
         return data_dir / fname
 
@@ -42,10 +46,11 @@ def write_timeseries(data_dir):
 
 
 @pytest.fixture
-def arange_glitches(glitch_length, sample_rate, write_timeseries):
+def arange_glitches(glitch_length, sample_rate, write_timeseries, data_dir):
+    glitches = np.arange(10 * glitch_length * sample_rate).reshape(10, -1)
     data = {
-        "H1_glitches": np.arange(glitch_length * sample_rate),
-        "L1_glitches": -np.arange(glitch_length * sample_rate),
+        "H1_glitches": glitches,
+        "L1_glitches": -glitches,
     }
     write_timeseries("arange_glitches.h5", **data)
-    return "arange_glitches.h5"
+    return data_dir / "arange_glitches.h5"
