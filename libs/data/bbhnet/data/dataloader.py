@@ -1,25 +1,31 @@
-from dataclasses import dataclass
 from typing import Optional
 
 import h5py
 import numpy as np
 import torch
+from bilby.core.prior import Cosine, PriorDict, Uniform
+from gwpy.frequencyseries import FrequencySeries
 from gwpy.signal.filter_design import fir_from_transfer
 from gwpy.timeseries import TimeSeries
 
-from bbhnet.injection import project_raw_gw
+from bbhnet.data.utils import sample_kernels
+from bbhnet.data.waveforms import WaveformSampler
 
 DEFAULT_FFTLENGTH = 2
-
-
-@dataclass
-class DummyWaveformGenerator:
-    sampling_frequency: float
-    duration: float
+PRIORS = PriorDict(
+    {
+        "ra": Uniform(minimum=0, maximum=2 * np.pi),
+        "dec": Cosine(),
+        "psi": Uniform(minimum=0, maximum=np.pi),
+    }
+)
 
 
 def _build_time_domain_filter(
-    timeseries: np.ndarray, sample_rate: float, kernel_length: float
+    asd: FrequencySeries,
+    sample_rate: float,
+    kernel_length: float,
+    fftlength: float = DEFAULT_FFTLENGTH,
 ) -> np.ndarray:
     """
     Create a time-domain filter for whitening using the
@@ -39,16 +45,39 @@ def _build_time_domain_filter(
         training data
     """
 
-    ts = TimeSeries(timeseries, dt=1 / sample_rate)
-    asd = ts.asd(
-        fftlength=DEFAULT_FFTLENGTH, window="hanning", method="median"
-    )
-
     asd = asd.interpolate(1 / kernel_length)
-    ntaps = int(DEFAULT_FFTLENGTH * sample_rate)
-    return fir_from_transfer(
+    ntaps = int(fftlength * sample_rate)
+
+    tdf = fir_from_transfer(
         1 / asd.value, ntaps=ntaps, window="hanning", ncorner=0
     )
+    return tdf
+
+
+def _load_background(
+    background_file: str,
+    sample_rate: float,
+    device: str,
+    fftlength: float = DEFAULT_FFTLENGTH,
+):
+    # TODO: maybe these are gwf and we resample?
+    with h5py.File(background_file, "r") as f:
+        background = f["hoft"][:]
+
+        # grab the timestamps from the dataset for geocent sampling
+        t0 = f["t0"]
+
+    # build the asd for building the time domain filter
+    ts = TimeSeries(background, dt=1 / sample_rate)
+    asd = ts.asd(fftlength=fftlength, window="hanning", method="median")
+
+    # move everything onto the GPU up front so that
+    # we don't have to pay for transfer time later.
+    # If our datasets are on the scale of ~GBs this
+    # shouldn't be a problem, esp. for the current
+    # size of BBHNet
+    background = torch.Tensor(background).to(device)
+    return background, asd, t0
 
 
 class RandomWaveformDataset:
@@ -60,13 +89,14 @@ class RandomWaveformDataset:
         sample_rate: float,
         batch_size: int,
         batches_per_epoch: int,
-        waveform_dataset: Optional[str] = None,
+        waveform_sampler: Optional[WaveformSampler] = None,
         waveform_frac: float = 0,
         glitch_dataset: Optional[str] = None,
         glitch_frac: float = 0,
         device: torch.device = "cuda",
     ) -> None:
         """Iterable dataset which can sample and inject auxiliary data
+
         Iterable dataset for use with torch.data.DataLoader which
         generates tensors of background data from the two LIGO
         interferometers. Optionally can inject simulated waveforms
@@ -105,17 +135,22 @@ class RandomWaveformDataset:
             batches_per_epoch:
                 The number of batches to produce before raising
                 a `StopIteration` while iterating
-            waveform_dataset:
-                Path to HDF5 file containing pure simulated
-                waveforms to inject into the background data.
-                Still not sure what this will need to look like.
-                The trigger for each waveform should sit in the
-                middle of the time axis of the array containing
-                the waveforms.
+            waveform_sampler:
+                A class with `.fit` and `.sample` attributes for
+                sampling interferometer responses to raw waveforms
+                for injection into background data. If left as `None`,
+                no injection will take place at data loading time and
+                `waveform_frac` must be set to 0.
             waveform_frac:
                 The fraction of each batch that should consist
                 of injected waveforms, and be marked with a
                 `1.` in the target tensor produced during iteration.
+            min_snr:
+                Minimum SNR value for sampled waveforms. Must be
+                specified if `waveform_dataset` is not `None`.
+            max_snr:
+                Maximum SNR value for sampled waveforms. Must be
+                specified if `waveform_dataset` is not `None`.
             glitch_dataset:
                 Path to HDF5 file containing glitches from each
                 interferometer contained in `"hanford"` and
@@ -147,38 +182,31 @@ class RandomWaveformDataset:
 
         # load in the background data and build time-domain
         # filters for whitening using them
-        # TODO: maybe these are gwf and we resample?
-        with h5py.File(hanford_background, "r") as f:
-            hanford_bkgrd = f["hoft"][:]
-            hanford_filter = _build_time_domain_filter(
-                hanford_bkgrd, sample_rate, kernel_length
-            )
+        self.hanford_background, hanford_asd, t0 = _load_background(
+            hanford_background, sample_rate, device
+        )
+        self.livingston_background, livingston_asd, t0 = _load_background(
+            hanford_background, sample_rate, device
+        )
 
-            # move everything onto the GPU up front so that
-            # we don't have to pay for transfer time later.
-            # If our datasets are on the scale of ~GBs this
-            # shouldn't be a problem, esp. for the current
-            # size of BBHNet
-            self.hanford_background = torch.Tensor(hanford_bkgrd).to(device)
-        with h5py.File(livingston_background, "r") as f:
-            livingston_bkgrd = f["hoft"][:]
+        assert len(self.hanford_background) == len(self.livingston_background)
+        tf = t0 + len(self.hanford_background) / sample_rate
 
-            # ensure that we have the same amount of
-            # data from both detectors
-            assert len(livingston_bkgrd) == len(hanford_bkgrd)
-
-            livingston_filter = _build_time_domain_filter(
-                livingston_bkgrd, sample_rate, kernel_length
-            )
-            self.livingston_background = torch.Tensor(livingston_bkgrd).to(
-                device
-            )
+        # build time-domain filters using the background
+        # asd so that we can perform whitening using a
+        # grouped 1d convolution at data-loading time
+        hanford_tdf = _build_time_domain_filter(
+            hanford_asd, kernel_length, sample_rate
+        )
+        livingston_tdf = _build_time_domain_filter(
+            livingston_asd, kernel_length, sample_rate
+        )
 
         # move the filters to a single torch Tensor
         # on the desired device, adding a dummy dimension
         # in the middle for compatability with Torch's
         # conv op's expectations
-        whitening_filter = np.stack([hanford_filter, livingston_filter])
+        whitening_filter = np.stack([hanford_tdf, livingston_tdf])
         self.whitening_filter = torch.Tensor(whitening_filter[:, None]).to(
             device
         )
@@ -186,36 +214,37 @@ class RandomWaveformDataset:
         # create a window for applying the time domain filter
         # at data loading time. Since the filter will have the
         # same size as the timeseries at data loading time,
-        # we can use the window as-is without having to appply
+        # we can use the window as-is without having to apply
         # it just to the edges of the timeseries
         self.whitening_window = torch.hann_window(
             whitening_filter.shape[-1], device=device
         )
 
-        # load in any waveforms if we specified them
-        # TODO: what will the actual field name be?
-        # TODO: will these need to be resampled?
-        if waveform_dataset is not None:
-            # if we specified waveforms, make sure we're
-            # actually planning on using them
+        # if we specified a waveform sampler, fit its snr
+        # computation to the given background asd
+        if waveform_sampler is not None:
             assert waveform_frac > 0
-            self.num_waveforms = max(1, int(waveform_frac * batch_size))
 
-            with h5py.File(waveform_dataset, "r") as f:
-                # should have shape:
-                # (num_waveforms, 2, sample_rate * num_seconds)
-                # where 2 is for each detector and num_seconds
-                # is however long we had bilby make the waveforms
-                self.waveforms = f["signals"][:]
-            self.waveform_generator = DummyWaveformGenerator(
-                sample_rate, kernel_length
-            )
+            # give the asds channel names so that the waveform
+            # sampler knows which ifo responses to calculate
+            if hanford_asd.channel is None:
+                hanford_asd.channel = "H1:STRAIN"
+            if livingston_asd.channel is None:
+                livingston_asd.channel = "L1:STRAIN"
+
+            # now fit the the waveform_sampler's background_asd
+            # attribute to the given asds for the snr computation
+            waveform_sampler.fit(t0, tf, hanford_asd, livingston_asd)
+
+            # assign our attributes
+            self.waveform_sampler = waveform_sampler
+            self.num_waveforms = max(1, int(waveform_frac * batch_size))
         else:
             # likewise, ensure that we didn't indicate that
             # we expected any waveforms in the batch
             assert waveform_frac == 0
             self.num_waveforms = 0
-            self.waveforms = None
+            self.waveform_sampler = waveform_sampler
 
         # load in any glitches if we specified them
         # TODO: what will the actual field name be?
@@ -285,84 +314,27 @@ class RandomWaveformDataset:
         # stack the samples into a tensor
         return torch.stack(samples)
 
-    def sample_from_background(self, independent: bool = True):
+    def sample_from_background(self):  # , independent: bool = True):
         """Sample a batch of kernels from the background data
+
         Randomly sample kernels from the interferometer
-        background timeseries in a uniform manner. If
-        `independent == True`, kernels will be sampled
-        from each interferometer independently and then
-        concatenate to simulate fully random time-shifting.
+        background timeseries in a uniform manner. Removing
+        the `independent` kwarg for now to leverage the
+        more general sample_kernels function.
+
+        TODO: figure out how best to generalize sample_kernels
+            to make use of pre-sampled idx
         """
 
-        # sample kernel start indices uniformly
-        # from the hanford background data ensuring
-        # that the corresponding stop index will fall
-        # within the timeseries
-        hanford_start = np.random.choice(
-            len(self.hanford_background) - self.kernel_size,
-            size=self.batch_size,
-            replace=False,
-        )
-
-        # if sampling indepdently, create a second set
-        # of start indices for the livingston background
-        # data. Otherwise, use the same indices as for hanford
-        if independent:
-            livingston_start = np.random.choice(
-                len(self.livingston_background) - self.kernel_size,
-                size=self.batch_size,
-                replace=False,
-            )
-        else:
-            livingston_start = hanford_start
-
-        # grab kernels for each start index from the background
-        # TODO: is there a good way to do this with array ops?
-        X = []
-        for h_idx, l_idx in zip(hanford_start, livingston_start):
-            hanford = self.hanford_background[h_idx : h_idx + self.kernel_size]
-            livingston = self.livingston_background[
-                l_idx : l_idx + self.kernel_size
-            ]
-            X.extend([hanford, livingston])
-
-        # stack everything to make a (batch_size * 2, sample_rate)
-        # sized tensor, then reshape to move the two
-        # interferometers to the 1st dimension
-        X = torch.stack(X, dim=0).reshape(self.batch_size, 2, -1)
-        return X
-
-    def _sample_ra(self, num_samples):
-        raise NotImplementedError
-
-    def _sample_dec(self, num_samples):
-        raise NotImplementedError
-
-    def _sample_psi(self, num_samples):
-        raise NotImplementedError
-
-    def _sample_geocent_time(self, num_samples):
-        raise NotImplementedError
-
-    def inject_waveforms(self, background, waveforms):
-        sample_params = {
-            "ra": self._sample_ra(len(background)),
-            "dec": self._sample_dec(len(background)),
-            "psi": self._sample_psi(len(background)),
-            "geocent_time": self._sample_geocent_time(len(background)),
-        }
-
-        signals = np.zeros((len(background), 2, self.kernel_size))
-        for i, ifo in enumerate(["H1", "L1"]):
-            signal = project_raw_gw(
-                waveforms,
-                sample_params,
-                self.waveform_generator,
-                ifo,
-                get_snr=False,
-            )
-            signals[:, i] = signal
-        return background + torch.Tensor(signals).to(self.device)
+        hanford_kernels = sample_kernels(
+            self.hanford_background, self.kernel_size, self.batch_size
+        )[:, None]
+        livingston_kernels = sample_kernels(
+            self.livingston_background, self.kernel_size, self.batch_size
+        )[:, None]
+        return torch.stack(
+            list(zip(hanford_kernels, livingston_kernels)), dim=0
+        ).reshape(self.batch_size, 2, -1)
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
         """Detrend and time-domain filter an array
@@ -403,7 +375,7 @@ class RandomWaveformDataset:
             raise StopIteration
 
         # create an array of all background
-        X = self.sample_from_background(independent=True)
+        X = self.sample_from_background()
 
         # create a target tensor, marking all
         # the glitch data as 0.
@@ -437,11 +409,12 @@ class RandomWaveformDataset:
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
-        if self.waveforms is not None:
-            waveforms = self.sample_from_array(
-                self.waveforms, self.num_waveforms
-            )
-            self.inject_waveforms(X[-self.num_waveforms :], waveforms)
+        if self.waveform_sampler is not None:
+            waveforms = self.waveform_sampler.sample(self.num_waveforms)
+            waveforms = np.stack(waveforms)
+            waveforms = torch.Tensor(waveforms).to(self.device)
+
+            X[-self.num_waveforms :] += waveforms
             y[-self.num_waveforms :] = 1
 
         X = self.whiten(X)
