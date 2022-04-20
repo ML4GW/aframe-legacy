@@ -33,15 +33,19 @@ class WaveformSampler:
         max_snr: float,
         highpass: Optional[float] = 20,
     ):
+        if max_snr >= min_snr:
+            raise ValueError(
+                f"max_snr {max_snr} must be greater than min_snr {min_snr}"
+            )
+        self.min_snr = min_snr
+        self.max_snr = max_snr
+
         with h5py.File(dataset, "r") as f:
             self.waveforms = f["signals"][:]
 
         self.priors = PRIORS.copy()
-
         self.df = 1 / (sample_rate * self.waveforms.shape[1])
         self.sample_rate = sample_rate
-        self.min_snr = min_snr
-        self.max_snr = max_snr
 
         freqs = np.arange(0, sample_rate // 2 + self.df, self.df)
         if highpass is not None:
@@ -87,7 +91,7 @@ class WaveformSampler:
 
     def sample(self, N: int, size: int) -> np.ndarray:
         if self.background_asd is None:
-            raise ValueError(
+            raise RuntimeError(
                 "Must fit WaveformGenerator to background asd before sampling"
             )
 

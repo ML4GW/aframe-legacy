@@ -20,6 +20,8 @@ def N(request):
 
 
 def test_sample_kernels(ndim, size, N):
+    # for 1D arrays we need more data so that we
+    # have enough to sample across
     if ndim == 1 and N is None:
         xsize = size
     elif ndim == 1:
@@ -27,6 +29,7 @@ def test_sample_kernels(ndim, size, N):
     else:
         xsize = 100
 
+    # set up a dummy array for sampling from
     x = np.arange(xsize)
     if ndim > 1:
         x = np.stack([x + i * xsize for i in range(8)])
@@ -81,7 +84,7 @@ def test_sample_kernels(ndim, size, N):
             if N is not None:
                 idx_seen.append(j // xsize)
             else:
-                assert (j // xsize == i)
+                assert j // xsize == i
 
         # verify that there's no overlapping samples
         if N is not None and N <= len(x):
@@ -105,7 +108,7 @@ def test_sample_kernels(ndim, size, N):
             if N is not None:
                 idx_seen.append(j // xsize)
             else:
-                assert (j // xsize == i)
+                assert j // xsize == i
 
         # verify no overlapping samples
         if N is not None and N <= len(x):

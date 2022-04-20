@@ -9,7 +9,8 @@ import pytest
 
 @pytest.fixture
 def data_length():
-   return 128
+    return 128
+
 
 @pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])
 def device(request):
@@ -54,3 +55,11 @@ def arange_glitches(glitch_length, sample_rate, write_timeseries, data_dir):
     }
     write_timeseries("arange_glitches.h5", **data)
     return data_dir / "arange_glitches.h5"
+
+
+@pytest.fixture
+def sine_waveforms(glitch_length, sample_rate, write_timeseries, data_dir):
+    x = np.linspace(0, 4 * np.pi, glitch_length * sample_rate)
+    waveforms = np.stack([np.sin(i * 2 * np.pi * x) for i in range(10)])
+    write_timeseries("sine_waveforms.h5", signals=waveforms)
+    return data_dir / "sine_waveforms.h5"
