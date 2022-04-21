@@ -1,12 +1,13 @@
 import time
+from unittest.mock import patch
 
-import h5py
 import numpy as np
 import pytest
 import torch
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.data import dataloader
+from bbhnet.data.glitch_sampler import GlitchSampler
 
 
 @pytest.fixture
@@ -19,50 +20,90 @@ def glitch_frac(request):
     return request.param
 
 
-# @pytest.fixture
-# def random_hanford_background(sample_rate, data_dir, data_length):
-#     x = np.random.randn(sample_rate * data_length)
-#     return write_timeseries(x, "hanford.h5", data_dir)
-
-
-# @pytest.fixture
-# def random_livingston_background(sample_rate, data_dir, data_length):
-#     x = np.random.randn(sample_rate * data_length)
-#     return write_timeseries(x, "livingston.h5", data_dir)
-
-
-# @pytest.fixture
-# def sequential_hanford_background(sample_rate, data_dir, data_length):
-#     x = np.arange(sample_rate * data_length)
-#     return write_timeseries(x, "hanford.h5", data_dir)
-
-
-# @pytest.fixture
-# def sequential_livingston_background(sample_rate, data_dir, data_length):
-#     x = np.arange(sample_rate * data_length)
-#     return write_timeseries(x, "livingston.h5", data_dir)
-
-
-# @pytest.fixture
-# def zeros_hanford_background(sample_rate, data_dir, data_length):
-#     x = np.zeros((sample_rate * data_length,))
-#     return write_timeseries(x, "hanford.h5", data_dir)
-
-
-# @pytest.fixture
-# def zeros_livingston_background(sample_rate, data_dir, data_length):
-#     x = np.zeros((sample_rate * data_length,))
-#     return write_timeseries(x, "livingston.h5", data_dir)
+@pytest.fixture(params=[0.01, 0.1, 0.5, 0.9])
+def waveform_frac(request):
+    return request.param
 
 
 @pytest.fixture
-def zeros_glitches(sample_rate, data_dir, glitch_length):
-    num_glitches = 128
-    x = np.zeros((num_glitches, sample_rate * glitch_length))
-    with h5py.File(data_dir / "glitches.h5", "w") as f:
-        f["hanford"] = x
-        f["livingston"] = x
-    return data_dir / "glitches.h5"
+def t0():
+    return 1234567890
+
+
+@pytest.fixture
+def data_size(sample_rate, data_length):
+    return data_size
+
+
+@pytest.fixture(scope="function")
+def random_data(data_size):
+    return np.random.randn(data_size)
+
+
+def zero_data(data_size):
+    return np.zeros((data_size,))
+
+
+def sequential_data(data_size):
+    return np.arange(data_size)
+
+
+def write_background(write_timeseries, t0, data_dir):
+    def f(fname, x):
+        write_timeseries(fname, hoft=x, t0=t0)
+        return data_dir / fname
+
+    return f
+
+
+@pytest.fixture
+def random_hanford_background(random_data, write_background):
+    return write_background("hanford.h5", random_data)
+
+
+@pytest.fixture
+def random_livingston_background(random_data, write_background):
+    return write_background("livingston.h5", random_data)
+
+
+@pytest.fixture
+def sequential_hanford_background(sequential_data, write_bacgkround):
+    return write_background("hanford.h5", sequential_data)
+
+
+@pytest.fixture
+def sequential_livingston_background(sequential_data, write_bacgkround):
+    return write_background("livingston.h5", sequential_data)
+
+
+@pytest.fixture
+def zeros_hanford_background(zero_data, write_bacgkround):
+    return write_background("hanford.h5", sequential_data)
+
+
+@pytest.fixture
+def zeros_livingston_background(zero_data, write_bacgkround):
+    return write_background("livingston.h5", sequential_data)
+
+
+@pytest.fixture(params=["path", "sampler"])
+def glitch_sampler(arange_glitches, request, device):
+    if request.param == "path":
+        return arange_glitches
+    else:
+        return GlitchSampler(arange_glitches, device)
+
+
+def validate_sequential(X):
+    # make sure that we're not sampling in order
+    assert not (np.diff(X[:, 0, 0]) == 1).all()
+
+    # now make sure each timeseries is sequential
+    # and that the two interferometers don't match
+    for x in X:
+        assert not (x[0] == x[1]).all()
+        for x_ifo in x:
+            assert (np.diff(x_ifo) == 1).all()
 
 
 def test_random_waveform_dataset(
@@ -84,30 +125,20 @@ def test_random_waveform_dataset(
 
     # test the background sampling method to make sure
     # that the base batch is generated properly
-    X = dataset.sample_from_background(independent=True).cpu().numpy()
-
-    # make sure that we're not sampling in order
-    assert not (np.diff(X[:, 0, 0]) == 1).all()
-
-    # now make sure each timeseries is sequential
-    # and that the two interferometers don't match
-    for x in X:
-        assert not (x[0] == x[1]).all()
-        for x_ifo in x:
-            assert (np.diff(x_ifo) == 1).all()
-
-    # make sure if we're sampling non-independently
-    # that the data from both interferometers matches
-    X = dataset.sample_from_background(independent=False).cpu().numpy()
-    for x in X:
-        assert (x[0] == x[1]).all()
+    X = dataset.sample_from_background().cpu().numpy()
+    validate_sequential(X)
 
     # now go through and make sure that the iteration
     # method generates data of the right size
-    for i, (X, y) in enumerate(dataset):
-        assert X.shape == (batch_size, 2, sample_rate)
-        assert y.shape == (batch_size,)
-        assert not y.cpu().numpy().any()
+    with patch("dataset.whiten", new=lambda x: x):
+        for i, (X, y) in enumerate(dataset):
+            assert X.shape == (batch_size, 2, sample_rate)
+            validate_sequential(X)
+
+            # make sure targets are all 0 because we
+            # have no waveform sampling
+            assert y.shape == (batch_size,)
+            assert not y.cpu().numpy().any()
 
     assert i == 9
 
@@ -155,20 +186,20 @@ def test_random_waveform_dataset_whitening(
             ts = TimeSeries(x[i], dt=1 / sample_rate)
             ts = ts.whiten(asd=bkgrd_asd).value
 
-            # make sure that the relative error from the two
-            # whitening methods is in the realm of the reasonable.
-            # We could make these bounds tighter for most sample
-            # rates of interest, but the 512 just has too much noise
             errs.extend(np.abs(ts - w[i]) / np.abs(ts))
 
+    # make sure that the relative error from the two
+    # whitening methods is in the realm of the reasonable.
+    # We could make these bounds tighter for most sample
+    # rates of interest, but the 512 just has too much noise
     assert np.percentile(errs, 90) < 0.001
     assert np.percentile(errs, 99) < 0.01
 
 
 def test_glitch_sampling(
-    sequential_hanford_background,
-    sequential_livingston_background,
-    zeros_glitches,
+    random_hanford_background,
+    random_livingston_background,
+    glitch_sampler,
     glitch_frac,
     sample_rate,
     device,
@@ -181,26 +212,24 @@ def test_glitch_sampling(
         sample_rate=sample_rate,
         batch_size=batch_size,
         glitch_frac=glitch_frac,
-        glitch_dataset=zeros_glitches,
+        glitch_sampler=glitch_sampler,
         batches_per_epoch=10,
         device=device,
     )
-    expected_num = int(glitch_frac * batch_size)
-    if expected_num == 0:
-        expected_num = 1
+    expected_num = max(1, int(glitch_frac * batch_size))
     assert dataset.num_glitches == expected_num
 
-    for X, _ in dataset:
-        X = X.cpu().numpy()
-        for i, x in enumerate(X):
-            # check if either ifo channel is all zeros
-            # and so is a "glitch"
-            is_glitch = (x == 0).all(axis=-1)
+    with patch("dataset.whiten", new=lambda x: x):
+        for X, y in dataset:
+            X = X.cpu().numpy()
+            for i, x in enumerate(X):
+                # check if either ifo channel is conti
+                is_glitch = (np.diff(x, axis=-1) == 1).all(axis=-1)
 
-            # check that either this sample is one of the
-            # first `num_glitches` in the batch or does not
-            # have a glitch
-            assert (i < dataset.num_glitches) ^ (not is_glitch.any())
+                # check that either this sample is one of the
+                # first `num_glitches` in the batch or does not
+                # have a glitch
+                assert (i < dataset.num_glitches) ^ (not is_glitch.any())
 
     if device == "cpu":
         return

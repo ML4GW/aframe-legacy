@@ -353,9 +353,8 @@ class RandomWaveformDataset:
                 idx = 0
 
             if livingston_glitches is not None:
-                X[
-                    idx : idx + len(livingston_glitches), 1
-                ] = livingston_glitches
+                slc = slice(idx, idx + len(livingston_glitches))
+                X[slc, 1] = livingston_glitches
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
