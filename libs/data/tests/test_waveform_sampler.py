@@ -59,26 +59,40 @@ def test_waveform_sampler(
     assert sampler.ifos == ifos
     assert (sampler.background_asd == 1).all()
 
+    # create an array with a dummy 1st dimension to
+    # replicate a waveform projected onto multiple ifos
     waveforms = sampler.waveforms[:, None]
     multichannel = np.concatenate(
         [waveforms * 0.5**i for i in range(len(ifos))], axis=1
     )
 
+    # use this to verify that the array-wise computed
+    # snrs match the values from calc_snr
     snrs = sampler.compute_snrs(multichannel)
     assert snrs.shape == (10, len(ifos))
     for row, sample in zip(snrs, multichannel):
         for snr, ifo in zip(row, sample):
             assert np.isclose(snr, calc_snr(ifo, fs, sample_rate), rtol=1e-9)
 
+    # patch numpy.random.uniform so that we know which
+    # reweighted snr values these waveforms will be
+    # mapped to after reweighting, use it to verify the
+    # functionality of reweight_snrs
     target_snrs = np.arange(1, 11)
     with patch("numpy.random.uniform", return_value=target_snrs):
         reweighted = sampler.reweight_snrs(multichannel)
 
     for target, sample in zip(target_snrs, reweighted):
         calcd = 0
-        for ifo in zip(row, sample):
+        for ifo in sample:
             calcd += calc_snr(ifo, fs, sample_rate) ** 2
         assert np.isclose(calcd**0.5, target, rtol=1e-9)
+
+    # now add a polarization dimension to the
+    # waveforms attached to the sampler to test
+    # its actual sampling functionality
+    polarized = np.concatenate([sampler.waveforms[:, None]] * 2, axis=1)
+    sampler.waveforms = polarized
 
     # TODO: do this again with project_raw_gw patched
     # to just return the waveform as-is and verify the
@@ -88,9 +102,13 @@ def test_waveform_sampler(
     # of gaussian to the waves so that there's a unique
     # max value we can check for?
     results = sampler.sample(4, data_length)
-    assert results.shape == (4, len(ifos), data_length)
-    for sample in results:
-        calcd = 0
-        for ifo in sample:
-            calcd += calc_snr(ifo, fs, sample_rate) ** 2
-        assert min_snr < calcd**0.5 < max_snr
+    assert len(results) == 4
+    assert all([i.shape == (len(ifos), data_length) for i in results])
+
+    # TODO: can't verify snrs here because we only have
+    # a short subsample of the waveforms
+    # for sample in results:
+    #     calcd = 0
+    #     for ifo in sample:
+    #         calcd += calc_snr(ifo, fs, sample_rate) ** 2
+    #     assert min_snr < calcd**0.5 < max_snr

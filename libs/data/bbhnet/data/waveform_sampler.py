@@ -102,9 +102,9 @@ class WaveformSampler:
         # which has a couple attributes expected by the
         # argument passed to project_raw_gw
         # TODO: project_raw_gw should accept these arguments on their own
-        signals = np.zeros((N, len(self.ifos), size))
+        signals = np.zeros((N, len(self.ifos), self.waveforms.shape[-1]))
         waveform_generator = _DummyWaveformGenerator(
-            self.sample_rate, size // self.sample_rate
+            self.sample_rate, self.waveforms.shape[-1] // self.sample_rate
         )
 
         # for each one of the interferometers used in
