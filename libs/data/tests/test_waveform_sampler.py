@@ -72,6 +72,5 @@ def test_waveform_sampler(
     for i, row, sample in zip(target_snrs, snrs, reweighted):
         calcd = 0
         for snr, ifo in zip(row, sample):
-            calcd += calc_snr(ifo, fs, sample_rate)**2
+            calcd += calc_snr(ifo, fs, sample_rate) ** 2
         assert np.isclose(calcd**0.5, i, rtol=1e-9)
-
