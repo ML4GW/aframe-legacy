@@ -60,6 +60,6 @@ def arange_glitches(glitch_length, sample_rate, write_timeseries, data_dir):
 @pytest.fixture
 def sine_waveforms(glitch_length, sample_rate, write_timeseries, data_dir):
     x = np.linspace(0, 4 * np.pi, glitch_length * sample_rate)
-    waveforms = np.stack([np.sin(i * 2 * np.pi * x) for i in range(10)])
+    waveforms = np.stack([np.sin(i * 2 * np.pi * x) for i in range(1, 11)])
     write_timeseries("sine_waveforms.h5", signals=waveforms)
     return data_dir / "sine_waveforms.h5"

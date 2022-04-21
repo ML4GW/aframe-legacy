@@ -1,8 +1,11 @@
+from unittest.mock import patch
+
 import numpy as np
 import pytest
-from gwpy.frequencseries import FrequencySeries
+from gwpy.frequencyseries import FrequencySeries
 
 from bbhnet.data.waveform_sampler import WaveformSampler
+from bbhnet.injection.injection import calc_snr
 
 
 @pytest.fixture(params=[10, 20])
@@ -29,7 +32,7 @@ def test_waveform_sampler(
     max_snr,
     ifos,
 ):
-    if max_snr >= min_snr:
+    if max_snr <= min_snr:
         with pytest.raises(ValueError):
             WaveformSampler(sine_waveforms, sample_rate, min_snr, max_snr)
         return
@@ -42,10 +45,8 @@ def test_waveform_sampler(
     asds = []
     for ifo in ifos:
         fs = FrequencySeries(
-            np.ones(
-                10,
-            ),
-            df=1,
+            np.ones((sample_rate // 2,)),
+            df=2 / sample_rate + 1,
             channel=ifo + ":STRAIN",
         )
         asds.append(fs)
@@ -53,5 +54,24 @@ def test_waveform_sampler(
     assert sampler.ifos == ifos
     assert (sampler.background_asd == 1).all()
 
-    snrs = sampler.compute_snrs(sampler.waveforms)
-    assert snrs.shape == (10,)
+    waveforms = sampler.waveforms[:, None]
+    multichannel = np.concatenate(
+        [waveforms * 0.5**i for i in range(len(ifos))], axis=1
+    )
+
+    snrs = sampler.compute_snrs(multichannel)
+    assert snrs.shape == (10, len(ifos))
+    for row, sample in zip(snrs, multichannel):
+        for snr, ifo in zip(row, sample):
+            assert np.isclose(snr, calc_snr(ifo, fs, sample_rate), rtol=1e-9)
+
+    target_snrs = np.arange(1, 11)
+    with patch("numpy.random.uniform", return_value=target_snrs):
+        reweighted = sampler.reweight_snrs(multichannel)
+
+    for i, row, sample in zip(target_snrs, snrs, reweighted):
+        calcd = 0
+        for snr, ifo in zip(row, sample):
+            calcd += calc_snr(ifo, fs, sample_rate)**2
+        assert np.isclose(calcd**0.5, i, rtol=1e-9)
+
