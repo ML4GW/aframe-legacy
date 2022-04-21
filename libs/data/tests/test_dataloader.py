@@ -32,7 +32,7 @@ def t0():
 
 @pytest.fixture
 def data_size(sample_rate, data_length):
-    return data_size
+    return int(sample_rate * data_length)
 
 
 @pytest.fixture(scope="function")
@@ -40,14 +40,17 @@ def random_data(data_size):
     return np.random.randn(data_size)
 
 
+@pytest.fixture
 def zero_data(data_size):
     return np.zeros((data_size,))
 
 
+@pytest.fixture
 def sequential_data(data_size):
     return np.arange(data_size)
 
 
+@pytest.fixture
 def write_background(write_timeseries, t0, data_dir):
     def f(fname, x):
         write_timeseries(fname, hoft=x, t0=t0)
@@ -67,23 +70,23 @@ def random_livingston_background(random_data, write_background):
 
 
 @pytest.fixture
-def sequential_hanford_background(sequential_data, write_bacgkround):
+def sequential_hanford_background(sequential_data, write_background):
     return write_background("hanford.h5", sequential_data)
 
 
 @pytest.fixture
-def sequential_livingston_background(sequential_data, write_bacgkround):
-    return write_background("livingston.h5", sequential_data)
+def sequential_livingston_background(sequential_data, write_background):
+    return write_background("livingston.h5", -sequential_data)
 
 
 @pytest.fixture
-def zeros_hanford_background(zero_data, write_bacgkround):
-    return write_background("hanford.h5", sequential_data)
+def zeros_hanford_background(zero_data, write_background):
+    return write_background("hanford.h5", zero_data)
 
 
 @pytest.fixture
-def zeros_livingston_background(zero_data, write_bacgkround):
-    return write_background("livingston.h5", sequential_data)
+def zeros_livingston_background(zero_data, write_background):
+    return write_background("livingston.h5", zero_data)
 
 
 @pytest.fixture(params=["path", "sampler"])
@@ -102,10 +105,12 @@ def validate_sequential(X):
     # and that the two interferometers don't match
     for x in X:
         assert not (x[0] == x[1]).all()
-        for x_ifo in x:
-            assert (np.diff(x_ifo) == 1).all()
+        for i, x_ifo in enumerate(x):
+            diff = (-1) ** i
+            assert (np.diff(x_ifo) == diff).all()
 
 
+@patch("bbhnet.data.RandomWaveformDataset.whiten", new=lambda obj, x: x)
 def test_random_waveform_dataset(
     sequential_hanford_background,
     sequential_livingston_background,
@@ -130,15 +135,14 @@ def test_random_waveform_dataset(
 
     # now go through and make sure that the iteration
     # method generates data of the right size
-    with patch("dataset.whiten", new=lambda x: x):
-        for i, (X, y) in enumerate(dataset):
-            assert X.shape == (batch_size, 2, sample_rate)
-            validate_sequential(X)
+    for i, (X, y) in enumerate(dataset):
+        assert X.shape == (batch_size, 2, sample_rate)
+        validate_sequential(X)
 
-            # make sure targets are all 0 because we
-            # have no waveform sampling
-            assert y.shape == (batch_size,)
-            assert not y.cpu().numpy().any()
+        # make sure targets are all 0 because we
+        # have no waveform sampling
+        assert y.shape == (batch_size,)
+        assert not y.cpu().numpy().any()
 
     assert i == 9
 
@@ -196,6 +200,7 @@ def test_random_waveform_dataset_whitening(
     assert np.percentile(errs, 99) < 0.01
 
 
+@patch("bbhnet.data.RandomWaveformDataset.whiten", new=lambda obj, x: x)
 def test_glitch_sampling(
     random_hanford_background,
     random_livingston_background,
@@ -206,8 +211,8 @@ def test_glitch_sampling(
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        sequential_hanford_background,
-        sequential_livingston_background,
+        random_hanford_background,
+        random_livingston_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -219,17 +224,16 @@ def test_glitch_sampling(
     expected_num = max(1, int(glitch_frac * batch_size))
     assert dataset.num_glitches == expected_num
 
-    with patch("dataset.whiten", new=lambda x: x):
-        for X, y in dataset:
-            X = X.cpu().numpy()
-            for i, x in enumerate(X):
-                # check if either ifo channel is conti
-                is_glitch = (np.diff(x, axis=-1) == 1).all(axis=-1)
+    for X, y in dataset:
+        X = X.cpu().numpy()
+        for i, x in enumerate(X):
+            # check if either ifo channel is conti
+            is_glitch = (np.abs(np.diff(x, axis=-1)) == 1).all(axis=-1)
 
-                # check that either this sample is one of the
-                # first `num_glitches` in the batch or does not
-                # have a glitch
-                assert (i < dataset.num_glitches) ^ (not is_glitch.any())
+            # check that either this sample is one of the
+            # first `num_glitches` in the batch or does not
+            # have a glitch
+            assert (i < dataset.num_glitches) ^ (not is_glitch.any())
 
     if device == "cpu":
         return

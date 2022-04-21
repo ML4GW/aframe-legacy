@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Union
 
 import h5py
@@ -66,7 +67,7 @@ def _load_background(
         background = f["hoft"][:]
 
         # grab the timestamps from the dataset for geocent sampling
-        t0 = f["t0"]
+        t0 = f["t0"][()]
 
     # build the asd for building the time domain filter
     ts = TimeSeries(background, dt=1 / sample_rate)
@@ -192,7 +193,7 @@ class RandomWaveformDataset:
             hanford_background, sample_rate, device
         )
         self.livingston_background, livingston_asd, t0 = _load_background(
-            hanford_background, sample_rate, device
+            livingston_background, sample_rate, device
         )
 
         assert len(self.hanford_background) == len(self.livingston_background)
@@ -202,10 +203,12 @@ class RandomWaveformDataset:
         # asd so that we can perform whitening using a
         # grouped 1d convolution at data-loading time
         hanford_tdf = _build_time_domain_filter(
-            hanford_asd, kernel_length, sample_rate
+            hanford_asd, sample_rate=sample_rate, kernel_length=kernel_length
         )
         livingston_tdf = _build_time_domain_filter(
-            livingston_asd, kernel_length, sample_rate
+            livingston_asd,
+            sample_rate=sample_rate,
+            kernel_length=kernel_length,
         )
 
         # move the filters to a single torch Tensor
@@ -259,7 +262,7 @@ class RandomWaveformDataset:
             assert glitch_frac > 0
             self.num_glitches = max(1, int(glitch_frac * batch_size))
 
-            if isinstance(glitch_sampler, str):
+            if isinstance(glitch_sampler, (str, Path)):
                 glitch_sampler = GlitchSampler(glitch_sampler, device)
             self.glitch_sampler = glitch_sampler
         else:
@@ -287,13 +290,17 @@ class RandomWaveformDataset:
 
         hanford_kernels = sample_kernels(
             self.hanford_background, self.kernel_size, self.batch_size
-        )[:, None]
+        )
         livingston_kernels = sample_kernels(
             self.livingston_background, self.kernel_size, self.batch_size
-        )[:, None]
-        return torch.stack(
-            list(zip(hanford_kernels, livingston_kernels)), dim=0
-        ).reshape(self.batch_size, 2, -1)
+        )
+
+        # interweave these kernels along the 0th axis so that
+        # a reshape puts them in the right channel dimension
+        kernels = zip(hanford_kernels, livingston_kernels)
+        kernels = [i for j in kernels for i in j]
+        kernels = torch.stack(kernels, dim=0)
+        return kernels.reshape(self.batch_size, 2, -1)
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
         """Detrend and time-domain filter an array
