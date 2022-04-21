@@ -23,6 +23,11 @@ def ifos(request):
     return request.param
 
 
+# def project_raw_gw(waveform, sample_params):
+
+#     return waveform
+
+
 def test_waveform_sampler(
     sine_waveforms,
     glitch_length,
@@ -69,8 +74,23 @@ def test_waveform_sampler(
     with patch("numpy.random.uniform", return_value=target_snrs):
         reweighted = sampler.reweight_snrs(multichannel)
 
-    for i, row, sample in zip(target_snrs, snrs, reweighted):
+    for target, sample in zip(target_snrs, reweighted):
         calcd = 0
-        for snr, ifo in zip(row, sample):
+        for ifo in zip(row, sample):
             calcd += calc_snr(ifo, fs, sample_rate) ** 2
-        assert np.isclose(calcd**0.5, i, rtol=1e-9)
+        assert np.isclose(calcd**0.5, target, rtol=1e-9)
+
+    # TODO: do this again with project_raw_gw patched
+    # to just return the waveform as-is and verify the
+    # sample params. Also patch reweight_snrs to return
+    # as-is so we can do some check to make sure the
+    # "trigger" is in there. Should we apply some sort
+    # of gaussian to the waves so that there's a unique
+    # max value we can check for?
+    results = sampler.sample(4, data_length)
+    assert results.shape == (4, len(ifos), data_length)
+    for sample in results:
+        calcd = 0
+        for ifo in sample:
+            calcd += calc_snr(ifo, fs, sample_rate) ** 2
+        assert min_snr < calcd**0.5 < max_snr
