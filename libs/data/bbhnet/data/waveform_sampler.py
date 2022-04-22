@@ -44,7 +44,7 @@ class WaveformSampler:
             self.waveforms = f["signals"][:]
 
         self.priors = PRIORS.copy()
-        self.df = sample_rate / self.waveforms.shape[1]
+        self.df = sample_rate / self.waveforms.shape[-1]
         self.sample_rate = sample_rate
 
         freqs = np.arange(0, sample_rate // 2 + self.df, self.df)

@@ -284,6 +284,11 @@ def test_waveform_sampling(
     dataset.hanford_background *= 0
     dataset.livingston_background *= 0
 
+    if dataset.num_waveforms > 10:
+        with pytest.raises(ValueError):
+            next(iter(dataset))
+        return
+
     for X, y in dataset:
         X = X.cpu().numpy()
         y = y.cpu().numpy()
@@ -295,7 +300,7 @@ def test_waveform_sampling(
             # first `num_glitches` in the batch or does not
             # have a glitch
             limit = batch_size - dataset.num_waveforms
-            assert (i >= limit) ^ (not is_background.all())
+            assert (i >= limit) ^ (is_background.all())
             assert y[i] == int(not is_background.all())
 
     if device == "cpu":

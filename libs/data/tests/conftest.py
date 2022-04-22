@@ -57,9 +57,21 @@ def arange_glitches(glitch_length, sample_rate, write_timeseries, data_dir):
     return data_dir / "arange_glitches.h5"
 
 
+@pytest.fixture(params=[["H1"], ["H1", "L1"], ["H1", "L1", "V1"]])
+def ifos(request):
+    return request.param
+
+
 @pytest.fixture
-def sine_waveforms(glitch_length, sample_rate, write_timeseries, data_dir):
+def sine_waveforms(
+    glitch_length, sample_rate, write_timeseries, data_dir, ifos
+):
     x = np.linspace(0, 4 * np.pi, glitch_length * sample_rate)
     waveforms = np.stack([np.sin(i * 2 * np.pi * x) for i in range(1, 11)])
+
+    # need two polarizations
+    waveforms = waveforms[:, None]
+    waveforms = [waveforms, waveforms * 0.5]
+    waveforms = np.concatenate(waveforms, axis=1)
     write_timeseries("sine_waveforms.h5", signals=waveforms)
     return data_dir / "sine_waveforms.h5"

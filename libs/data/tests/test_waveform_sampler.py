@@ -18,11 +18,6 @@ def max_snr(request):
     return request.param
 
 
-@pytest.fixture(params=[["H1"], ["H1", "L1"], ["H1", "L1", "V1"]])
-def ifos(request):
-    return request.param
-
-
 # def project_raw_gw(waveform, sample_params):
 
 #     return waveform
@@ -43,10 +38,15 @@ def test_waveform_sampler(
         return
 
     sampler = WaveformSampler(sine_waveforms, sample_rate, min_snr, max_snr)
-    assert sampler.waveforms.shape == (10, glitch_length * sample_rate)
+    assert sampler.waveforms.shape == (10, 2, glitch_length * sample_rate)
+
+    # we haven't fit to a background yet, so trying to sample
+    # should raise an error because we can't do snr refitting
     with pytest.raises(RuntimeError):
         sampler.sample(8, data_length)
 
+    # build "backgroud" asds of all 1s for
+    # each ifo for the sake of simplicity
     asds = []
     for ifo in ifos:
         fs = FrequencySeries(
@@ -55,13 +55,16 @@ def test_waveform_sampler(
             channel=ifo + ":STRAIN",
         )
         asds.append(fs)
+
+    # fit the sampler to these backgrounds and make sure
+    # that the saved attributes are correct
     sampler.fit(1234567890, 1234567990, *asds)
     assert sampler.ifos == ifos
     assert (sampler.background_asd == 1).all()
 
     # create an array with a dummy 1st dimension to
     # replicate a waveform projected onto multiple ifos
-    waveforms = sampler.waveforms[:, None]
+    waveforms = sampler.waveforms[:, :1]
     multichannel = np.concatenate(
         [waveforms * 0.5**i for i in range(len(ifos))], axis=1
     )
@@ -87,12 +90,6 @@ def test_waveform_sampler(
         for ifo in sample:
             calcd += calc_snr(ifo, fs, sample_rate) ** 2
         assert np.isclose(calcd**0.5, target, rtol=1e-9)
-
-    # now add a polarization dimension to the
-    # waveforms attached to the sampler to test
-    # its actual sampling functionality
-    polarized = np.concatenate([sampler.waveforms[:, None]] * 2, axis=1)
-    sampler.waveforms = polarized
 
     # TODO: do this again with project_raw_gw patched
     # to just return the waveform as-is and verify the

@@ -76,7 +76,11 @@ def sample_kernels(
         # and we sample from within a kernel's length of
         # the center of each sampled index, where it is assumed
         # that the "trigger" of the relevant event will live
-        start = np.random.randint(min_sample_start, max_sample_start)
+        if max_sample_start <= 0:
+            start = 0
+        else:
+            start = np.random.randint(min_sample_start, max_sample_start)
+
         slc = slice(start, start + size)
 
         # unfortunately can't think of a cleaner

@@ -26,7 +26,7 @@ def test_glitch_sampler(
     # loop to make sure that we have some data for both
     # interferometers to verify
     hanford = livingston = None
-    while hanford is not None and livingston is not None:
+    while hanford is None or livingston is None:
         hanford, livingston = sampler.sample(8, data_length)
 
     glitch_size = glitch_length * sample_rate
