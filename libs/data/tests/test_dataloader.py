@@ -100,6 +100,9 @@ def glitch_sampler(arange_glitches, request, device):
 
 def validate_sequential(X):
     # make sure that we're not sampling in order
+    if isinstance(X, torch.Tensor):
+        X = X.cpu().numpy()
+
     assert not (np.diff(X[:, 0, 0]) == 1).all()
 
     # now make sure each timeseries is sequential
