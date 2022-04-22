@@ -4,7 +4,6 @@ from typing import Optional, Union
 import h5py
 import numpy as np
 import torch
-from bilby.core.prior import Cosine, PriorDict, Uniform
 from gwpy.frequencyseries import FrequencySeries
 from gwpy.signal.filter_design import fir_from_transfer
 from gwpy.timeseries import TimeSeries
@@ -14,13 +13,6 @@ from bbhnet.data.utils import sample_kernels
 from bbhnet.data.waveform_sampler import WaveformSampler
 
 DEFAULT_FFTLENGTH = 2
-PRIORS = PriorDict(
-    {
-        "ra": Uniform(minimum=0, maximum=2 * np.pi),
-        "dec": Cosine(),
-        "psi": Uniform(minimum=0, maximum=np.pi),
-    }
-)
 
 
 def _build_time_domain_filter(
