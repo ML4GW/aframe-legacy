@@ -105,10 +105,13 @@ def test_waveform_sampler(
     assert len(results) == 4
     assert all([i.shape == (len(ifos), data_length) for i in results])
 
-    # TODO: can't verify snrs here because we only have
-    # a short subsample of the waveforms
-    # for sample in results:
-    #     calcd = 0
-    #     for ifo in sample:
-    #         calcd += calc_snr(ifo, fs, sample_rate) ** 2
-    #     assert min_snr < calcd**0.5 < max_snr
+    # now sample using the entire waveforms to check
+    # the SNR ranges. There's definitely a better,
+    # more explicit check to do here with patching
+    # but this will work for now.
+    results = sampler.sample(4, sampler.waveforms.shape[-1])
+    for sample in results:
+        calcd = 0
+        for ifo in sample:
+            calcd += calc_snr(ifo, fs, sample_rate) ** 2
+        assert min_snr < calcd**0.5 < max_snr
