@@ -10,10 +10,8 @@ omicron_dir = "${OMICRON_DIR}"
 out_dir = "${OUT_DIR}"
 snr_thresh = 8
 window = 2
-start = 1263565618
-stop = 1263595618
-#start = 1262304000
-#stop = 1265760000 
+start = 1262304000
+stop = 1265760000 
 
 
 [tool.poetry.dependencies]

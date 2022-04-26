@@ -35,4 +35,9 @@ jobs:
         name: run waveform tests
         env:
           test_dir: /github/workspace/projects/generate_waveforms
+        run: pinto run $test_dir pytest -x $test_dir/tests 
+      -    
+        name: run glitch generation tests
+        env:
+          test_dir: /github/workspace/projects/generate_glitches
         run: pinto run $test_dir pytest -x $test_dir/tests
