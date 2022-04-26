@@ -56,7 +56,7 @@ def stop(request):
 
 @pytest.fixture(params=["triggers_H1.txt", "triggers_L1.txt"])
 def trig_file(request):
-    return str(TEST_DIR / "prior_files" / request.param)
+    return str(TEST_DIR / "triggers" / request.param)
 
 
 def test_glitch_data_shape(
