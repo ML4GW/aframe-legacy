@@ -132,23 +132,26 @@ def generate_glitch_dataset(
     day_snrs = triggers[:, snr_col]  # second column is snrs
     snr_thresh_args = np.where(day_snrs > snr_thresh)
     triggers = triggers[snr_thresh_args]
-    snrs.extend(triggers[:, snr_col])
 
     logging.info(f"Querying data for {len(triggers)} triggers")
 
     # query data for each trigger
     for trigger in tqdm(triggers):
         time = trigger[time_col]
+        print(time)
         try:
-            trig_data = TimeSeries.fetch_open_data(
+            glitch_ts = TimeSeries.fetch_open_data(
                 ifo, time - window, time + window
             )
+
+            glitch_ts = glitch_ts.resample(sample_rate)
+
+            snrs.append(trigger[snr_col])
+            glitches.append(glitch_ts)
 
         except ValueError:
             logging.info(f"Data not available for trigger at time: {time}")
             continue
-
-        glitches.append(trig_data)
 
     glitches = np.array(glitches)
     snrs = np.array(snrs)
