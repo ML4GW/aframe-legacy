@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from generate_glitches import generate_glitch_dataset
 
+TEST_DIR = Path(__file__).resolve().parent
+
 
 @pytest.fixture(scope="session")
 def data_dir():
@@ -41,6 +43,7 @@ def omicron_dir(request):
     return "/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/"
 
 
+# these params are specific to trigger files below
 @pytest.fixture(params=[1263565618])
 def start(request):
     return request.param
@@ -51,9 +54,9 @@ def stop(request):
     return request.param
 
 
-@pytest.fixture(params=["./triggers/triggers_H1.txt"])
+@pytest.fixture(params=["triggers_H1.txt", "triggers_L1.txt"])
 def trig_file(request):
-    return request.param
+    return str(TEST_DIR / "prior_files" / request.param)
 
 
 def test_glitch_data_shape(
