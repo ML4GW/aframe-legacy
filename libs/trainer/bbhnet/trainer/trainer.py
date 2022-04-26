@@ -1,7 +1,9 @@
 import logging
+import os
 import time
-from typing import Optional
+from typing import Callable, Optional
 
+import numpy as np
 import torch
 
 from bbhnet.data import RandomWaveformDataset
@@ -84,3 +86,132 @@ def train_for_one_epoch(
 
     logging.info(msg)
     return train_loss, valid_loss, duration, throughput
+
+
+def train(
+    architecture: Callable,
+    output_directory: str,
+    # data params
+    train_data: RandomWaveformDataset,
+    valid_data: Optional[RandomWaveformDataset],
+    # optimization params
+    max_epochs: int = 40,
+    init_weights: Optional[str] = None,
+    lr: float = 1e-3,
+    weight_decay: float = 0.0,
+    patience: Optional[int] = None,
+    factor: float = 0.1,
+    early_stop: int = 20,
+    # misc params
+    device: Optional[str] = None,
+    profile: bool = False,
+) -> float:
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    # Creating model, loss function, optimizer and lr scheduler
+    logging.info("Building and initializing model")
+
+    # TODO: generalize to arbitrary architectures /
+    # architecture parameters
+    model = architecture()
+    model.to(device)
+
+    if init_weights is not None:
+        # allow us to easily point to the best weights
+        # from another run of this same function
+        if os.path.isdir(init_weights):
+            init_weights = os.path.join(init_weights, "weights.pt")
+
+        logging.debug(
+            f"Initializing model weights from checkpoint '{init_weights}'"
+        )
+        model.load_state_dict(torch.load(init_weights))
+    logging.info(model)
+
+    logging.info("Initializing loss and optimizer")
+
+    # TODO: Allow different loss functions or
+    # optimizers to be passed?
+
+    criterion = torch.nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=lr, weight_decay=weight_decay
+    )
+
+    if patience is not None:
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            patience=patience,
+            factor=factor,
+            threshold=0.0001,
+            min_lr=lr * factor**2,
+            verbose=True,
+        )
+
+    # start training
+    torch.backends.cudnn.benchmark = True
+    scaler = torch.cuda.amp.GradScaler()
+    best_valid_loss = np.inf
+    since_last_improvement = 0
+    history = {"train_loss": [], "valid_loss": []}
+
+    logging.info("Beginning training loop")
+    for epoch in range(max_epochs):
+        if epoch == 0 and profile:
+            profiler = torch.profiler.profile(
+                schedule=torch.profiler.schedule(wait=0, warmup=1, active=10),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(
+                    os.path.join(output_directory, "profile")
+                ),
+            )
+            profiler.start()
+        else:
+            profiler = None
+
+        logging.info(f"=== Epoch {epoch + 1}/{max_epochs} ===")
+        train_loss, valid_loss, duration, throughput = train_for_one_epoch(
+            model,
+            optimizer,
+            criterion,
+            train_data,
+            valid_data,
+            profiler,
+            scaler,
+        )
+        history["train_loss"].append(train_loss)
+
+        # do some house cleaning with our
+        # validation loss if we have one
+        if valid_loss is not None:
+            history["valid_loss"].append(valid_loss)
+
+            # update our learning rate scheduler if we
+            # indicated a schedule with `patience`
+            if patience is not None:
+                lr_scheduler.step(valid_loss)
+
+            # save this version of the model weights if
+            # we achieved a new best loss, otherwise check
+            # to see if we need to early stop based on
+            # plateauing validation loss
+            if valid_loss < best_valid_loss:
+                logging.debug(
+                    "Achieved new lowest validation loss, "
+                    "saving model weights"
+                )
+                best_valid_loss = valid_loss
+
+                weights_path = os.path.join(output_directory, "weights.pt")
+                torch.save(model.state_dict(), weights_path)
+                since_last_improvement = 0
+            else:
+                since_last_improvement += 1
+                if since_last_improvement >= early_stop:
+                    logging.info(
+                        "No improvement in validation loss in {} "
+                        "epochs, halting training early".format(early_stop)
+                    )
+                    break
+
+    return history
