@@ -138,7 +138,6 @@ def generate_glitch_dataset(
     # query data for each trigger
     for trigger in tqdm(triggers):
         time = trigger[time_col]
-        print(time)
         try:
             glitch_ts = TimeSeries.fetch_open_data(
                 ifo, time - window, time + window
