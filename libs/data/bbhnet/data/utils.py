@@ -39,7 +39,7 @@ def sample_kernels(
         if N > (len(x) - size):
             raise ValueError(
                 "Array of length {} too short to sample {} "
-                "kernels of length {}".format(len(x), size, N)
+                "kernels of length {}".format(len(x), N, size)
             )
 
         idx = np.random.choice(len(x) - size, size=N, replace=False)
