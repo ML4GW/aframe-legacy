@@ -23,17 +23,17 @@ def window(request):
     return request.param
 
 
-@pytest.fixture(params=[8])
+@pytest.fixture(params=[9, 11])
 def snr_thresh(request):
     return request.param
 
 
-@pytest.fixture(params=["H1"])
+@pytest.fixture(params=["H1", "L1"])
 def ifo(request):
     return request.param
 
 
-@pytest.fixture(params=[1024, 2048, 4096])
+@pytest.fixture(params=[2048, 4096])
 def sample_rate(request):
     return request.param
 
@@ -43,32 +43,16 @@ def omicron_dir(request):
     return "/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/"
 
 
-# these params are specific to trigger files below
-@pytest.fixture(params=[1263565618])
-def start(request):
-    return request.param
-
-
-@pytest.fixture(params=[1263569618])
-def stop(request):
-    return request.param
-
-
-@pytest.fixture(params=["triggers_H1.txt", "triggers_L1.txt"])
-def trig_file(request):
-    return str(TEST_DIR / "triggers" / request.param)
+@pytest.fixture()
+def trig_file(ifo):
+    return str(TEST_DIR / "triggers" / f"triggers_{ifo}.txt")
 
 
 def test_glitch_data_shape(
-    data_dir,
-    ifo,
-    window,
-    sample_rate,
-    snr_thresh,
-    start,
-    stop,
-    trig_file,
+    data_dir, ifo, window, sample_rate, snr_thresh, trig_file
 ):
+    start = 1263588390
+    stop = 1263592390
 
     glitch_len = 2 * window * sample_rate
 
@@ -86,10 +70,11 @@ def test_glitch_snrs(
     window,
     sample_rate,
     snr_thresh,
-    start,
-    stop,
     trig_file,
 ):
+
+    start = 1263588390
+    stop = 1263592390
 
     glitches, snrs = generate_glitch_dataset(
         ifo, snr_thresh, start, stop, window, sample_rate, trig_file

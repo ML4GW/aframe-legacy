@@ -128,16 +128,25 @@ def generate_glitch_dataset(
     time_args = np.logical_and(times > start, times < stop)
     triggers = triggers[time_args]
 
+    print(len(triggers))
     # apply snr thresh
     day_snrs = triggers[:, snr_col]  # second column is snrs
     snr_thresh_args = np.where(day_snrs > snr_thresh)
     triggers = triggers[snr_thresh_args]
 
+    print(len(triggers))
     logging.info(f"Querying data for {len(triggers)} triggers")
 
     # query data for each trigger
     for trigger in tqdm(triggers):
         time = trigger[time_col]
+        # TODO: I think this is querying a 4096 second
+        # frame for each trigger. Maybe group triggers
+        # to speed up. I tried querying all the data
+        # at once and then cropping that data around each trigger,
+        # but fetch_open_data didn't seem to
+        # like the 'pad' / 'gap' keyword args TimeSeries.read()
+        # uses to fill missing values
         try:
             glitch_ts = TimeSeries.fetch_open_data(
                 ifo, time - window, time + window
@@ -226,6 +235,12 @@ def main(
     # into segments of 10^5 seconds
     # get paths for relevant directories
     # based on start and stop gpstimes passed by user
+
+    # TODO: I *Think* there is a pyomicron package
+    # that can create omicron dags. Might be useful
+    # to generalize this script to use pyomicron to produce
+    # omicron triggers for arbitrary stretches of data,
+    # channels, parameters etc..
 
     gps_day_start = str(start)[:5]
     gps_day_end = str(stop)[:5]
