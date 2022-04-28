@@ -11,7 +11,9 @@ out_dir = "${OUT_DIR}"
 snr_thresh = 8
 window = 2
 start = 1262304000
-stop = 1265760000 
+stop = 1262367000 
+channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+frame_type = "HOFT_C01"
 
 
 [tool.poetry.dependencies]
@@ -22,7 +24,7 @@ python = ">3.8,<3.11"
 pytest = "^6.2"
 
 [tool.poetry.scripts]
-generate-glitches= "generate_glitches:main"
+generate-glitches = "generate_glitches:main"
 
 [build-system]
 requires = ["poetry>=1.2"]

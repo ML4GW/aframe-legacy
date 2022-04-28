@@ -23,6 +23,16 @@ def window(request):
     return request.param
 
 
+@pytest.fixture(params=["HOFT_C01"])
+def frame_type(request):
+    return request.param
+
+
+@pytest.fixture(params=["DCS-CALIB_STRAIN_CLEAN_C01"])
+def channel(request):
+    return request.param
+
+
 @pytest.fixture(params=[9, 11])
 def snr_thresh(request):
     return request.param
@@ -48,8 +58,15 @@ def trig_file(ifo):
     return str(TEST_DIR / "triggers" / f"triggers_{ifo}.txt")
 
 
-def test_glitch_data_shape(
-    data_dir, ifo, window, sample_rate, snr_thresh, trig_file
+def test_glitch_data_shape_and_glitch_snrs(
+    data_dir,
+    ifo,
+    window,
+    sample_rate,
+    snr_thresh,
+    trig_file,
+    channel,
+    frame_type,
 ):
     start = 1263588390
     stop = 1263592390
@@ -57,27 +74,17 @@ def test_glitch_data_shape(
     glitch_len = 2 * window * sample_rate
 
     glitches, snrs = generate_glitch_dataset(
-        ifo, snr_thresh, start, stop, window, sample_rate, trig_file
+        ifo,
+        snr_thresh,
+        start,
+        stop,
+        window,
+        sample_rate,
+        channel,
+        frame_type,
+        trig_file,
     )
 
     assert glitches.shape[-1] == glitch_len
     assert len(glitches) == len(snrs)
-
-
-def test_glitch_snrs(
-    data_dir,
-    ifo,
-    window,
-    sample_rate,
-    snr_thresh,
-    trig_file,
-):
-
-    start = 1263588390
-    stop = 1263592390
-
-    glitches, snrs = generate_glitch_dataset(
-        ifo, snr_thresh, start, stop, window, sample_rate, trig_file
-    )
-
     assert all(snrs > snr_thresh)

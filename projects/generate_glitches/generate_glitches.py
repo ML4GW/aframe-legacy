@@ -5,6 +5,7 @@ from typing import Optional
 
 import h5py
 import numpy as np
+from gwdatafind import find_urls
 from gwpy.segments import Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 from hermes.typeo import typeo
@@ -89,6 +90,8 @@ def generate_glitch_dataset(
     stop: float,
     window: float,
     sample_rate: float,
+    channel: str,
+    frame_type: str,
     trig_file: str,
     vetoes: SegmentList = None,
 ):
@@ -103,6 +106,8 @@ def generate_glitch_dataset(
     - stop: stop gpstime
     - window: half window around trigger time to query data for
     - sample_rate: sampling frequency
+    - channel: channel name used to read data
+    - frame_type: frame type for data discovery w/ gwdatafind
     - trig_file: txt file output from omicron triggers
             (first column is gps times, 3rd column is snrs)
     - vetoes: SegmentList object of times to ignore
@@ -128,29 +133,45 @@ def generate_glitch_dataset(
     time_args = np.logical_and(times > start, times < stop)
     triggers = triggers[time_args]
 
-    print(len(triggers))
     # apply snr thresh
     day_snrs = triggers[:, snr_col]  # second column is snrs
     snr_thresh_args = np.where(day_snrs > snr_thresh)
     triggers = triggers[snr_thresh_args]
 
-    print(len(triggers))
-    logging.info(f"Querying data for {len(triggers)} triggers")
+    # re-set 'start' and 'stop' so we aren't querying unnecessary data
+    start = np.min(triggers[:, time_col]) - 2 * window
+    stop = np.max(triggers[:, time_col]) + 2 * window
 
-    # query data for each trigger
+    logging.info(
+        f"Querying {stop - start} seconds of data for {len(triggers)} triggers"
+    )
+
+    # use gwdatafind to create frame cache
+    frames = find_urls(
+        site=ifo.strip("1"),
+        frametype=f"{ifo}_{frame_type}",
+        gpsstart=int(start),
+        gpsend=int(stop),
+        urltype="file",
+        on_gaps="ignore",
+    )
+
+    # read frames all at once, then crop
+    # this time series for each trigger.
+    # Although its initially slower to read all the frames at once,
+    # I think this is overall faster than querying a 4096 frame for
+    # every trigger.
+
+    ts = TimeSeries.read(
+        frames, channel=f"{ifo}:{channel}", start=start, end=stop, pad=0
+    )
+
+    # for each trigger
     for trigger in tqdm(triggers):
         time = trigger[time_col]
-        # TODO: I think this is querying a 4096 second
-        # frame for each trigger. Maybe group triggers
-        # to speed up. I tried querying all the data
-        # at once and then cropping that data around each trigger,
-        # but fetch_open_data didn't seem to
-        # like the 'pad' / 'gap' keyword args TimeSeries.read()
-        # uses to fill missing values
+
         try:
-            glitch_ts = TimeSeries.fetch_open_data(
-                ifo, time - window, time + window
-            )
+            glitch_ts = ts.crop(time - window, time + window)
 
             glitch_ts = glitch_ts.resample(sample_rate)
 
@@ -174,6 +195,8 @@ def main(
     window: float,
     omicron_dir: str,
     out_dir: str,
+    channel: str,
+    frame_type: str,
     sample_rate: float = 4096,
     H1_veto_file: Optional[str] = None,
     L1_veto_file: Optional[str] = None,
@@ -192,6 +215,8 @@ def main(
     - out_dir: output directory to which signals will be written
     - omicron_dir: base directory of omicron triggers
             (see /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/)
+    - channel: channel name used to read data
+    - frame_type: frame type for data discovery w/ gwdatafind
     - H1_veto_file: path to file containing vetoes for H1
     - L1_veto_file: path to file containing vetoes for L1
     """
@@ -275,6 +300,8 @@ def main(
             stop,
             window,
             sample_rate,
+            channel,
+            frame_type,
             H1_trig_file,
             vetoes=H1_vetoes,
         )
@@ -286,6 +313,8 @@ def main(
             stop,
             window,
             sample_rate,
+            channel,
+            frame_type,
             L1_trig_file,
             vetoes=L1_vetoes,
         )
