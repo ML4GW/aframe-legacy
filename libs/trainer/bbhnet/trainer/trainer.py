@@ -6,7 +6,7 @@ from typing import Callable, Optional
 import numpy as np
 import torch
 
-from bbhnet.data import RandomWaveformDataset
+from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
 
 
 def train_for_one_epoch(
@@ -14,7 +14,7 @@ def train_for_one_epoch(
     optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module,
     train_data: RandomWaveformDataset,
-    valid_data: RandomWaveformDataset = None,
+    valid_data: Optional[RandomWaveformDataset] = None,
     profiler: Optional[torch.profiler.profile] = None,
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
 ):
@@ -92,9 +92,24 @@ def train(
     architecture: Callable,
     output_directory: str,
     # data params
-    train_data: RandomWaveformDataset,
-    valid_data: Optional[RandomWaveformDataset],
+    glitch_dataset: str,
+    signal_dataset: str,
+    val_glitch_dataset: str,
+    val_signal_dataset: str,
+    hanford_background: str,
+    livingston_background: str,
+    val_livingston_background: str,
+    val_hanford_background: str,
+    waveform_frac: float,
+    glitch_frac: float,
+    kernel_length,
+    sample_rate,
+    min_snr,
+    max_snr,
+    highpass,
     # optimization params
+    batch_size,
+    batches_per_epoch,
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
     lr: float = 1e-3,
@@ -108,6 +123,60 @@ def train(
 ) -> float:
 
     os.makedirs(output_directory, exist_ok=True)
+
+    # initiate training glitch sampler
+
+    train_glitch_sampler = GlitchSampler(glitch_dataset, device=device)
+
+    # initiate training waveform sampler
+    train_waveform_sampler = WaveformSampler(
+        signal_dataset, sample_rate, min_snr, max_snr, highpass, device=device
+    )
+
+    # deterministic validation glitch sampler
+    val_glitch_sampler = GlitchSampler(
+        val_glitch_dataset, device=device, deterministic=True, seed=100
+    )
+
+    # deterministic validation waveform sampler
+    val_waveform_sampler = WaveformSampler(
+        val_signal_dataset,
+        sample_rate,
+        highpass,
+        device=device,
+        deterministic=True,
+        seed=100,
+    )
+
+    # create full training dataloader
+    train_data = RandomWaveformDataset(
+        hanford_background,
+        livingston_background,
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        train_waveform_sampler,
+        waveform_frac,
+        train_glitch_sampler,
+        glitch_frac,
+        device,
+    )
+
+    # create full validation dataloader
+    valid_data = RandomWaveformDataset(
+        val_hanford_background,
+        val_livingston_background,
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        val_waveform_sampler,
+        waveform_frac,
+        val_glitch_sampler,
+        glitch_frac,
+        device,
+    )
 
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
