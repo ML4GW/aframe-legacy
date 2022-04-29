@@ -33,7 +33,7 @@ def channel(request):
     return request.param
 
 
-@pytest.fixture(params=[9, 11])
+@pytest.fixture(params=[11, 15])
 def snr_thresh(request):
     return request.param
 
