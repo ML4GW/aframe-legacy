@@ -3,9 +3,12 @@
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
+import numpy as np
 import pytest
 from generate_glitches import generate_glitch_dataset
+from gwpy.timeseries import TimeSeries
 
 TEST_DIR = Path(__file__).resolve().parent
 
@@ -58,6 +61,7 @@ def trig_file(ifo):
     return str(TEST_DIR / "triggers" / f"triggers_{ifo}.txt")
 
 
+@patch("gwdatafind.find_urls", [])
 def test_glitch_data_shape_and_glitch_snrs(
     data_dir,
     ifo,
@@ -73,17 +77,23 @@ def test_glitch_data_shape_and_glitch_snrs(
 
     glitch_len = 2 * window * sample_rate
 
-    glitches, snrs = generate_glitch_dataset(
-        ifo,
-        snr_thresh,
-        start,
-        stop,
-        window,
-        sample_rate,
-        channel,
-        frame_type,
-        trig_file,
-    )
+    # create mock gwpy timeseries
+    times = np.arange(start, stop, 1 / sample_rate)
+    n_samples = len(times)
+    mock_ts = TimeSeries(np.ones(n_samples), times=times)
+
+    with patch("gwpy.timeseries.TimeSeries.read", return_value=mock_ts):
+        glitches, snrs = generate_glitch_dataset(
+            ifo,
+            snr_thresh,
+            start,
+            stop,
+            window,
+            sample_rate,
+            channel,
+            frame_type,
+            trig_file,
+        )
 
     assert glitches.shape[-1] == glitch_len
     assert len(glitches) == len(snrs)

@@ -3,7 +3,8 @@ from generate_glitches import veto
 from gwpy.segments import Segment, SegmentList
 
 # some very non-exhaustive test of veto script
-# not sure best practices for doing tests like these...
+# don't think we're using vetos at this moment anyway
+# will likely move this to some future 'post-production analysis' library
 
 
 def test_veto_all_triggers():
