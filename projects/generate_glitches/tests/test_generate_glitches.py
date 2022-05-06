@@ -61,10 +61,6 @@ def trig_file(ifo):
     return str(TEST_DIR / "triggers" / f"triggers_{ifo}.txt")
 
 
-# patch gwdatafind to return None
-# the output isn't used in tests anyway
-# since TimeSeries.read is also patched
-@patch("gwdatafind.find_urls", return_value=None)
 def test_glitch_data_shape_and_glitch_snrs(
     data_dir,
     ifo,
@@ -75,17 +71,20 @@ def test_glitch_data_shape_and_glitch_snrs(
     channel,
     frame_type,
 ):
+
     start = 1263588390
     stop = 1263592390
 
     glitch_len = 2 * window * sample_rate
 
-    # create mock gwpy timeseries
+    # create mock gwpy timeseries, gwdatafind
     times = np.arange(start, stop, 1 / sample_rate)
     n_samples = len(times)
-    mock_ts = TimeSeries(np.ones(n_samples), times=times)
+    ts = TimeSeries(np.ones(n_samples), times=times)
+    mock_ts = patch("gwpy.timeseries.TimeSeries.read", return_value=ts)
+    mock_datafind = patch("gwdatafind.find_urls", return_value=None)
 
-    with patch("gwpy.timeseries.TimeSeries.read", return_value=mock_ts):
+    with mock_ts, mock_datafind:
         glitches, snrs = generate_glitch_dataset(
             ifo,
             snr_thresh,
