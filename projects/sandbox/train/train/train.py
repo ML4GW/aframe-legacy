@@ -26,14 +26,27 @@ def main(
     val_livingston_background: str,
     **kwargs
 ):
+    # TODO: maybe package up hanford and livingston
+    # (or any arbitrary set of ifos) background files into one
+    # for simplicity
 
-    return (
-        glitch_dataset,
-        signal_dataset,
-        val_glitch_dataset,
-        val_signal_dataset,
-        hanford_background,
-        livingston_background,
-        val_hanford_background,
-        val_livingston_background,
-    )
+    # is this packaging into dict possibly redundant or unnecessary?
+    # idea was to simplify arguments to train function
+
+    # package training files into dictionary
+    train_files = {
+        "glitch dataset": glitch_dataset,
+        "signal dataset": signal_dataset,
+        "hanford background": hanford_background,
+        "livingston background": livingston_background,
+    }
+
+    # package validation files into dictionary
+    val_files = {
+        "glitch dataset": val_glitch_dataset,
+        "signal dataset": val_signal_dataset,
+        "hanford background": val_hanford_background,
+        "livingston background": val_livingston_background,
+    }
+
+    return train_files, val_files

@@ -94,14 +94,8 @@ def train(
     architecture: Callable,
     output_directory: str,
     # data params
-    glitch_dataset: str,
-    signal_dataset: str,
-    val_glitch_dataset: str,
-    val_signal_dataset: str,
-    hanford_background: str,
-    livingston_background: str,
-    val_hanford_background: str,
-    val_livingston_background: str,
+    train_files: dict,
+    val_files: dict,
     waveform_frac: float,
     glitch_frac: float,
     sample_rate: float,
@@ -124,27 +118,38 @@ def train(
     device: Optional[str] = None,
     profile: bool = False,
 ) -> float:
+    # TODO: add documentation
 
     os.makedirs(output_directory, exist_ok=True)
 
     # initiate training glitch sampler
-    train_glitch_sampler = GlitchSampler(glitch_dataset, device=device)
+    train_glitch_sampler = GlitchSampler(
+        train_files["glitch dataset"], device=device
+    )
 
     # initiate training waveform sampler
     train_waveform_sampler = WaveformSampler(
-        signal_dataset, sample_rate, min_snr, max_snr, highpass, device=device
+        train_files["signal dataset"],
+        sample_rate,
+        min_snr,
+        max_snr,
+        highpass,
+        device=device,
     )
 
     # deterministic validation glitch sampler
     # 'determinisitc' key word not yet implemented,
     # just an idea.
     val_glitch_sampler = GlitchSampler(
-        val_glitch_dataset, device=device, deterministic=True, seed=100
+        val_files["glitch dataset"],
+        device=device,
+        deterministic=True,
+        seed=100,
     )
 
     # deterministic validation waveform sampler
     val_waveform_sampler = WaveformSampler(
-        val_signal_dataset,
+        val_files["signal dataset"],
         sample_rate,
         highpass,
         device=device,
@@ -154,8 +159,8 @@ def train(
 
     # create full training dataloader
     train_dataset = RandomWaveformDataset(
-        hanford_background,
-        livingston_background,
+        train_files["hanford background"],
+        train_files["livingston background"],
         kernel_length,
         sample_rate,
         batch_size,
@@ -169,8 +174,8 @@ def train(
 
     # create full validation dataloader
     valid_dataset = RandomWaveformDataset(
-        val_hanford_background,
-        val_livingston_background,
+        val_files["hanford background"],
+        val_files["livingston background"],
         kernel_length,
         sample_rate,
         batch_size,
