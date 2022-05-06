@@ -61,7 +61,10 @@ def trig_file(ifo):
     return str(TEST_DIR / "triggers" / f"triggers_{ifo}.txt")
 
 
-@patch("gwdatafind.find_urls", [])
+# patch gwdatafind to return None
+# the output isn't used in tests anyway
+# since TimeSeries.read is also patched
+@patch("gwdatafind.find_urls", return_value=None)
 def test_glitch_data_shape_and_glitch_snrs(
     data_dir,
     ifo,
