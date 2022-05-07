@@ -6,7 +6,9 @@ from typing import Callable, Optional
 import numpy as np
 import torch
 
-from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
+from bbhnet.data import RandomWaveformDataset
+from bbhnet.data.glitch_sampler import GlitchSampler
+from bbhnet.data.waveform_sampler import WaveformSampler
 
 
 def train_for_one_epoch(
