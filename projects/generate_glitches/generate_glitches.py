@@ -3,9 +3,9 @@ import logging
 import os
 from typing import Optional
 
+import gwdatafind
 import h5py
 import numpy as np
-from gwdatafind import find_urls
 from gwpy.segments import Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 from hermes.typeo import typeo
@@ -112,7 +112,7 @@ def generate_glitch_dataset(
             (first column is gps times, 3rd column is snrs)
     - vetoes: SegmentList object of times to ignore
     """
-
+    print(gwdatafind.find_urls)
     glitches = []
     snrs = []
 
@@ -147,7 +147,7 @@ def generate_glitch_dataset(
     )
 
     # use gwdatafind to create frame cache
-    frames = find_urls(
+    frames = gwdatafind.find_urls(
         site=ifo.strip("1"),
         frametype=f"{ifo}_{frame_type}",
         gpsstart=int(start),
