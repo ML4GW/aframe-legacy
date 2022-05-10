@@ -1,15 +1,13 @@
 import inspect
 
-from deepclean.architectures import get_arch_fns
-from deepclean.trainer.trainer import train
 from hermes.typeo import typeo
 from hermes.typeo.typeo import _parse_doc, _parse_help
 
+from bbhnet.architectures import get_arch_fns
+from bbhnet.trainer.trainer import train
+
 
 def _configure_wrapper(f, wrapper):
-    # TODO: not exactly sure what should be
-    # changed here for bbhnet..
-    # gave it a shot
 
     f_sig = inspect.signature(f)
     train_sig = inspect.signature(train)
@@ -56,9 +54,9 @@ def trainify(f):
     """Turn a data-generating function into a command line trainer
     Wraps the function `f`, which is assumed to generate training
     and validation data, so that this data gets passed to
-    `deepclean.trainer.trainer.train`, but in such a way that
+    `bbhnet.trainer.trainer.train`, but in such a way that
     `f` can be called from the command line with all of the arguments
-    to `deepclean.trainer.trainer.train`, with the network architecture
+    to `bbhnet.trainer.trainer.train`, with the network architecture
     as a positional parameter and its arguments as additional parameters
     after that.
     """
@@ -96,8 +94,6 @@ def trainify(f):
         # `f` is called with an "arch" parameter
         if "arch" in kwargs:
             try:
-                # TODO: implement this functionality
-                # in bbhnet
                 arch_fn = arch_fns[kwargs["arch"]]
             except KeyError:
                 raise ValueError(
@@ -117,7 +113,6 @@ def trainify(f):
             # hood with the arguments we populated into
             # `train_kwargs`
 
-            # TODO: implement this for bbhnet
             result = arch_fn(**arch_kwargs)
         else:
             # otherwise just return the train and valid datasets, equivalent
