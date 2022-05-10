@@ -192,9 +192,10 @@ def train(
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
 
-    # TODO: generalize to arbitrary architectures /
-    # architecture parameters
-    model = architecture()
+    # hard coded since we haven't generalized to multiple ifos
+    num_ifos = 2
+
+    model = architecture(num_ifos)
     model.to(device)
 
     if init_weights is not None:
