@@ -236,7 +236,8 @@ class ResNet(nn.Module):
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
-        stride_type: Optional[List[Literal["stride", "dilation"]]] = None,
+        # TODO: use Literal["stride", "dilation"] once typeo fix is in
+        stride_type: Optional[List[str]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
     ) -> None:
         super().__init__()
@@ -284,7 +285,7 @@ class ResNet(nn.Module):
         # layer, but downsample in all the rest (either by
         # striding or dilating depending on the stride_type
         # argument)
-        self.resnet_layers = [self._make_layer(64, layers[0], kernel_size)]
+        residual_layers = [self._make_layer(64, layers[0], kernel_size)]
         it = zip(layers[1:], stride_type)
         for i, (num_blocks, stride) in enumerate(it):
             block_size = 64 * 2 ** (i + 1)
@@ -295,7 +296,8 @@ class ResNet(nn.Module):
                 stride=2,
                 stride_type=stride,
             )
-            self.resnet_layers.append(layer)
+            residual_layers.append(layer)
+        self.residual_layers = nn.ModuleList(residual_layers)
 
         # Average pool over each feature map to create a
         # single value for each feature map that we'll use
@@ -389,7 +391,7 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
-        for layer in self.resnet_layers:
+        for layer in self.residual_layers:
             x = layer(x)
 
         x = self.avgpool(x)
