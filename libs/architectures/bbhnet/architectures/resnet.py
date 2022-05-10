@@ -14,18 +14,21 @@ from torch import Tensor
 def convN(
     in_planes: int,
     out_planes: int,
-    kernel_size: int = 8,
+    kernel_size: int = 3,
     stride: int = 1,
     groups: int = 1,
     dilation: int = 1,
 ) -> nn.Conv1d:
     """1d convolution with padding"""
+    if not kernel_size % 2:
+        raise ValueError("Can't use even sized kernels")
+
     return nn.Conv1d(
         in_planes,
         out_planes,
         kernel_size=kernel_size,
         stride=stride,
-        padding=dilation,
+        padding=dilation * int(kernel_size // 2),
         groups=groups,
         bias=False,
         dilation=dilation,
@@ -46,7 +49,7 @@ class BasicBlock(nn.Module):
         self,
         inplanes: int,
         planes: int,
-        kernel_size: int = 8,
+        kernel_size: int = 3,
         stride: int = 1,
         downsample: Optional[nn.Module] = None,
         groups: int = 1,
@@ -72,7 +75,7 @@ class BasicBlock(nn.Module):
         self.conv1 = convN(inplanes, planes, kernel_size, stride)
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = convN(planes, planes, kernel_size, stride)
+        self.conv2 = convN(planes, planes, kernel_size)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
@@ -103,7 +106,7 @@ class Bottleneck(nn.Module):
         self,
         inplanes: int,
         planes: int,
-        kernel_size: int = 8,
+        kernel_size: int = 3,
         stride: int = 1,
         downsample: Optional[nn.Module] = None,
         groups: int = 1,
@@ -153,13 +156,30 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
+    """1D ResNet architecture
+
+    Simple extension of ResNet to 1D convolutions with
+    arbitrary kernel sizes to support the longer timeseries
+    used in BBH detection.
+
+    Args:
+        num_ifos:
+            The number of interferometers used for BBH
+            detection. Sets the channel dimension of the
+            input tensor
+        layers:
+            A list representing the number of residual
+            blocks to include in each "layer" of the
+            network.
+    """
+
     block: Type[Union[BasicBlock, Bottleneck]] = BasicBlock
 
     def __init__(
         self,
         num_ifos: int,
         layers: List[int],
-        kernel_size: int = 8,
+        kernel_size: int = 3,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
@@ -176,11 +196,11 @@ class ResNet(nn.Module):
         if stride_type is None:
             # each element in the tuple indicates if we should replace
             # the stride with a dilated convolution instead
-            stride_type = ["stride", "stride", "stride"]
-        if len(stride_type) != 3:
+            stride_type = ["stride"] * (len(layers) - 1)
+        if len(stride_type) != (len(layers) - 1):
             raise ValueError(
-                "stride_type should be None or a "
-                f"3-element tuple, got {stride_type}"
+                "'stride_type' should be None or a "
+                "{}-element tuple, got {}".format(len(layers) - 1, stride_type)
             )
 
         self.groups = groups
@@ -197,30 +217,22 @@ class ResNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(64, layers[0], kernel_size)
-        self.layer2 = self._make_layer(
-            128,
-            layers[1],
-            kernel_size,
-            stride=2,
-            stride_type=stride_type[0],
-        )
-        self.layer3 = self._make_layer(
-            256,
-            layers[2],
-            kernel_size,
-            stride=2,
-            stride_type=stride_type[1],
-        )
-        self.layer4 = self._make_layer(
-            512,
-            layers[3],
-            kernel_size,
-            stride=2,
-            stride_type=stride_type[2],
-        )
-        self.avgpool = nn.AdaptiveAvgPool1d((1, 1))
-        self.fc = nn.Linear(512 * self.block.expansion, 1)
+        self.resnet_layers = [self._make_layer(64, layers[0], kernel_size)]
+
+        it = zip(layers[1:], stride_type)
+        for i, (num_blocks, stride) in enumerate(it):
+            block_size = 64 * 2 ** (i + 1)
+            layer = self._make_layer(
+                block_size,
+                num_blocks,
+                kernel_size,
+                stride=2,
+                stride_type=stride,
+            )
+            self.resnet_layers.append(layer)
+
+        self.avgpool = nn.AdaptiveAvgPool1d(1)
+        self.fc = nn.Linear(block_size * self.block.expansion, 1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -247,7 +259,7 @@ class ResNet(nn.Module):
         self,
         planes: int,
         blocks: int,
-        kernel_size: int = 8,
+        kernel_size: int = 3,
         stride: int = 1,
         stride_type: Literal["stride", "dilation"] = "stride",
     ) -> nn.Sequential:
@@ -305,10 +317,8 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        for layer in self.resnet_layers:
+            x = layer(x)
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
