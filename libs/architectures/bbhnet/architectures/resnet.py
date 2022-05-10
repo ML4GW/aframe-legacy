@@ -4,7 +4,7 @@ https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
 but with 1d convolutions and arbitrary kernel sizes
 """
 
-from typing import Callable, List, Literal, Optional, Type, Union
+from typing import Callable, List, Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -173,7 +173,7 @@ class ResNet(nn.Module):
             network.
     """
 
-    block: Type[Union[BasicBlock, Bottleneck]] = BasicBlock
+    block = BasicBlock
 
     def __init__(
         self,
@@ -328,3 +328,7 @@ class ResNet(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
+
+
+class BottleneckResNet(ResNet):
+    block = Bottleneck

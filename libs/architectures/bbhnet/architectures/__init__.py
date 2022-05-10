@@ -1,8 +1,8 @@
 import inspect
 
-from .resnet import ResNet
+from .resnet import BottleneckResNet, ResNet
 
-architectures = {"resnet": ResNet}
+architectures = {"resnet": ResNet, "bottleneck": BottleneckResNet}
 
 
 def get_arch_fns(fn, fn_kwargs={}):
