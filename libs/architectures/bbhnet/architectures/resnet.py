@@ -1,8 +1,10 @@
-# in large part lifted from
-# https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
-# but with 1d convolutions and arbitrary kernel sizes
+"""
+In large part lifted from
+https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
+but with 1d convolutions and arbitrary kernel sizes
+"""
 
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, List, Literal, Optional, Type, Union
 
 import torch
 import torch.nn as nn
@@ -161,7 +163,7 @@ class ResNet(nn.Module):
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
-        replace_stride_with_dilation: Optional[List[bool]] = None,
+        stride_type: Optional[List[Literal["stride", "dilation"]]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
     ) -> None:
         super().__init__()
@@ -171,14 +173,14 @@ class ResNet(nn.Module):
 
         self.inplanes = 64
         self.dilation = 1
-        if replace_stride_with_dilation is None:
+        if stride_type is None:
             # each element in the tuple indicates if we should replace
-            # the 2x2 stride with a dilated convolution instead
-            replace_stride_with_dilation = [False, False, False]
-        if len(replace_stride_with_dilation) != 3:
+            # the stride with a dilated convolution instead
+            stride_type = ["stride", "stride", "stride"]
+        if len(stride_type) != 3:
             raise ValueError(
-                "replace_stride_with_dilation should be None "
-                f"or a 3-element tuple, got {replace_stride_with_dilation}"
+                "stride_type should be None or a "
+                f"3-element tuple, got {stride_type}"
             )
 
         self.groups = groups
@@ -201,21 +203,21 @@ class ResNet(nn.Module):
             layers[1],
             kernel_size,
             stride=2,
-            dilate=replace_stride_with_dilation[0],
+            stride_type=stride_type[0],
         )
         self.layer3 = self._make_layer(
             256,
             layers[2],
             kernel_size,
             stride=2,
-            dilate=replace_stride_with_dilation[1],
+            stride_type=stride_type[1],
         )
         self.layer4 = self._make_layer(
             512,
             layers[3],
             kernel_size,
             stride=2,
-            dilate=replace_stride_with_dilation[2],
+            stride_type=stride_type[2],
         )
         self.avgpool = nn.AdaptiveAvgPool1d((1, 1))
         self.fc = nn.Linear(512 * self.block.expansion, 1)
@@ -247,15 +249,19 @@ class ResNet(nn.Module):
         blocks: int,
         kernel_size: int = 8,
         stride: int = 1,
-        dilate: bool = False,
+        stride_type: Literal["stride", "dilation"] = "stride",
     ) -> nn.Sequential:
         block = self.block
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
-        if dilate:
+
+        if stride_type == "dilation":
             self.dilation *= stride
             stride = 1
+        elif stride_type != "stride":
+            raise ValueError("Unknown stride type {stride}")
+
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 conv1(self.inplanes, planes * block.expansion, stride),
