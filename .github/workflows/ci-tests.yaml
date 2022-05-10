@@ -28,20 +28,20 @@ jobs:
       # create filters for each lib so that we
       # only run the tests we absolutely need to
       -
-      uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          io:
-            - 'libs/io/**'
-          analysis:
-            - 'libs/analysis/**'
-          injection:
-            - 'libs/injection/**'
-          data:
-            - 'libs/data/**'
-          generate_waveforms:
-            - 'projects/generate_waveforms/**'
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            io:
+              - 'libs/io/**'
+            analysis:
+              - 'libs/analysis/**'
+            injection:
+              - 'libs/injection/**'
+            data:
+              - 'libs/data/**'
+            generate_waveforms:
+              - 'projects/generate_waveforms/**'
 
       # install gcc for bilby build
       -
