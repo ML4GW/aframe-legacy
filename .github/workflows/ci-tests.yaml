@@ -90,3 +90,4 @@ jobs:
           && (steps.filter.outputs.generate_waveforms == 'true')
         env:
           test_dir: /github/workspace/projects/generate_waveforms
+        run: pinto run $test_dir pytest $test_dir/tests
