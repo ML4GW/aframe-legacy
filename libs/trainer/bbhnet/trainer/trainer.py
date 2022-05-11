@@ -101,14 +101,13 @@ def train(
     waveform_frac: float,
     glitch_frac: float,
     sample_rate: float,
-    min_snr: float,
-    max_snr: float,
-    highpass: float,
     kernel_length: float,
-    batch_size: int,
-    batches_per_epoch: int,
-    valid_frac: Optional[float] = None,
+    min_snr: float = 4,
+    max_snr: float = 1000,
+    highpass: float = 32,
     # optimization params
+    batch_size: int = 64,
+    batches_per_epoch: int = 1000,
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
     lr: float = 1e-3,
@@ -193,6 +192,7 @@ def train(
     logging.info("Building and initializing model")
 
     # hard coded since we haven't generalized to multiple ifos
+    # pull request to generalize dataloader is a WIP
     num_ifos = 2
 
     model = architecture(num_ifos)
@@ -208,8 +208,8 @@ def train(
             f"Initializing model weights from checkpoint '{init_weights}'"
         )
         model.load_state_dict(torch.load(init_weights))
-    logging.info(model)
 
+    logging.info(model)
     logging.info("Initializing loss and optimizer")
 
     # TODO: Allow different loss functions or
