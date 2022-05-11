@@ -1,3 +1,5 @@
+from typing import List
+
 import h5py
 import numpy as np
 import torch
@@ -5,30 +7,48 @@ import torch
 from bbhnet.data.utils import sample_kernels
 
 
-# TODO: generalize to arbitrary ifos
 class GlitchSampler:
-    def __init__(self, glitch_dataset: str, device: str) -> None:
+    def __init__(
+        self, glitch_dataset: str, ifos: List[str], device: str
+    ) -> None:
         # TODO: will these need to be resampled?
-        with h5py.File(glitch_dataset, "r") as f:
-            hanford_glitches = f["H1_glitches"][:]
-            livingston_glitches = f["L1_glitches"][:]
+        self.ifos = ifos
+        self.n_ifos = len(ifos)
 
-        self.hanford = torch.Tensor(hanford_glitches).to(device)
-        self.livingston = torch.Tensor(livingston_glitches).to(device)
+        self.glitches = {}
+        with h5py.File(glitch_dataset, "r") as f:
+            for ifo in ifos:
+                self.glitches[ifo] = f[f"{ifo}_glitches"][:]
+                self.glitches[ifo] = torch.Tensor(self.glitches[ifo]).to(
+                    device
+                )
 
     def sample(self, N: int, size: int) -> np.ndarray:
-        num_hanford = np.random.randint(N)
-        num_livingston = N - num_hanford
 
-        if num_hanford > 0:
-            hanford = sample_kernels(self.hanford, size, num_hanford)
-            hanford = torch.stack(hanford, axis=0)
-        else:
-            hanford = None
+        glitch_count = N
+        sampled_glitches = {}
 
-        if num_livingston > 0:
-            livingston = sample_kernels(self.livingston, size, num_livingston)
-            livingston = torch.stack(livingston, axis=0)
-        else:
-            livingston = None
-        return hanford, livingston
+        for i, ifo in enumerate(self.ifos):
+
+            # if on the last iteration
+            # sample enough glitches for this ifo to
+            # satisfy user request
+            if i == (len(self.ifos) - 1):
+                num = glitch_count
+
+            # otherwise choose random number of glitches
+            else:
+                num = np.random.randint(glitch_count)
+
+            if num > 0:
+                sampled_glitches[ifo] = sample_kernels(
+                    self.glitches[ifo], size, num
+                )
+                sampled_glitches[ifo] = torch.stack(sampled_glitches, axis=0)
+            else:
+                sampled_glitches = None
+
+            # update number of glitches left to sample
+            glitch_count -= num
+
+        return sampled_glitches
