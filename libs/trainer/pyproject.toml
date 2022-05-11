@@ -10,8 +10,10 @@ packages = [
 # readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.11"
+python = "^3.9,<3.10"
 "bbhnet.data" = {path = "../data", develop = true}
+"bbhnet.architectures" = {path = "../architectures", develop = true}
+"hermes.typeo" = "^0.1.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.2"

@@ -32,7 +32,8 @@ def train_for_one_epoch(
 
         # do forward step in mixed precision
         with torch.autocast("cuda"):
-            predictions = model(samples)
+            predictions = torch.flatten(model(samples))
+            targets = torch.flatten(targets)
             loss = criterion(predictions, targets)
 
         train_loss += loss.item()
@@ -77,7 +78,8 @@ def train_for_one_epoch(
         with torch.no_grad():
             for samples, targets in valid_dataset:
 
-                predictions = model(samples)
+                predictions = torch.flatten(model(samples))
+                targets = torch.flatten(targets)
                 loss = criterion(predictions, targets)
 
                 valid_loss += loss.item()
@@ -135,7 +137,6 @@ def train(
         min_snr,
         max_snr,
         highpass,
-        device=device,
     )
 
     # deterministic validation glitch sampler
@@ -144,18 +145,15 @@ def train(
     val_glitch_sampler = GlitchSampler(
         val_files["glitch dataset"],
         device=device,
-        deterministic=True,
-        seed=100,
     )
 
     # deterministic validation waveform sampler
     val_waveform_sampler = WaveformSampler(
         val_files["signal dataset"],
         sample_rate,
+        min_snr,
+        max_snr,
         highpass,
-        device=device,
-        deterministic=True,
-        seed=100,
     )
 
     # create full training dataloader
@@ -215,7 +213,7 @@ def train(
     # TODO: Allow different loss functions or
     # optimizers to be passed?
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.functional.binary_cross_entropy_with_logits
     optimizer = torch.optim.Adam(
         model.parameters(), lr=lr, weight_decay=weight_decay
     )
