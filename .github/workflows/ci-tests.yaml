@@ -56,7 +56,9 @@ jobs:
         if: steps.filter.outputs.architectures == 'true'
         env:
           test_dir: /github/workspace/libs/architectures
-        run: pinto run $test_dir pytest $test_dir/tests
+        run: |
+          pinto build $test_dir -E wrapper
+          pinto run $test_dir pytest $test_dir/tests
 
       # test injection library before the libraries that depend on it
       -
