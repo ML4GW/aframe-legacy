@@ -1,5 +1,6 @@
+import itertools
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import h5py
 import numpy as np
@@ -15,8 +16,9 @@ from bbhnet.data.waveform_sampler import WaveformSampler
 DEFAULT_FFTLENGTH = 2
 
 
-def _build_time_domain_filter(
-    asd: FrequencySeries,
+def _build_time_domain_filters(
+    asds: dict[str, FrequencySeries],
+    ifos: List[str],
     sample_rate: float,
     kernel_length: float,
     fftlength: float = DEFAULT_FFTLENGTH,
@@ -26,9 +28,11 @@ def _build_time_domain_filter(
     indicated timeseries as background. Replicating the
     behavior of `gwpy.timeseries.TimeSeries.whiten`.
     Args:
-        timeseries:
-            Background timeseries whose spectrum to
-            use for whitening
+        asds:
+            dictionary (key is ifo) of asds calculated
+            from background whose spectrum to use for whitening
+        ifos:
+            ifos in asd dictionary
         sample_rate:
             Data rate of timeseries
         kernel_length:
@@ -39,46 +43,61 @@ def _build_time_domain_filter(
         training data
     """
 
-    asd = asd.interpolate(1 / kernel_length)
-    ntaps = int(fftlength * sample_rate)
+    tdfs = {}
+    # TODO: infer the ifos from asd keys?
+    for ifo in ifos:
 
-    tdf = fir_from_transfer(
-        1 / asd.value, ntaps=ntaps, window="hanning", ncorner=0
-    )
-    return tdf
+        asds[ifo] = asds[ifo].interpolate(1 / kernel_length)
+        ntaps = int(fftlength * sample_rate)
+
+        tdfs[ifo] = fir_from_transfer(
+            1 / asds[ifo].value, ntaps=ntaps, window="hanning", ncorner=0
+        )
+
+    return tdfs
 
 
 def _load_background(
     background_file: str,
+    ifos: List[str],
     sample_rate: float,
     device: str,
     fftlength: float = DEFAULT_FFTLENGTH,
 ):
     # TODO: maybe these are gwf and we resample?
+
+    # key: ifo
+    background = {}
+    asd = {}
+    t0 = {}
     with h5py.File(background_file, "r") as f:
-        background = f["hoft"][:]
+        for ifo in ifos:
+            background[ifo] = f[ifo]["hoft"][:]
 
-        # grab the timestamps from the dataset for geocent sampling
-        t0 = f["t0"][()]
+            # grab the timestamps from the dataset for geocent sampling
+            t0[ifo] = f[ifo]["t0"][()]
 
-    # build the asd for building the time domain filter
-    ts = TimeSeries(background, dt=1 / sample_rate)
-    asd = ts.asd(fftlength=fftlength, window="hanning", method="median")
+            # build the asd for building the time domain filter
+            ts = TimeSeries(background, dt=1 / sample_rate)
+            asd[ifo] = ts.asd(
+                fftlength=fftlength, window="hanning", method="median"
+            )
 
-    # move everything onto the GPU up front so that
-    # we don't have to pay for transfer time later.
-    # If our datasets are on the scale of ~GBs this
-    # shouldn't be a problem, esp. for the current
-    # size of BBHNet
-    background = torch.Tensor(background).to(device)
+            # move everything onto the GPU up front so that
+            # we don't have to pay for transfer time later.
+            # If our datasets are on the scale of ~GBs this
+            # shouldn't be a problem, esp. for the current
+            # size of BBHNet
+            background[ifo] = torch.Tensor(background).to(device)
+
     return background, asd, t0
 
 
 class RandomWaveformDataset:
     def __init__(
         self,
-        hanford_background: str,
-        livingston_background: str,
+        ifos: List[str],
+        background: str,
         kernel_length: float,
         sample_rate: float,
         batch_size: int,
@@ -106,17 +125,13 @@ class RandomWaveformDataset:
         before to raising a `StopIteration` to move on to tasks
         like validation.
         Args:
-            hanford_background:
+            ifos:
+                Which interferometers are used in creating dataset
+            background:
                 Path to HDF5 file containing background data for
-                the Hanford interferometer under the dataset
-                key `"hoft"`. Assumed to be sampled at rate
+                all interferometers under the dataset
+                key `"IFO_hoft"`. Assumed to be sampled at rate
                 `sample_rate`.
-            livingston_background:
-                Path to HDF5 file containing background data for
-                the Livingston interferometer under the datset
-                key `"hoft"`. Assumed to be sampled at rate
-                `sample_rate`. Must contain the same amount of
-                data as `hanford_background`.
             kernel_length:
                 The length, in seconds, of each batch element
                 to produce during iteration.
@@ -178,36 +193,35 @@ class RandomWaveformDataset:
         self.batch_size = batch_size
         self.batches_per_epoch = batches_per_epoch
         self.device = device
+        self.ifos = ifos
 
         # load in the background data and build time-domain
         # filters for whitening using them
-        self.hanford_background, hanford_asd, t0 = _load_background(
-            hanford_background, sample_rate, device
-        )
-        self.livingston_background, livingston_asd, t0 = _load_background(
-            livingston_background, sample_rate, device
+
+        self.background, asds, t0 = _load_background(
+            background, ifos, sample_rate, device
         )
 
-        assert len(self.hanford_background) == len(self.livingston_background)
-        tf = t0 + len(self.hanford_background) / sample_rate
+        for ifo_pair in itertools.combinations(ifos, 2):
+            assert len(self.background[ifo_pair[0]]) == len(
+                self.background[ifo_pair[1]]
+            )
+
+        # are we assuming here all background are from same stretch of time ?
+        tf = t0 + len(self.background[ifos[0]]) / sample_rate
 
         # build time-domain filters using the background
         # asd so that we can perform whitening using a
         # grouped 1d convolution at data-loading time
-        hanford_tdf = _build_time_domain_filter(
-            hanford_asd, sample_rate=sample_rate, kernel_length=kernel_length
-        )
-        livingston_tdf = _build_time_domain_filter(
-            livingston_asd,
-            sample_rate=sample_rate,
-            kernel_length=kernel_length,
+        tdfs = _build_time_domain_filters(
+            asds, sample_rate=sample_rate, kernel_length=kernel_length
         )
 
         # move the filters to a single torch Tensor
         # on the desired device, adding a dummy dimension
         # in the middle for compatability with Torch's
         # conv op's expectations
-        whitening_filter = np.stack([hanford_tdf, livingston_tdf])
+        whitening_filter = np.stack([list(tdfs.values())])
         self.whitening_filter = torch.Tensor(whitening_filter[:, None]).to(
             device
         )
@@ -228,14 +242,14 @@ class RandomWaveformDataset:
 
             # give the asds channel names so that the waveform
             # sampler knows which ifo responses to calculate
-            if hanford_asd.channel is None:
-                hanford_asd.channel = "H1:STRAIN"
-            if livingston_asd.channel is None:
-                livingston_asd.channel = "L1:STRAIN"
+            for ifo in ifos:
+
+                if asds[ifo].channel is None:
+                    asds[ifo].channel = f"{ifo}:STRAIN"
 
             # now fit the the waveform_sampler's background_asd
             # attribute to the given asds for the snr computation
-            waveform_sampler.fit(t0, tf, hanford_asd, livingston_asd)
+            waveform_sampler.fit(t0, tf, *asds.values())
 
             # assign our attributes
             self.waveform_sampler = waveform_sampler
@@ -280,19 +294,19 @@ class RandomWaveformDataset:
             to make use of pre-sampled idx
         """
 
-        hanford_kernels = sample_kernels(
-            self.hanford_background, self.kernel_size, self.batch_size
-        )
-        livingston_kernels = sample_kernels(
-            self.livingston_background, self.kernel_size, self.batch_size
-        )
+        # sample kernels for each ifo
+        kernels = {}
+        for ifo in self.ifos:
+            kernels[ifo] = sample_kernels(
+                self.background[ifo], self.kernel_size, self.batch_size
+            )
 
         # interweave these kernels along the 0th axis so that
         # a reshape puts them in the right channel dimension
-        kernels = zip(hanford_kernels, livingston_kernels)
+        kernels = zip(*kernels.values())
         kernels = [i for j in kernels for i in j]
         kernels = torch.stack(kernels, dim=0)
-        return kernels.reshape(self.batch_size, 2, -1)
+        return kernels.reshape(self.batch_size, len(self.ifos), -1)
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
         """Detrend and time-domain filter an array
@@ -341,19 +355,17 @@ class RandomWaveformDataset:
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitch_sampler is not None:
-            hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
+            glitches = self.glitch_sampler.sample(
                 self.num_glitches, self.kernel_size
             )
 
-            if hanford_glitches is not None:
-                X[: len(hanford_glitches), 0] = hanford_glitches
-                idx = len(hanford_glitches)
-            else:
-                idx = 0
-
-            if livingston_glitches is not None:
-                slc = slice(idx, idx + len(livingston_glitches))
-                X[slc, 1] = livingston_glitches
+            idx = 0
+            for i, ifo in enumerate(self.ifos):
+                if glitches[ifo] is not None:
+                    X[idx : len(glitches[ifo]), i] = glitches[ifo]
+                    idx = len(glitches[ifo])
+                else:
+                    idx = 0
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
