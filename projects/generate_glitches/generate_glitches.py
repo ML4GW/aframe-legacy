@@ -1,6 +1,5 @@
-import glob
 import logging
-import os
+from pathlib import Path
 from typing import Optional
 
 import gwdatafind
@@ -12,17 +11,16 @@ from hermes.typeo import typeo
 from tqdm import tqdm
 
 """
-Tools to generate a dataset of glitches from omicron triggers.
+Script to generate a dataset of glitches from omicron triggers.
 
 For information on how the omicron triggers were generated see:
 
 /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/12566/H1L1_1256665618_100000
 /runfiles/omicron_params_H1.txt
-
 on CIT cluster for an example omicron parameter file.
 
-Of note is the clustering timescale of 1 second
-
+The code used to generate the omicron runs is based on the oLIB algorithm.
+Email emarx@mit.edu for any questions or concerns
 """
 
 
@@ -35,7 +33,7 @@ def veto(times: list, segmentlist: SegmentList):
 
     Arguments:
     - times: the times of event triggers to veto
-    - segmentliss: the list of veto segments to use
+    - segmentlist: the list of veto segments to use
 
     Returns:
     - keep_bools: list of booleans; True for the triggers to keep
@@ -112,7 +110,6 @@ def generate_glitch_dataset(
             (first column is gps times, 3rd column is snrs)
     - vetoes: SegmentList object of times to ignore
     """
-    print(gwdatafind.find_urls)
     glitches = []
     snrs = []
 
@@ -123,20 +120,17 @@ def generate_glitch_dataset(
     # load in triggers
     triggers = np.loadtxt(trig_file)
 
+    # restrict triggers to within gps start and stop times
+    # and apply snr threshold
+    times = triggers[:, time_col]
+    mask = (times > start) & (times < stop)
+    mask &= triggers[:, snr_col] > snr_thresh
+    triggers = triggers[mask]
+
     # if passed, apply vetos
     if vetoes is not None:
         keep_bools = veto(triggers[:, time_col], vetoes)
         triggers = triggers[keep_bools]
-
-    # restrict triggers to within gps start and stop times
-    times = triggers[:, time_col]
-    time_args = np.logical_and(times > start, times < stop)
-    triggers = triggers[time_args]
-
-    # apply snr thresh
-    day_snrs = triggers[:, snr_col]  # second column is snrs
-    snr_thresh_args = np.where(day_snrs > snr_thresh)
-    triggers = triggers[snr_thresh_args]
 
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers[:, time_col]) - 2 * window
@@ -179,7 +173,7 @@ def generate_glitch_dataset(
             glitches.append(glitch_ts)
 
         except ValueError:
-            logging.info(f"Data not available for trigger at time: {time}")
+            logging.warning(f"Data not available for trigger at time: {time}")
             continue
 
     glitches = np.array(glitches)
@@ -193,8 +187,8 @@ def main(
     start: float,
     stop: float,
     window: float,
-    omicron_dir: str,
-    out_dir: str,
+    omicron_dir: Path,
+    out_dir: Path,
     channel: str,
     frame_type: str,
     sample_rate: float = 4096,
@@ -223,7 +217,7 @@ def main(
 
     # create logging file in model_dir
     logging.basicConfig(
-        filename=f"{out_dir}/log.log",
+        filename=out_dir / "log.log",
         format="%(message)s",
         filemode="w",
         level=logging.INFO,
@@ -267,8 +261,8 @@ def main(
     # omicron triggers for arbitrary stretches of data,
     # channels, parameters etc..
 
-    gps_day_start = str(start)[:5]
-    gps_day_end = str(stop)[:5]
+    gps_day_start = start // 100000
+    gps_day_end = stop // 100000
     all_gps_days = np.arange(int(gps_day_start), int(gps_day_end) + 1, 1)
 
     H1_glitches = []
@@ -278,20 +272,17 @@ def main(
     L1_snrs = []
 
     # loop over gps days
-    for i, day in enumerate(all_gps_days):
+    for day in all_gps_days:
 
         # get path for this gps day
-        omicron_path = os.path.join(
-            omicron_dir, f"{day}/*/PostProc/unclustered/"
+        omicron_day_path = omicron_dir / day
+        trigger_path = omicron_day_path.glob(
+            "*" / Path("PostProc/unclustered/")
         )
 
         # the path to the omicron triggers
-        H1_trig_file = glob.glob(
-            os.path.join(omicron_path, "triggers_unclustered_H1.txt")
-        )[0]
-        L1_trig_file = glob.glob(
-            os.path.join(omicron_path, "triggers_unclustered_L1.txt")
-        )[0]
+        H1_trig_file = trigger_path / Path("triggers_unclustered_H1.txt")
+        L1_trig_file = trigger_path / Path("triggers_unclustered_L1.txt")
 
         H1_day_glitches, H1_day_snrs = generate_glitch_dataset(
             "H1",
@@ -326,7 +317,7 @@ def main(
         H1_snrs.append(H1_day_snrs)
         L1_snrs.append(L1_day_snrs)
 
-    glitch_file = os.path.join(out_dir, "glitches.h5")
+    glitch_file = out_dir / Path("glitches.h5")
 
     with h5py.File(glitch_file, "w") as f:
         f.create_dataset("H1_glitches", data=H1_glitches)
