@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
@@ -98,8 +99,8 @@ def train(
     architecture: Callable,
     output_directory: str,
     # data params
-    train_files: dict,
-    val_files: dict,
+    train_files: dict[str, Path],
+    val_files: dict[str, Path],
     waveform_frac: float,
     glitch_frac: float,
     sample_rate: float,
@@ -121,7 +122,82 @@ def train(
     device: Optional[str] = None,
     profile: bool = False,
 ) -> float:
-    # TODO: add documentation
+
+    """Train BBHnet model on in-memory data
+    Args:
+        architecture:
+            A callable which takes as its only input the number
+            of ifos, and returns an initialized torch
+            Module
+        output_directory:
+            Location to save training artifacts like optimized
+            weights, preprocessing objects, and visualizations
+        train_files:
+            Dictionary containing paths to training files
+            keys: glitch_dataset, signal_dataset, hanford_background,
+            livingston_background
+        val_files:
+            Dictionary containing paths to validation files with
+            same keys as training files
+        waveform_frac:
+            The fraction of waveforms in each batch
+        glitch_frac:
+            The fraction of glitches in each batch
+        sample_rate:
+            The rate at which all relevant input data has
+            been sampled
+        kernel_length:
+            The length, in seconds, of each batch element
+            to produce during iteration.
+        min_snr:
+            Minimum SNR value for sampled waveforms.
+        max_snr:
+            Maximum SNR value for sampled waveforms.
+        highpass:
+            Frequencies above which to keep
+        batch_size:
+            Number of samples to produce during at each
+            iteration
+        batches_per_epoch:
+            The number of batches to produce before raising
+            a `StopIteration` while iteratingkernel_length:
+        max_epochs:
+            Maximum number of epochs over which to train.
+        init_weights:
+            Path to weights with which to initialize network. If
+            left as `None`, network will be randomly initialized.
+            If `init_weights` is a directory, it will be assumed
+            that this directory contains a file called `weights.pt`.
+        lr:
+            Learning rate to use during training.
+        weight_decay:
+            Amount of regularization to apply during training.
+        patience:
+            Number of epochs without improvement in validation
+            loss before learning rate is reduced. If left as
+            `None`, learning rate won't be scheduled. Ignored
+            if `valid_data is None`
+        factor:
+            Factor by which to reduce the learning rate after
+            `patience` epochs without improvement in validation
+            loss. Ignored if `valid_data is None` or
+            `patience is None`.
+        early_stop:
+            Number of epochs without improvement in validation
+            loss before training terminates altogether. Ignored
+            if `valid_data is None`.
+        device:
+            Indicating which device (i.e. cpu or gpu) to run on. Use
+            `"cuda"` to use the default GPU available, or `"cuda:{i}`"`,
+            where `i` is a valid GPU index on your machine, to specify
+            a specific GPU (alternatively, consider setting the environment
+            variable `CUDA_VISIBLE_DEVICES=${i}` and using just `"cuda"`
+            here).
+        profile:
+            Whether to generate a tensorboard profile of the
+            training step on the first epoch. This will make
+            this first epoch slower.
+    """
 
     os.makedirs(output_directory, exist_ok=True)
 
