@@ -34,7 +34,7 @@ def veto(times: list, segmentlist: SegmentList):
     A time ``t`` will be vetoed if ``start <= t <= end`` for any veto
     segment in the list.
 
-    Arguments:
+    Args:
     - times: the times of event triggers to veto
     - segmentlist: the list of veto segments to use
 
@@ -293,15 +293,25 @@ def main(
     - snr_thresh: snr threshold above which to keep as glitch
     - start: start gpstime
     - stop: stop gpstime
+    - q_min: minimum q value of tiles for omicron
+    - q_max: maximum q value of tiles for omicron
+    - f_min: lowest frequency for omicron to consider
+    - cluster_dt: time window for omicron to cluster neighboring triggers
+    - chunk_duration: duration of data (seconds) for PSD estimation
+    - segment_duration: duration of data (seconds) for FFT
+    - overlap: overlap (seconds) between neighbouring segments and chunks
+    - mismatch_max: maximum distance between (Q, f) tiles
     - window: half window around trigger time to query data for
     - sample_rate: sampling frequency
     - out_dir: output directory to which signals will be written
-    - omicron_dir: base directory of omicron triggers
-            (see /home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/)
     - channel: channel name used to read data
     - frame_type: frame type for data discovery w/ gwdatafind
-    - H1_veto_file: path to file containing vetoes for H1
-    - L1_veto_file: path to file containing vetoes for L1
+    - sample_rate: sampling frequency of timeseries data
+    - state_flag: identifier for which segments to use
+    - ifos: which ifos to generate glitches for
+    - veto_files:
+        dictionary where key is ifo and value is path
+        to file containing vetoes
     """
 
     # TODO: add check that system has condor installation.
@@ -309,6 +319,7 @@ def main(
     # but for now using condor will speed up jobs.
 
     os.makedirs(out_dir, exist_ok=True)
+
     # create logging file in model_dir
     logging.basicConfig(
         filename=out_dir / "log.log",
@@ -327,7 +338,7 @@ def main(
         run_dir = out_dir / ifo
         os.makedirs(run_dir, exist_ok=True)
 
-        # launch omicron job
+        # launch omicron dag for ifo
         omicron_main_wrapper(
             start,
             stop,
@@ -349,7 +360,7 @@ def main(
             run_dir,
         )
 
-        # if passed, load in vetoes and convert to gwpy SegmentList object
+        # load in vetoes and convert to gwpy SegmentList object
         if veto_files is not None:
             veto_file = veto_files[ifo]
 
@@ -370,6 +381,7 @@ def main(
         trigger_dir = run_dir / "triggers" / f"{ifo}:{channel}"
         trigger_file = list(trigger_dir.glob("*.h5"))[0]
 
+        # generate glitches
         glitches, snrs = generate_glitch_dataset(
             ifo,
             snr_thresh,
