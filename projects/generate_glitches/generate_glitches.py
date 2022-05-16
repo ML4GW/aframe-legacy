@@ -308,6 +308,7 @@ def main(
     # In the future, we can try to eliminate condor dependency,
     # but for now using condor will speed up jobs.
 
+    os.makedirs(out_dir, exist_ok=True)
     # create logging file in model_dir
     logging.basicConfig(
         filename=out_dir / "log.log",
@@ -326,7 +327,7 @@ def main(
         run_dir = out_dir / ifo
         os.makedirs(run_dir, exist_ok=True)
 
-        # launch omicron job and return condor dagid
+        # launch omicron job
         omicron_main_wrapper(
             start,
             stop,
@@ -382,7 +383,7 @@ def main(
             vetoes=vetoes,
         )
 
-        with h5py.File(glitch_file, "w") as f:
+        with h5py.File(glitch_file, "a") as f:
             f.create_dataset(f"{ifo}_glitches", data=glitches)
             f.create_dataset(f"{ifo}_snrs", data=snrs)
 
