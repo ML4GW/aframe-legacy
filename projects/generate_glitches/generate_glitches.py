@@ -14,16 +14,7 @@ from omicron.cli.process import main as omicron_main
 from tqdm import tqdm
 
 """
-Script to generate a dataset of glitches from omicron triggers.
-
-For information on how the omicron triggers were generated see:
-
-/home/ethan.marx/bbhnet/generate-glitch-dataset/omicron/12566/H1L1_1256665618_100000
-/runfiles/omicron_params_H1.txt
-on CIT cluster for an example omicron parameter file.
-
-The code used to generate the omicron runs is based on the oLIB algorithm.
-Email emarx@mit.edu for any questions or concerns
+Script that generates a dataset of glitches from omicron triggers.
 """
 
 
@@ -118,20 +109,22 @@ def generate_glitch_dataset(
     snrs = []
 
     # load in triggers
-    triggers = h5py.File(trig_file)["triggers"][()]
+    with h5py.File(trig_file) as f:
+        triggers = f["triggers"][()]
 
-    # restrict triggers to within gps start and stop times
-    # and apply snr threshold
-    times = triggers["time"][()]
-    mask = (times > start) & (times < stop)
-    mask &= triggers["snr"][()] > snr_thresh
-    triggers = triggers[mask]
+        # restrict triggers to within gps start and stop times
+        # and apply snr threshold
+        times = triggers["time"][()]
+        mask = (times > start) & (times < stop)
+        mask &= triggers["snr"][()] > snr_thresh
+        triggers = triggers[mask]
 
     # if passed, apply vetos
     if vetoes is not None:
         keep_bools = veto(times, vetoes)
         times = times[keep_bools]
         snrs = snrs[keep_bools]
+
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - 2 * window
     stop = np.max(triggers["time"]) + 2 * window
