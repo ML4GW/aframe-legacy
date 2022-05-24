@@ -1,23 +1,18 @@
 import logging
 import os
 import time
-from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional, Tuple
 
 import numpy as np
 import torch
-
-from bbhnet.data import RandomWaveformDataset
-from bbhnet.data.glitch_sampler import GlitchSampler
-from bbhnet.data.waveform_sampler import WaveformSampler
 
 
 def train_for_one_epoch(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module,
-    train_dataset: RandomWaveformDataset,
-    valid_dataset: Optional[RandomWaveformDataset] = None,
+    train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     profiler: Optional[torch.profiler.profile] = None,
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
 ):
@@ -99,18 +94,9 @@ def train(
     architecture: Callable,
     output_directory: str,
     # data params
-    train_files: dict[str, Path],
-    val_files: dict[str, Path],
-    waveform_frac: float,
-    glitch_frac: float,
-    sample_rate: float,
-    kernel_length: float,
-    min_snr: float = 4,
-    max_snr: float = 1000,
-    highpass: float = 32,
+    train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     # optimization params
-    batch_size: int = 64,
-    batches_per_epoch: int = 1000,
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
     lr: float = 1e-3,
@@ -132,35 +118,12 @@ def train(
         output_directory:
             Location to save training artifacts like optimized
             weights, preprocessing objects, and visualizations
-        train_files:
-            Dictionary containing paths to training files
-            keys: glitch_dataset, signal_dataset, hanford_background,
-            livingston_background
-        val_files:
-            Dictionary containing paths to validation files with
-            same keys as training files
-        waveform_frac:
-            The fraction of waveforms in each batch
-        glitch_frac:
-            The fraction of glitches in each batch
-        sample_rate:
-            The rate at which all relevant input data has
-            been sampled
-        kernel_length:
-            The length, in seconds, of each batch element
-            to produce during iteration.
-        min_snr:
-            Minimum SNR value for sampled waveforms.
-        max_snr:
-            Maximum SNR value for sampled waveforms.
-        highpass:
-            Frequencies above which to keep
-        batch_size:
-            Number of samples to produce during at each
-            iteration
-        batches_per_epoch:
-            The number of batches to produce before raising
-            a `StopIteration` while iteratingkernel_length:
+        train_dataset:
+            An Iterable of (X, y) pairs where X is a batch of training
+            data and y is the corresponding targets
+        valid_dataset:
+            An Iterable of (X, y) pairs where X is a batch of training
+            data and y is the corresponding targets
         max_epochs:
             Maximum number of epochs over which to train.
         init_weights:
@@ -200,67 +163,6 @@ def train(
     """
 
     os.makedirs(output_directory, exist_ok=True)
-
-    # initiate training glitch sampler
-    train_glitch_sampler = GlitchSampler(
-        train_files["glitch dataset"], device=device
-    )
-
-    # initiate training waveform sampler
-    train_waveform_sampler = WaveformSampler(
-        train_files["signal dataset"],
-        sample_rate,
-        min_snr,
-        max_snr,
-        highpass,
-    )
-
-    # deterministic validation glitch sampler
-    # 'determinisitc' key word not yet implemented,
-    # just an idea.
-    val_glitch_sampler = GlitchSampler(
-        val_files["glitch dataset"],
-        device=device,
-    )
-
-    # deterministic validation waveform sampler
-    val_waveform_sampler = WaveformSampler(
-        val_files["signal dataset"],
-        sample_rate,
-        min_snr,
-        max_snr,
-        highpass,
-    )
-
-    # create full training dataloader
-    train_dataset = RandomWaveformDataset(
-        train_files["hanford background"],
-        train_files["livingston background"],
-        kernel_length,
-        sample_rate,
-        batch_size,
-        batches_per_epoch,
-        train_waveform_sampler,
-        waveform_frac,
-        train_glitch_sampler,
-        glitch_frac,
-        device,
-    )
-
-    # create full validation dataloader
-    valid_dataset = RandomWaveformDataset(
-        val_files["hanford background"],
-        val_files["livingston background"],
-        kernel_length,
-        sample_rate,
-        batch_size,
-        batches_per_epoch,
-        val_waveform_sampler,
-        waveform_frac,
-        val_glitch_sampler,
-        glitch_frac,
-        device,
-    )
 
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")

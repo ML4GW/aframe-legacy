@@ -24,7 +24,8 @@ def _configure_wrapper(f, wrapper):
 
     for param in train_sig.parameters.values():
         if (
-            param.name not in ("train_files", "val_files", "architecture")
+            param.name
+            not in ("train_dataset", "valid_dataset", "architecture")
             and param.name not in f_sig.parameters
         ):
             parameters.append(param)
@@ -73,7 +74,7 @@ def trainify(f):
         # f returns training and validation
         # glitch, signal and background dataset files
 
-        train_files, val_files = f(*args, **kwargs)
+        train_dataset, valid_dataset = f(*args, **kwargs)
 
         # pass any args passed to this wrapper that
         # `train` needs into the `train_kwargs` dictionary
@@ -87,8 +88,8 @@ def trainify(f):
                 train_kwargs[k] = v
 
         # add in the parsed data to our training kwargs
-        train_kwargs["train_files"] = train_files
-        train_kwargs["val_files"] = val_files
+        train_kwargs["train_dataset"] = train_dataset
+        train_kwargs["valid_dataset"] = valid_dataset
 
         # allow wrapper functionality to be utilized if
         # `f` is called with an "arch" parameter
@@ -117,7 +118,7 @@ def trainify(f):
         else:
             # otherwise just return the train and valid datasets, equivalent
             # to running `f` without any wrapper functionality
-            result = train_files, val_files
+            result = train_dataset, valid_dataset
 
         return result
 

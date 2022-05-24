@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import pytest
 
+from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
 from bbhnet.trainer.wrapper import trainify
 
 
@@ -79,7 +80,7 @@ def create_all_data_files(datadir):
     create_data_file(datadir, "signals_val.h5", ["signals"], [fake_waveforms])
 
 
-def return_random_data_files(
+def return_random_waveform_datasets(
     data_directory: str, output_directory: str, **kwargs
 ):
 
@@ -105,29 +106,94 @@ def return_random_data_files(
         ),
     }
 
-    return train_files, val_files
+    min_snr = 4
+    max_snr = 100
+    highpass = 32
+    device = "cpu"
+    sample_rate = 2048
+    glitch_frac = 0.4
+    waveform_frac = 0.4
+    batches_per_epoch = 20
+    batch_size = 64
+    kernel_length = 2
+    # initiate training glitch sampler
+    train_glitch_sampler = GlitchSampler(
+        train_files["glitch dataset"], device=device
+    )
+
+    # initiate training waveform sampler
+    train_waveform_sampler = WaveformSampler(
+        train_files["signal dataset"],
+        sample_rate,
+        min_snr,
+        max_snr,
+        highpass,
+    )
+
+    # deterministic validation glitch sampler
+    # 'determinisitc' key word not yet implemented,
+    # just an idea.
+    val_glitch_sampler = GlitchSampler(
+        val_files["glitch dataset"],
+        device=device,
+    )
+
+    # deterministic validation waveform sampler
+    val_waveform_sampler = WaveformSampler(
+        val_files["signal dataset"],
+        sample_rate,
+        min_snr,
+        max_snr,
+        highpass,
+    )
+
+    # create full training dataloader
+    train_dataset = RandomWaveformDataset(
+        train_files["hanford background"],
+        train_files["livingston background"],
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        train_waveform_sampler,
+        waveform_frac,
+        train_glitch_sampler,
+        glitch_frac,
+        device,
+    )
+
+    # create full validation dataloader
+    valid_dataset = RandomWaveformDataset(
+        val_files["hanford background"],
+        val_files["livingston background"],
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        val_waveform_sampler,
+        waveform_frac,
+        val_glitch_sampler,
+        glitch_frac,
+        device,
+    )
+
+    return train_dataset, valid_dataset
 
 
 def test_wrapper(data_directory, output_directory):
 
-    fn = trainify(return_random_data_files)
+    fn = trainify(return_random_waveform_datasets)
 
     # make sure we can run the function as-is with regular arguments
-    train_files, val_files = fn(data_directory, output_directory)
-    assert "glitch dataset" in train_files.keys()
-    assert "hanford background" in val_files.keys()
+    train_dataset, valid_dataset = fn(data_directory, output_directory)
+    assert isinstance(train_dataset, RandomWaveformDataset)
+    assert isinstance(valid_dataset, RandomWaveformDataset)
 
     # call function passing keyword args
     # for train function
     result = fn(
         data_directory,
         output_directory,
-        waveform_frac=0.2,
-        glitch_frac=0.3,
-        kernel_length=1,
-        batch_size=10,
-        batches_per_epoch=2,
-        sample_rate=2048,
         max_epochs=1,
         arch="resnet",
         layers=[2, 2, 2],
@@ -140,18 +206,6 @@ def test_wrapper(data_directory, output_directory):
         str(data_directory),
         "--output-directory",
         str(output_directory),
-        "--kernel-length",
-        "1",
-        "--waveform-frac",
-        "0.3",
-        "--glitch-frac",
-        "0.2",
-        "--batches-per-epoch",
-        "2",
-        "--batch-size",
-        "10",
-        "--sample-rate",
-        "256",
         "--max-epochs",
         "1",
         "resnet",

@@ -1,3 +1,4 @@
+from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
 from bbhnet.trainer.wrapper import trainify
 
 # note that this function decorator acts both to
@@ -24,29 +25,105 @@ def main(
     livingston_background: str,
     val_hanford_background: str,
     val_livingston_background: str,
+    waveform_frac: float,
+    glitch_frac: float,
+    kernel_length: float,
+    min_snr: float,
+    max_snr: float,
+    highpass: float,
+    sample_rate: float,
+    batch_size: int,
+    batches_per_epoch: int,
+    device: str,
     **kwargs
 ):
+    """
+    waveform_frac:
+        The fraction of waveforms in each batch
+    glitch_frac:
+        The fraction of glitches in each batch
+    sample_rate:
+        The rate at which all relevant input data has
+        been sampled
+    kernel_length:
+        The length, in seconds, of each batch element
+        to produce during iteration.
+    min_snr:
+        Minimum SNR value for sampled waveforms.
+    max_snr:
+        Maximum SNR value for sampled waveforms.
+    highpass:
+        Frequencies above which to keep
+    batch_size:
+        Number of samples to produce during at each
+        iteration
+    batches_per_epoch:
+        The number of batches to produce before raising
+        a `StopIteration` while iteratingkernel_length:
+    """
+
     # TODO: maybe package up hanford and livingston
     # (or any arbitrary set of ifos) background files into one
     # for simplicity
 
-    # is this packaging into dict possibly redundant or unnecessary?
-    # idea was to simplify arguments to train function
+    # initiate training glitch sampler
+    train_glitch_sampler = GlitchSampler(glitch_dataset, device=device)
 
-    # package training files into dictionary
-    train_files = {
-        "glitch dataset": glitch_dataset,
-        "signal dataset": signal_dataset,
-        "hanford background": hanford_background,
-        "livingston background": livingston_background,
-    }
+    # initiate training waveform sampler
+    train_waveform_sampler = WaveformSampler(
+        signal_dataset,
+        sample_rate,
+        min_snr,
+        max_snr,
+        highpass,
+    )
 
-    # package validation files into dictionary
-    val_files = {
-        "glitch dataset": val_glitch_dataset,
-        "signal dataset": val_signal_dataset,
-        "hanford background": val_hanford_background,
-        "livingston background": val_livingston_background,
-    }
+    # TODO: incorporate Erics deterministic
+    # sampling into validation loaders
 
-    return train_files, val_files
+    # deterministic validation glitch sampler
+    val_glitch_sampler = GlitchSampler(
+        val_glitch_dataset,
+        device=device,
+    )
+
+    # deterministic validation waveform sampler
+    val_waveform_sampler = WaveformSampler(
+        val_signal_dataset,
+        sample_rate,
+        min_snr,
+        max_snr,
+        highpass,
+    )
+
+    # create full training dataloader
+    train_dataset = RandomWaveformDataset(
+        hanford_background,
+        livingston_background,
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        train_waveform_sampler,
+        waveform_frac,
+        train_glitch_sampler,
+        glitch_frac,
+        device,
+    )
+
+    # create full validation dataloader
+    valid_dataset = RandomWaveformDataset(
+        val_hanford_background,
+        val_livingston_background,
+        kernel_length,
+        sample_rate,
+        batch_size,
+        batches_per_epoch,
+        val_waveform_sampler,
+        waveform_frac,
+        val_glitch_sampler,
+        glitch_frac,
+        device,
+    )
+
+    return train_dataset, valid_dataset
