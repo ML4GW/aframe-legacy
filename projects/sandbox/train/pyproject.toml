@@ -9,6 +9,8 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.9"
 
+[tool.poetry.scripts]
+train = "train.train:main"
 
 [build-system]
 requires = ["poetry-core"]
