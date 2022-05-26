@@ -16,7 +16,7 @@ pytest = "^6.2"
 [tool.typeo]
 outdir = "${OUT_DIR}"
 n_samples = 10000
-prior_file = "${PRIOR_FILE}"
+prior_file = "./priors/nonspin_BBH.prior"
 
 # don't think we need the 
 # 4096 default specified
