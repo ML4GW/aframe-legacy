@@ -271,6 +271,7 @@ def main(
     state_flag: str,
     ifos: List[str],
     veto_files: Optional[dict[str, str]] = None,
+    force_generation: bool = False,
 ):
 
     """Generates a set of glitches for both
@@ -323,6 +324,10 @@ def main(
 
     # output file
     glitch_file = outdir / Path("glitches.h5")
+
+    if os.path.exists(glitch_file) and not force_generation:
+        logging.info("Glitch file exists, not generating glitvches")
+        return
 
     # nyquist
     f_max = sample_rate / 2

@@ -20,6 +20,7 @@ def main(
     outdir: Path,
     waveform_duration: float = 8,
     sample_rate: float = 4096,
+    force_generation: bool = False,
 ):
 
     """Simulates a set of raw BBH signals and saves them to an output file.
@@ -30,10 +31,17 @@ def main(
         outdir: output directory to which signals will be written
         waveform_duration: length of injected waveforms
         sample_rate: sample rate of the signal in Hz
-
+        force_generation: if True, generate signals even if path already exists
     Returns:
         path to output file
     """
+
+    # check if signal file already exists
+    signal_file = os.path.join(outdir, "signals.h5")
+
+    if os.path.exists(signal_file) and not force_generation:
+        logging.info("Signal file already exists, exiting")
+        return
 
     # log and print out some simulation parameters
     logging.info("Simulation parameters")
