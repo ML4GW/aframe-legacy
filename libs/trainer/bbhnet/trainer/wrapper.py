@@ -75,7 +75,9 @@ def trainify(f):
         # glitch, signal and background dataset files
 
         data = f(*args, **kwargs)
-        if len(data) == 2:
+        # if valid dataset is passed
+        # data needs to be unpacked
+        if isinstance(data, tuple):
             train_dataset, valid_dataset = data
         else:
             train_dataset = data
