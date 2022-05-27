@@ -1,5 +1,5 @@
 from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
-from bbhnet.trainer.wrapper import trainify
+from bbhnet.trainer import trainify
 
 # note that this function decorator acts both to
 # wrap this function such that the outputs of it

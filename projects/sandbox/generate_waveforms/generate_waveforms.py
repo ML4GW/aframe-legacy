@@ -36,6 +36,9 @@ def main(
         path to output file
     """
 
+    # make output dir
+    os.makedirs(outdir, exist_ok=True)
+
     # check if signal file already exists
     signal_file = os.path.join(outdir, "signals.h5")
 
@@ -69,10 +72,6 @@ def main(
     signals = generate_gw(sample_params, waveform_generator=waveform_generator)
 
     # Write params and similar to output file
-    prior_name = os.path.basename(prior_file)[:-6]
-    signal_file = os.path.join(
-        outdir, f"signal_file_{prior_name}-{waveform_duration}.h5"
-    )
 
     with h5py.File(signal_file, "w") as f:
         # write signals attributes, snr, and signal parameters

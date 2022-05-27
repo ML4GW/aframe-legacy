@@ -26,7 +26,7 @@ segment_duration = 64
 overlap = 4 
 mismatch_max = 0.2
 state_flag = "DCS-ANALYSIS_READY_C01:1"
-force_generation = true
+force_generation = false
 ifos = "${base.ifos}"
 outdir = "${base.outdir}/data"
 sample_rate = "${base.sample_rate}"
@@ -37,7 +37,7 @@ n_samples = 10000
 prior_file = "./generate_waveforms/priors/nonspin_BBH.prior"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = 8
-force_generation = true
+force_generation = false
 
 [tool.typeo.scripts.train]
 
@@ -47,25 +47,22 @@ glitch_dataset = "${base.outdir}/data/glitches.h5"
 signal_dataset = "${base.outdir}/data/signals.h5"
 outdir = "${base.outdir}/training"
 
-sample_rate = ${base.sample_rate} 
+sample_rate = "${base.sample_rate}"
 waveform_frac = 0.4
 glitch_frac = 0.4
 min_snr = 4
 max_snr = 1000
 highpass = 32
 kernel_length = 1 
-
+validate = false
 batch_size = 256 
 batches_per_epoch = 40
-valid_frac = 0.2
 max_epochs = 100
 lr = 3.2e-2
 weight_decay = 1e-5
 patience = 25
 factor = 0.2
 early_stop = 100
-device = "cuda"
+device = "cpu"
 profile = false
-verbose = true 
-
-commands.resnet = {layers = [2, 2, 2], }
+commands.resnet = {layers = [2, 2, 2]}

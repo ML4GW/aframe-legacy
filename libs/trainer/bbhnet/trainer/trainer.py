@@ -92,7 +92,7 @@ def train_for_one_epoch(
 
 def train(
     architecture: Callable,
-    output_directory: str,
+    outdir: str,
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
@@ -115,7 +115,7 @@ def train(
             A callable which takes as its only input the number
             of ifos, and returns an initialized torch
             Module
-        output_directory:
+        outdir:
             Location to save training artifacts like optimized
             weights, preprocessing objects, and visualizations
         train_dataset:
@@ -162,7 +162,7 @@ def train(
             this first epoch slower.
     """
 
-    os.makedirs(output_directory, exist_ok=True)
+    os.makedirs(outdir, exist_ok=True)
 
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
@@ -219,7 +219,7 @@ def train(
             profiler = torch.profiler.profile(
                 schedule=torch.profiler.schedule(wait=0, warmup=1, active=10),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                    os.path.join(output_directory, "profile")
+                    os.path.join(outdir, "profile")
                 ),
             )
             profiler.start()
@@ -259,7 +259,7 @@ def train(
                 )
                 best_valid_loss = valid_loss
 
-                weights_path = os.path.join(output_directory, "weights.pt")
+                weights_path = os.path.join(outdir, "weights.pt")
                 torch.save(model.state_dict(), weights_path)
                 since_last_improvement = 0
             else:
