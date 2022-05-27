@@ -12,7 +12,7 @@ def train_for_one_epoch(
     optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module,
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
-    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
     profiler: Optional[torch.profiler.profile] = None,
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
 ):
@@ -95,7 +95,7 @@ def train(
     output_directory: str,
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
-    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
     # optimization params
     max_epochs: int = 40,
     init_weights: Optional[str] = None,

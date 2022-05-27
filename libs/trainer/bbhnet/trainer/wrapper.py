@@ -74,7 +74,12 @@ def trainify(f):
         # f returns training and validation
         # glitch, signal and background dataset files
 
-        train_dataset, valid_dataset = f(*args, **kwargs)
+        data = f(*args, **kwargs)
+        if len(data) == 2:
+            train_dataset, valid_dataset = data
+        else:
+            train_dataset = data
+            valid_dataset = None
 
         # pass any args passed to this wrapper that
         # `train` needs into the `train_kwargs` dictionary

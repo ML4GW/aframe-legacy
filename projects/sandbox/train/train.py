@@ -19,12 +19,8 @@ from bbhnet.trainer.wrapper import trainify
 def main(
     glitch_dataset: str,
     signal_dataset: str,
-    val_glitch_dataset: str,
-    val_signal_dataset: str,
     hanford_background: str,
     livingston_background: str,
-    val_hanford_background: str,
-    val_livingston_background: str,
     waveform_frac: float,
     glitch_frac: float,
     kernel_length: float,
@@ -35,6 +31,11 @@ def main(
     batch_size: int,
     batches_per_epoch: int,
     device: str,
+    validate: bool = False,
+    val_glitch_dataset: str = None,
+    val_signal_dataset: str = None,
+    val_hanford_background: str = None,
+    val_livingston_background: str = None,
     **kwargs
 ):
     """
@@ -57,6 +58,8 @@ def main(
     batch_size:
         Number of samples to produce during at each
         iteration
+    validate:
+        Whether or not to run validation
     batches_per_epoch:
         The number of batches to produce before raising
         a `StopIteration` while iteratingkernel_length:
@@ -81,21 +84,6 @@ def main(
     # TODO: incorporate Erics deterministic
     # sampling into validation loaders
 
-    # deterministic validation glitch sampler
-    val_glitch_sampler = GlitchSampler(
-        val_glitch_dataset,
-        device=device,
-    )
-
-    # deterministic validation waveform sampler
-    val_waveform_sampler = WaveformSampler(
-        val_signal_dataset,
-        sample_rate,
-        min_snr,
-        max_snr,
-        highpass,
-    )
-
     # create full training dataloader
     train_dataset = RandomWaveformDataset(
         hanford_background,
@@ -110,20 +98,38 @@ def main(
         glitch_frac,
         device,
     )
+    # deterministic validation glitch sampler
+    if validate:
+        val_glitch_sampler = GlitchSampler(
+            val_glitch_dataset,
+            device=device,
+        )
 
-    # create full validation dataloader
-    valid_dataset = RandomWaveformDataset(
-        val_hanford_background,
-        val_livingston_background,
-        kernel_length,
-        sample_rate,
-        batch_size,
-        batches_per_epoch,
-        val_waveform_sampler,
-        waveform_frac,
-        val_glitch_sampler,
-        glitch_frac,
-        device,
-    )
+        # deterministic validation waveform sampler
+        val_waveform_sampler = WaveformSampler(
+            val_signal_dataset,
+            sample_rate,
+            min_snr,
+            max_snr,
+            highpass,
+        )
 
-    return train_dataset, valid_dataset
+        # create full validation dataloader
+        valid_dataset = RandomWaveformDataset(
+            val_hanford_background,
+            val_livingston_background,
+            kernel_length,
+            sample_rate,
+            batch_size,
+            batches_per_epoch,
+            val_waveform_sampler,
+            waveform_frac,
+            val_glitch_sampler,
+            glitch_frac,
+            device,
+        )
+
+        return train_dataset, valid_dataset
+
+    else:
+        return train_dataset
