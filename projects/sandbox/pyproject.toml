@@ -9,12 +9,14 @@ steps = [
 outdir = "${OUT_DIR}"
 sample_rate = 2048
 ifos = ['H1', 'L1']
+start = 1263588390 
+stop = 1263698390 
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 8
 window = 2
-start = 1263588390
-stop = 1263592390
+start = "${base.start}"
+stop = "${base.stop}"
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 f_min = 32
