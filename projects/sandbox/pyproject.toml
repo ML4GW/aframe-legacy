@@ -1,6 +1,6 @@
 [tool.pinto]
 steps = [
-    "generate_background:generate-background"
+    "generate_background:generate-background",
     "generate_glitches:generate-glitches",
     "generate_waveforms:generate-waveforms",
     "train:train:resnet"
@@ -27,7 +27,7 @@ stop = "${base.stop}"
 ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
 minimum_length = 8000
-
+force_generation = false
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 8

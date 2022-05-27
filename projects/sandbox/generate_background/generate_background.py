@@ -38,13 +38,13 @@ def main(
     paths_exist = [
         os.path.exists(outdir / f"{ifo}_background.h5") for ifo in ifos
     ]
-
+    print(paths_exist)
     if all(paths_exist) and not force_generation:
         logging.info(
             "Background data already exists"
             " and forced generation is off, not generating"
         )
-
+        return
     # query segments for each ifo
     # I think a certificate is needed for this
     segments = DataQualityDict.query_dqsegdb(
