@@ -1,7 +1,8 @@
 [tool.pinto]
 steps = [
-    "generate_waveforms:generate-waveforms",
+    "generate_background:generate-background"
     "generate_glitches:generate-glitches",
+    "generate_waveforms:generate-waveforms",
     "train:train:resnet"
 ]
 
@@ -11,14 +12,33 @@ sample_rate = 2048
 ifos = ['H1', 'L1']
 start = 1263588390 
 stop = 1263698390 
+channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+frame_type = "HOFT_C01"
+state_flag = "DCS-ANALYSIS_READY_C01:1"
+
+
+[tool.typeo.scripts.generate-background]
+outdir = "${base.outdir}/data/"
+channel = "${base.channel}"
+frame_type = "${base.frame_type}"
+state_flag = "${base.state_flag}"
+start = "${base.start}" 
+stop = "${base.stop}" 
+ifos = "${base.ifos}"
+sample_rate = "${base.sample_rate}" 
+minimum_length = 8000
+
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 8
 window = 2
 start = "${base.start}"
 stop = "${base.stop}"
-channel = "DCS-CALIB_STRAIN_CLEAN_C01"
-frame_type = "HOFT_C01"
+
+channel = "${base.channel}"
+frame_type = "${base.frame_type}"
+state_flag = "${base.state_flag}"
+
 f_min = 32
 q_min = 3.3166
 q_max = 108
@@ -27,8 +47,8 @@ chunk_duration = 124
 segment_duration = 64 
 overlap = 4 
 mismatch_max = 0.2
-state_flag = "DCS-ANALYSIS_READY_C01:1"
 force_generation = false
+
 ifos = "${base.ifos}"
 outdir = "${base.outdir}/data"
 sample_rate = "${base.sample_rate}"
