@@ -62,7 +62,7 @@ def main(
 
     logging.info(
         "Querying coincident, continuous segment "
-        "from {segment[0]} to {segment[1]}"
+        "from {} to {}".format(*segment)
     )
 
     for ifo in ifos:
