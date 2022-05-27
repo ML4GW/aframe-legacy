@@ -15,7 +15,7 @@ from bbhnet.injection import generate_gw
 
 @typeo
 def main(
-    prior_file: Path,
+    prior_file: str,
     n_samples: int,
     outdir: Path,
     waveform_duration: float = 8,
@@ -55,7 +55,7 @@ def main(
     )
 
     # sample GW parameters from prior distribution
-    priors = bilby.gw.prior.BBHPriorDict(prior_file)
+    priors = bilby.gw.prior.PriorDict(prior_file)
     sample_params = priors.sample(n_samples)
 
     signals = generate_gw(sample_params, waveform_generator=waveform_generator)
