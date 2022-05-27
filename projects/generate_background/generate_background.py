@@ -84,3 +84,4 @@ def main(
 
         with h5py.File(outdir / f"{ifo}_background.h5", "a") as f:
             f.create_dataset("hoft", data=data)
+            f.create_dataset("t0", data=float(segment[0]))
