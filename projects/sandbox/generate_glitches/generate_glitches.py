@@ -393,6 +393,9 @@ def main(
             vetoes=vetoes,
         )
 
+        if np.isnan(glitches).any():
+            raise ValueError("The glitch data contains NaN values")
+
         with h5py.File(glitch_file, "a") as f:
             f.create_dataset(f"{ifo}_glitches", data=glitches)
             f.create_dataset(f"{ifo}_snrs", data=snrs)

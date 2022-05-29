@@ -6,6 +6,7 @@ from pathlib import Path
 
 import bilby
 import h5py
+import numpy as np
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from hermes.typeo import typeo
@@ -72,6 +73,9 @@ def main(
     signals = generate_gw(sample_params, waveform_generator=waveform_generator)
 
     # Write params and similar to output file
+
+    if np.isnan(signals).any():
+        raise ValueError("The signals contain NaN values")
 
     with h5py.File(signal_file, "w") as f:
         # write signals attributes, snr, and signal parameters

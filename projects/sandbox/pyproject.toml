@@ -1,8 +1,8 @@
 [tool.pinto]
 steps = [
     "generate_background:generate-background",
-    "generate_glitches:generate-glitches",
     "generate_waveforms:generate-waveforms",
+    "generate_glitches:generate-glitches",
     "train:train:resnet"
 ]
 
@@ -77,14 +77,14 @@ max_snr = 1000
 highpass = 32
 kernel_length = 1 
 validate = false
-batch_size = 256 
-batches_per_epoch = 40
+batch_size = 32
+batches_per_epoch = 300
 max_epochs = 100
 lr = 3.2e-2
 weight_decay = 1e-5
 patience = 25
 factor = 0.2
 early_stop = 100
-device = "cpu"
+device = "cuda"
 profile = false
 commands.resnet = {layers = [2, 2, 2]}

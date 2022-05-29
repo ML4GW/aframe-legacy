@@ -26,8 +26,11 @@ def train_for_one_epoch(
     for samples, targets in train_dataset:
         optimizer.zero_grad(set_to_none=True)  # reset gradient
 
+        print(samples)
+        print(targets)
         # do forward step in mixed precision
-        with torch.autocast("cuda"):
+        # hard code false for now
+        with torch.autocast("cuda", enabled=scaler is not None):
             predictions = torch.flatten(model(samples))
             targets = torch.flatten(targets)
             loss = criterion(predictions, targets)
@@ -106,6 +109,7 @@ def train(
     early_stop: int = 20,
     # misc params
     device: Optional[str] = None,
+    use_amp: bool = False,
     profile: bool = False,
 ) -> float:
 
@@ -162,6 +166,8 @@ def train(
             this first epoch slower.
     """
 
+    device = device or "cpu"
+
     os.makedirs(outdir, exist_ok=True)
 
     # Creating model, loss function, optimizer and lr scheduler
@@ -208,7 +214,14 @@ def train(
 
     # start training
     torch.backends.cudnn.benchmark = True
-    scaler = torch.cuda.amp.GradScaler()
+
+    # start training
+    scaler = None
+    if use_amp and device.startswith("cuda"):
+        scaler = torch.cuda.amp.GradScaler()
+    elif use_amp:
+        logging.warning("'use_amp' flag set but no cuda device, ignoring")
+
     best_valid_loss = np.inf
     since_last_improvement = 0
     history = {"train_loss": [], "valid_loss": []}
@@ -270,5 +283,5 @@ def train(
                         "epochs, halting training early".format(early_stop)
                     )
                     break
-
+    print(history)
     return history

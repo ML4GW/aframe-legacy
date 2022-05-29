@@ -38,13 +38,13 @@ def main(
     paths_exist = [
         os.path.exists(outdir / f"{ifo}_background.h5") for ifo in ifos
     ]
-    print(paths_exist)
     if all(paths_exist) and not force_generation:
         logging.info(
             "Background data already exists"
             " and forced generation is off, not generating"
         )
         return
+
     # query segments for each ifo
     # I think a certificate is needed for this
     segments = DataQualityDict.query_dqsegdb(
@@ -96,6 +96,11 @@ def main(
         # resample
         data = data.resample(sample_rate)
 
-        with h5py.File(outdir / f"{ifo}_background.h5", "a") as f:
+        if np.isnan(data).any():
+            raise ValueError(
+                f"The background for ifo {ifo} contains NaN values"
+            )
+
+        with h5py.File(outdir / f"{ifo}_background.h5", "w") as f:
             f.create_dataset("hoft", data=data)
             f.create_dataset("t0", data=float(segment[0]))
