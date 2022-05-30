@@ -76,7 +76,6 @@ min_snr = 4
 max_snr = 1000
 highpass = 32
 kernel_length = 1 
-validate = false
 batch_size = 32
 batches_per_epoch = 300
 max_epochs = 100

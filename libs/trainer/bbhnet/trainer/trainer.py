@@ -26,8 +26,6 @@ def train_for_one_epoch(
     for samples, targets in train_dataset:
         optimizer.zero_grad(set_to_none=True)  # reset gradient
 
-        print(samples)
-        print(targets)
         # do forward step in mixed precision
         # hard code false for now
         with torch.autocast("cuda", enabled=scaler is not None):
@@ -283,5 +281,5 @@ def train(
                         "epochs, halting training early".format(early_stop)
                     )
                     break
-    print(history)
+
     return history

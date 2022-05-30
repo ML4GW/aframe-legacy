@@ -31,7 +31,6 @@ def main(
     batch_size: int,
     batches_per_epoch: int,
     device: str,
-    validate: bool = False,
     val_glitch_dataset: str = None,
     val_signal_dataset: str = None,
     val_hanford_background: str = None,
@@ -58,12 +57,19 @@ def main(
     batch_size:
         Number of samples to produce during at each
         iteration
-    validate:
-        Whether or not to run validation
     batches_per_epoch:
         The number of batches to produce before raising
         a `StopIteration` while iteratingkernel_length:
     """
+
+    # if validation files are all passed, set validate bool to true
+    validation_files = (
+        val_glitch_dataset,
+        val_signal_dataset,
+        val_hanford_background,
+        val_livingston_background,
+    )
+    validate = all([f is not None for f in validation_files])
 
     # TODO: maybe package up hanford and livingston
     # (or any arbitrary set of ifos) background files into one
