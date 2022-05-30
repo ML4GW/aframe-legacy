@@ -284,8 +284,13 @@ def train(
                     break
 
         # if no validation dataset passed, save model based on
-        # best training loss
+        # best training loss. i.e. attempt to overfit
         else:
+            # update our learning rate scheduler if we
+            # indicated a schedule with `patience`
+            if patience is not None:
+                lr_scheduler.step(train_loss)
+
             if train_loss < best_train_loss:
                 logging.debug(
                     "No validation dataset passed. "
@@ -296,4 +301,5 @@ def train(
                 weights_path = os.path.join(outdir, "weights.pt")
                 torch.save(model.state_dict(), weights_path)
 
+    print(history)
     return history
