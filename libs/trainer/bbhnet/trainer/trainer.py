@@ -221,6 +221,7 @@ def train(
         logging.warning("'use_amp' flag set but no cuda device, ignoring")
 
     best_valid_loss = np.inf
+    best_train_loss = np.inf
     since_last_improvement = 0
     history = {"train_loss": [], "valid_loss": []}
 
@@ -281,5 +282,18 @@ def train(
                         "epochs, halting training early".format(early_stop)
                     )
                     break
+
+        # if no validation dataset passed, save model based on
+        # best training loss
+        else:
+            if train_loss < best_train_loss:
+                logging.debug(
+                    "No validation dataset passed. "
+                    "Achieved new lowest training loss, "
+                    "saving model weights "
+                )
+                best_train_loss = train_loss
+                weights_path = os.path.join(outdir, "weights.pt")
+                torch.save(model.state_dict(), weights_path)
 
     return history
