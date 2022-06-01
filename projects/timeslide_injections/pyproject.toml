@@ -15,3 +15,10 @@ pytest = "^6.2"
 
 [tool.pinto]
 base_env = "../../environment.yaml"
+
+[tool.poetry.scripts]
+timeslide = "timeslide_injections:main"
+
+[build-system]
+requires = ["poetry>=1.2"]
+build-backend = "poetry.masonry.api"

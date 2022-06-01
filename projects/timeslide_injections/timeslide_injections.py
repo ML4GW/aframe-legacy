@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterable
+from pathlib import Path
 
 import h5py
 import numpy as np
@@ -14,8 +15,8 @@ from bbhnet.injection import inject_signals
 def main(
     start: float,
     stop: float,
-    outdir: str,
-    prior_file: str,
+    outdir: Path,
+    prior_file: Path,
     n_samples: int,
     n_slides: int = 600,
     shift: float = 0.5,
@@ -25,13 +26,28 @@ def main(
     waveform_duration: float = 8,
     snr_range: Iterable[float] = [25, 50],
 ):
+    """Generate timeslides of background and background+injections
+
+    Args:
+        start: starting GPS time of time period
+        stop: ending GPS time of time period
+        outdir: base directory where other directories will be created
+        prior_file: a .prior file containing the priors for the GW simulation
+        n_samples: number of signals to simulate per file
+        n_slides: number of timeslides
+        shift: time in seconds of each slide
+        ifos: pair of interferometers to be compared
+        seg_length: length in seconds of each separate file
+        fmin: min frequency for highpass filter, used for simulating
+        waveform_duration: length of injected waveforms
+        snr_range: desired signal SNR range
+    """
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
     for t0 in np.arange(start, stop, seg_length):
 
         tf = min(t0 + seg_length, stop)
-        background = {}
 
         # Go to the next seg_length segment if segment contains a known GW
         gw_times = np.loadtxt("O3b_GW_times.txt")
@@ -41,6 +57,7 @@ def main(
 
         # Go to the next seg_length segment if either ifo has nan values
         has_nans = False
+        background = {}
         for ifo in ifos:
             background[ifo] = TimeSeries.fetch_open_data(ifo, t0, tf)
             background[ifo].name = ifo
@@ -128,11 +145,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(
-        1262304000,
-        1262314000,
-        ".",
-        prior_file="./prior_files/nonspin_BBH.prior",
-        n_samples=25,
-        n_slides=30,
-    )
+    main()
