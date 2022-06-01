@@ -2,7 +2,7 @@
 name = "timeslide_injections"
 version = "0.0.1"
 description = "Create timeslides with and without GWs injected"
-authors = ["Will Benoit"]
+authors = ["Will Benoit <william.benoit@ligo.org>",]
 license = "MIT"
 
 [tool.poetry.dependencies]
@@ -13,11 +13,16 @@ python = ">=3.9,<3.11"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
 
-[tool.pinto]
-base_env = "../../environment.yaml"
-
 [tool.poetry.scripts]
 timeslide = "timeslide_injections:main"
+
+[tool.typeo]
+# Nov 27 2019 - Jan 05 2020
+start = 1258848000
+stop = 1262304000
+outdir = "."
+prior_file = "./priors/nonspin_BBH.prior"
+n_samples = 25
 
 [build-system]
 requires = ["poetry>=1.2"]

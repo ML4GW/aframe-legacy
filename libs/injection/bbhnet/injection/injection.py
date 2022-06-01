@@ -217,6 +217,11 @@ def inject_signals(
     frame_start, frame_stop = next(iter(span))
     frame_duration = frame_stop - frame_start
 
+    if (n_samples - 2) * waveform_duration > frame_duration:
+        raise ValueError(
+            "The length of signals is greater than the length of the frame"
+        )
+
     sample_rate = set([int(strain.sample_rate.value) for strain in strains])
     if len(sample_rate) != 1:
         raise ValueError(

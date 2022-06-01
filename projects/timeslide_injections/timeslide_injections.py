@@ -1,6 +1,5 @@
 import os
 from collections.abc import Iterable
-from pathlib import Path
 
 import h5py
 import numpy as np
@@ -13,10 +12,10 @@ from bbhnet.injection import inject_signals
 
 @typeo
 def main(
-    start: float,
-    stop: float,
-    outdir: Path,
-    prior_file: Path,
+    start: int,
+    stop: int,
+    outdir: str,
+    prior_file: str,
     n_samples: int,
     n_slides: int = 600,
     shift: float = 0.5,
@@ -26,7 +25,8 @@ def main(
     waveform_duration: float = 8,
     snr_range: Iterable[float] = [25, 50],
 ):
-    """Generate timeslides of background and background+injections
+    """Generates timeslides of background and background+injections.
+    Also saves the original and injected timeseries as frame files.
 
     Args:
         start: starting GPS time of time period
@@ -41,7 +41,9 @@ def main(
         fmin: min frequency for highpass filter, used for simulating
         waveform_duration: length of injected waveforms
         snr_range: desired signal SNR range
+
     """
+
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
