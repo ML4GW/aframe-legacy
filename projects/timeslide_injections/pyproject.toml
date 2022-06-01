@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "timeslide_injections"
+version = "0.0.1"
+description = "Create timeslides with and without GWs injected"
+authors = ["Will Benoit"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+"hermes.typeo" = "^0.1.4"
+"bbhnet.injection" = {path="../../libs/injection", develop=true}
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+
+[tool.pinto]
+base_env = "../../environment.yaml"
