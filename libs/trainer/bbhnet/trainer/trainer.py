@@ -271,4 +271,16 @@ def train(
                     )
                     break
 
+    # if our dataloader has a `transform_model` method,
+    # attempt to use it to build any pre- or post-processing
+    # parameters into the model itself
+    model.load_state_dict(torch.load(weights_path))
+    try:
+        model = train_dataset.transform_model(model)
+    except AttributeError:
+        pass
+    else:
+        torch.save(model.state_dict(), weights_path)
+
+    # return the training results
     return history

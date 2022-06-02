@@ -48,6 +48,65 @@ def _build_time_domain_filter(
     return tdf
 
 
+def whiten(
+    X: torch.Tensor,
+    tdf: torch.Tensor,
+    window: torch.Tensor,
+    sample_rate: float,
+) -> torch.Tensor:
+    """Detrend and time-domain filter an array
+    Use  a time-domain filter and a window array
+    to whiten a batch of timeseries
+    """
+
+    # do a constant detrend along the time axis,
+    # transposing to ensure that the last two dimensions
+    # of the original and dimension-reduced tensors match.
+    # TODO: will using X.mean(axis=-1, keepdims=True)
+    # allow us to avoid these transposes?
+    X = X.transpose(2, 0)
+    X = X - X.mean(axis=0)
+    X = X.transpose(0, 2)
+    X *= window
+
+    # convolve the detrended data with the time-domain
+    # filters constructed during initialization from
+    # the background data, using groups to ensure that
+    # the convolution is performed independently for
+    # each interferometer channel
+    # TODO: generalize for arbitrary # of IFOs
+    X = torch.nn.functional.conv1d(X, tdf, groups=2, padding="same")
+
+    # scale by sqrt(2 / sample_rate) for some inscrutable
+    # signal processing reason beyond my understanding
+    return X * (2 / sample_rate) ** 0.5
+
+
+class PreprocessedNetwork(torch.nn.Module):
+    """
+    Dummy network which will perform a dataloader's whitening
+    step before executing network inference
+    """
+
+    def __init__(
+        self, bbhnet: torch.nn.Module, dataloader: "RandomWaveformDataset"
+    ) -> None:
+        super().__init__()
+        self.bbhnet = bbhnet
+
+        self.window = torch.nn.Parameter(
+            dataloader.whitening_window, requires_grad=False
+        )
+        self.filter = torch.nn.Parameter(
+            dataloader.whitening_filter, requires_grad=False
+        )
+        self.sample_rate = dataloader.sample_rate
+
+    def forward(self, x):
+        x = whiten(x, self.filter, self.window, self.sample_rate)
+        return self.bbhnet(x)
+
+
 def _load_background(
     background_file: str,
     sample_rate: float,
@@ -295,34 +354,16 @@ class RandomWaveformDataset:
         return kernels.reshape(self.batch_size, 2, -1)
 
     def whiten(self, X: torch.Tensor) -> torch.Tensor:
-        """Detrend and time-domain filter an array
-        Use the time-domain filters built from the
-        background data used to initialize the dataset
-        to whiten an array of data.
         """
-
-        # do a constant detrend along the time axis,
-        # transposing to ensure that the last two dimensions
-        # of the original and dimension-reduced tensors match.
-        # TODO: will using X.mean(axis=-1, keepdims=True)
-        # allow us to avoid these transposes?
-        X = X.transpose(2, 0)
-        X = X - X.mean(axis=0)
-        X = X.transpose(0, 2)
-        X *= self.whitening_window
-
-        # convolve the detrended data with the time-domain
-        # filters constructed during initialization from
-        # the background data, using groups to ensure that
-        # the convolution is performed independently for
-        # each interferometer channel
-        X = torch.nn.functional.conv1d(
-            X, self.whitening_filter, groups=2, padding="same"
+        Very thin wrapper around `whiten` to make it
+        easier to patch during testing
+        """
+        return whiten(
+            X, self.whitening_filter, self.whitening_window, self.sample_rate
         )
 
-        # scale by sqrt(2 / sample_rate) for some inscrutable
-        # signal processing reason beyond my understanding
-        return X * (2 / self.sample_rate) ** 0.5
+    def transform_network(self, network: torch.nn.Module) -> torch.nn.Module:
+        return PreprocessedNetwork(network, self)
 
     def __iter__(self):
         self._batch_idx = 0
