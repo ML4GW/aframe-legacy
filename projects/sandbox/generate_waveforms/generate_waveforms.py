@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+
 import logging
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ from bilby.gw.source import lal_binary_black_hole
 from hermes.typeo import typeo
 
 from bbhnet.injection import generate_gw
+from bbhnet.logging import configure_logging
 
 
 @typeo
@@ -22,6 +24,7 @@ def main(
     waveform_duration: float = 8,
     sample_rate: float = 4096,
     force_generation: bool = False,
+    verbose: bool = False,
 ):
 
     """Simulates a set of raw BBH signals and saves them to an output file.
@@ -36,6 +39,8 @@ def main(
     Returns:
         path to output file
     """
+
+    configure_logging(outdir / "generate_waveforms.log", verbose)
 
     # make output dir
     os.makedirs(outdir, exist_ok=True)
