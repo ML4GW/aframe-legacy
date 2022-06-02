@@ -35,6 +35,7 @@ def main(
     val_signal_dataset: str = None,
     val_hanford_background: str = None,
     val_livingston_background: str = None,
+    verbose: bool = False,
     **kwargs
 ):
     """
@@ -62,6 +63,7 @@ def main(
         a `StopIteration` while iteratingkernel_length:
     """
 
+    # TODO: definitely a cleaner way to set validation flag
     # if validation files are all passed, set validate bool to true
     validation_files = (
         val_glitch_dataset,

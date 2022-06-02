@@ -6,6 +6,8 @@ from typing import Callable, Iterable, Optional, Tuple
 import numpy as np
 import torch
 
+from bbhnet.logging import configure_logging
+
 
 def train_for_one_epoch(
     model: torch.nn.Module,
@@ -109,6 +111,7 @@ def train(
     device: Optional[str] = None,
     use_amp: bool = False,
     profile: bool = False,
+    verbose: bool = False,
 ) -> float:
 
     """Train BBHnet model on in-memory data
@@ -163,6 +166,8 @@ def train(
             training step on the first epoch. This will make
             this first epoch slower.
     """
+
+    configure_logging(outdir / "train.log", verbose)
 
     device = device or "cpu"
 
