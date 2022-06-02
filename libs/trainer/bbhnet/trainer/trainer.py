@@ -283,6 +283,10 @@ def train(
                     )
                     break
 
+        # TODO: Remove this portion: I put it in since I was finding
+        # some oscillations in the training loss while trying to overfit
+        # a dataset. Probably need either larger model or smaller dataset
+
         # if no validation dataset passed, save model based on
         # best training loss. i.e. attempt to overfit
         else:
@@ -301,5 +305,4 @@ def train(
                 weights_path = os.path.join(outdir, "weights.pt")
                 torch.save(model.state_dict(), weights_path)
 
-    print(history)
     return history
