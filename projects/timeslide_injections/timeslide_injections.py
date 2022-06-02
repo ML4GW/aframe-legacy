@@ -24,6 +24,7 @@ def main(
     fmin: float = 20,
     waveform_duration: float = 8,
     snr_range: Iterable[float] = [25, 50],
+    gw_file: str = None,
 ):
     """Generates timeslides of background and background+injections.
     Also saves the original and injected timeseries as frame files.
@@ -41,6 +42,7 @@ def main(
         fmin: min frequency for highpass filter, used for simulating
         waveform_duration: length of injected waveforms
         snr_range: desired signal SNR range
+        gw_file: path to txt file containing GPS times of GWs
 
     """
 
@@ -52,22 +54,20 @@ def main(
         tf = min(t0 + seg_length, stop)
 
         # Go to the next seg_length segment if segment contains a known GW
-        gw_times = np.loadtxt("O3b_GW_times.txt")
-        gw_seg_list = SegmentList([Segment(t, t) for t in gw_times])
-        if gw_seg_list.intersects_segment(Segment(t0, tf)):
-            continue
+        if gw_file is not None:
+            gw_times = np.loadtxt(gw_file)
+            gw_seg_list = SegmentList([Segment(t, t) for t in gw_times])
+            if gw_seg_list.intersects_segment(Segment(t0, tf)):
+                continue
 
         # Go to the next seg_length segment if either ifo has nan values
-        has_nans = False
         background = {}
         for ifo in ifos:
             background[ifo] = TimeSeries.fetch_open_data(ifo, t0, tf)
             background[ifo].name = ifo
-            if np.isnan(np.sum(background[ifo].value)):
-                has_nans = True
-                break
 
-        if has_nans:
+        strain_sum = np.sum([np.sum(bg.value) for bg in background.values()])
+        if np.isnan(strain_sum):
             continue
 
         # Write data to gwf so signals can be added
@@ -113,6 +113,8 @@ def main(
         for ts in np.linspace(0, shift * (n_slides - 1), num=n_slides):
 
             # Create the desired structure in the output directory
+            # The naming method for the dt-* directories will break if we ever
+            # want to use a shift with two decimal places
             ts_path = os.path.join(outdir, "dt-{:.1f}".format(ts))
             orig_path = os.path.join(ts_path, "original")
             inj_path = os.path.join(ts_path, "injected")

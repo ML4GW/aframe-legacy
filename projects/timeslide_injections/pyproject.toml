@@ -23,6 +23,7 @@ stop = 1262304000
 outdir = "."
 prior_file = "./priors/nonspin_BBH.prior"
 n_samples = 25
+gw_file = "O3b_GW_times.txt"
 
 [build-system]
 requires = ["poetry>=1.2"]
