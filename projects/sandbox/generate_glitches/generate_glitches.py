@@ -13,6 +13,8 @@ from hermes.typeo import typeo
 from omicron.cli.process import main as omicron_main
 from tqdm import tqdm
 
+from bbhnet.logging import configure_logging
+
 """
 Script that generates a dataset of glitches from omicron triggers.
 """
@@ -272,6 +274,7 @@ def main(
     ifos: List[str],
     veto_files: Optional[dict[str, str]] = None,
     force_generation: bool = False,
+    verbose: bool = False,
 ):
 
     """Generates a set of glitches for both
@@ -307,6 +310,8 @@ def main(
         dictionary where key is ifo and value is path
         to file containing vetoes
     """
+
+    configure_logging(outdir / "generate_glitches.log", verbose)
 
     # TODO: add check that system has condor installation.
     # In the future, we can try to eliminate condor dependency,
