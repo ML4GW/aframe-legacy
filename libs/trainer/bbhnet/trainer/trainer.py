@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Callable, Iterable, Optional, Tuple
 
 import numpy as np
@@ -95,7 +96,7 @@ def train_for_one_epoch(
 
 def train(
     architecture: Callable,
-    outdir: str,
+    outdir: Path,
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
