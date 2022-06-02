@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "bbhnet-logging"
+name = "bbhnet.logging"
 version = "0.1.0"
 description = "Basic logging utilities"
 authors = ["ethan.marx <ethan.marx@ligo.org>"]
