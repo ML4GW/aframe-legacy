@@ -27,7 +27,7 @@ stop = "${base.stop}"
 ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
 minimum_length = 8000
-force_generation = false
+force_generation = true
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 8
@@ -47,7 +47,7 @@ chunk_duration = 124
 segment_duration = 64 
 overlap = 4 
 mismatch_max = 0.2
-force_generation = false
+force_generation = true
 
 ifos = "${base.ifos}"
 outdir = "${base.outdir}/data"
@@ -59,10 +59,9 @@ n_samples = 10000
 prior_file = "./generate_waveforms/priors/nonspin_BBH.prior"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = 8
-force_generation = false
+force_generation = true
 
 [tool.typeo.scripts.train]
-
 hanford_background = "${base.outdir}/data/H1_background.h5"
 livingston_background = "${base.outdir}/data/L1_background.h5"
 glitch_dataset = "${base.outdir}/data/glitches.h5"
@@ -70,20 +69,20 @@ signal_dataset = "${base.outdir}/data/signals.h5"
 outdir = "${base.outdir}/training"
 
 sample_rate = "${base.sample_rate}"
-waveform_frac = 0.4
-glitch_frac = 0.4
+waveform_frac = 0.5
+glitch_frac = 0.3
 min_snr = 4
 max_snr = 1000
 highpass = 32
 kernel_length = 1 
-batch_size = 32
+batch_size = 64
 batches_per_epoch = 300
-max_epochs = 100
+max_epochs = 50
 lr = 3.2e-2
 weight_decay = 1e-5
-patience = 25
+patience = 10
 factor = 0.2
 early_stop = 100
 device = "cuda"
 profile = false
-commands.resnet = {layers = [2, 2, 2]}
+commands.resnet = {layers = [4, 4, 4]}
