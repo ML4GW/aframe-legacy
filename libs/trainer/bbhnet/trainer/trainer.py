@@ -1,13 +1,10 @@
 import logging
 import os
 import time
-from pathlib import Path
 from typing import Callable, Iterable, Optional, Tuple
 
 import numpy as np
 import torch
-
-from bbhnet.logging import configure_logging
 
 
 def train_for_one_epoch(
@@ -96,7 +93,7 @@ def train_for_one_epoch(
 
 def train(
     architecture: Callable,
-    outdir: Path,
+    outdir: str,
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
@@ -167,8 +164,6 @@ def train(
             training step on the first epoch. This will make
             this first epoch slower.
     """
-
-    configure_logging(outdir / "train.log", verbose)
 
     device = device or "cpu"
 
