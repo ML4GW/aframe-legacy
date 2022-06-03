@@ -3,6 +3,7 @@
 import logging
 import os
 from collections.abc import Iterable
+from pathlib import Path
 
 import bilby
 import h5py
@@ -11,6 +12,9 @@ import scipy.signal as sig
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from gwpy.timeseries import TimeSeries
+
+from bbhnet.io import h5
+from bbhnet.io.timeslides import MAYBE_PATHS
 
 
 def calc_snr(data, noise_psd, fs, fmin=20):
@@ -170,7 +174,7 @@ def project_raw_gw(
 
 
 def inject_signals(
-    frame_files: Iterable[str],
+    strain_files: MAYBE_PATHS,
     channels: [str],
     ifos: [str],
     prior_file: str,
@@ -181,65 +185,84 @@ def inject_signals(
     snr_range: Iterable[float] = [25, 50],
 ):
 
-    """Injects simulated BBH signals into a frame, or set of corresponding
-    frames from different interferometers. Frames should have the same
+    """Injects simulated BBH signals into backgorund that is read from
+    either a frame file, a set of frame files corresponding to different
+    interferometers, or an HDF5 file. If injecting into data from
+    multiple interferometers, the timeseries must have the same
     start/stop time and the same sample rate
 
     Args:
-        frame_files: list of paths to frames to be injected
-        channels: channel names of the strain data in each frame
-        ifos: list of interferometers corresponding to frames, e.g., H1, L1
+        strain_files: list of paths to files to be injected
+        channels: channel names of the strain data in each file
+        ifos: list of interferometers corresponding to timeseries
         prior_file: prior file for bilby to sample from
         n_samples: number of signal to inject
-        outdir: output directory to which injected frames will be written
+        outdir: output directory to which injected files will be written
         fmin: Minimum frequency for highpass filter
         waveform_duration: length of injected waveforms
         snr_range: desired signal SNR range
 
     Returns:
-        Paths to the injected frames and the parameter file
+        Paths to the injected files and the parameter file
     """
 
-    strains = [
-        TimeSeries.read(frame, ch) for frame, ch in zip(frame_files, channels)
-    ]
+    if isinstance(strain_files, (str, Path)):
+        if str(strain_files).endswith(".gwf"):
+            # Put in a list for consistency with other cases
+            strains = [TimeSeries.read(strain_files, channels[0])]
 
-    logging.info("Read strain from frame files")
+        # If strain_files is a single string or Path, and not a .gwf file,
+        # it should be an HDF5 file
+        else:
+            timeseries = h5.read_timeseries(strain_files, channels)
+            t = timeseries[-1]
+            strains = [
+                TimeSeries(data, t0=t[0], dt=t[1] - t[0], name=ch)
+                for data, ch in zip(timeseries[:-1], channels)
+            ]
+    else:
+        strains = [
+            TimeSeries.read(frame, ch)
+            for frame, ch in zip(strain_files, channels)
+        ]
+
+    logging.info("Read strain from strain files")
 
     span = set([strain.span for strain in strains])
     if len(span) != 1:
         raise ValueError(
-            "Frame files {} and {} have different durations".format(
-                *frame_files
+            "strain files {} and {} have different durations".format(
+                *strain_files
             )
         )
 
-    frame_start, frame_stop = next(iter(span))
-    frame_duration = frame_stop - frame_start
+    strain_start, strain_stop = next(iter(span))
+    strain_duration = strain_stop - strain_start
 
-    if (n_samples - 2) * waveform_duration > frame_duration:
+    # The N-2 accounts for the buffer on either end of the strain
+    if (n_samples - 2) * waveform_duration > strain_duration:
         raise ValueError(
-            "The length of signals is greater than the length of the frame"
+            "The length of signals is greater than the length of the strain"
         )
 
     sample_rate = set([int(strain.sample_rate.value) for strain in strains])
     if len(sample_rate) != 1:
         raise ValueError(
-            "Frame files {} and {} have different sample rates".format(
-                *frame_files
+            "strain files {} and {} have different sample rates".format(
+                *strain_files
             )
         )
 
     sample_rate = next(iter(sample_rate))
     fftlength = int(max(2, np.ceil(2048 / sample_rate)))
 
-    # set the non-overlapping times of the signals in the frames randomly
+    # set the non-overlapping times of the signals in the strains randomly
     # leaves buffer at either end of the series so edge effects aren't an issue
     signal_times = sorted(
         np.random.choice(
             np.arange(
                 waveform_duration,
-                frame_duration - waveform_duration,
+                strain_duration - waveform_duration,
                 waveform_duration,
             ),
             size=n_samples,
@@ -308,11 +331,11 @@ def inject_signals(
     )
     snr_list = [snr * new_snr / old_snr for snr in snr_list]
 
-    frame_out_paths = [
-        os.path.join(outdir, os.path.basename(frame)) for frame in frame_files
+    strain_out_paths = [
+        os.path.join(outdir, os.path.basename(fname)) for fname in strain_files
     ]
-    for strain, signals, frame_path in zip(
-        strains, signals_list, frame_out_paths
+    for strain, signals, strain_path in zip(
+        strains, signals_list, strain_out_paths
     ):
         for i in range(n_samples):
             idx1 = int(
@@ -321,11 +344,11 @@ def inject_signals(
             idx2 = idx1 + waveform_duration * sample_rate
             strain[idx1:idx2] += signals[i]
 
-        strain.write(frame_path)
+        strain.write(strain_path)
 
     # Write params and similar to output file
     param_file = os.path.join(
-        outdir, f"param_file_{frame_start}-{frame_stop}.h5"
+        outdir, f"param_file_{strain_start}-{strain_stop}.h5"
     )
     with h5py.File(param_file, "w") as f:
         # write signals attributes, snr, and signal parameters
@@ -334,19 +357,19 @@ def inject_signals(
             params_gr.create_dataset(k, data=v)
 
         # Save signal times as actual GPS times
-        f.create_dataset("GPS-start", data=signal_times + frame_start)
+        f.create_dataset("GPS-start", data=signal_times + strain_start)
 
         for i, ifo in enumerate(ifos):
             ifo_gr = f.create_group(ifo)
             ifo_gr.create_dataset("signal", data=signals_list[i])
             ifo_gr.create_dataset("snr", data=snr_list[i])
 
-        # write frame attributes
+        # write strain attributes
         f.attrs.update(
             {
                 "size": n_samples,
-                "frame_start": frame_start,
-                "frame_stop": frame_stop,
+                "strain_start": strain_start,
+                "strain_stop": strain_stop,
                 "sample_rate": sample_rate,
                 "psd_fftlength": fftlength,
             }
@@ -356,4 +379,4 @@ def inject_signals(
         f.attrs["waveform_duration"] = waveform_duration
         f.attrs["flag"] = "GW"
 
-    return frame_out_paths, param_file
+    return strain_out_paths, param_file
