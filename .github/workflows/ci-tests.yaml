@@ -110,7 +110,7 @@ jobs:
           || (steps.filter.outputs.io == 'true')
         env:
           test_dir: /github/workspace/libs/analysis
-        run: pinto run $test_dir pytest $test_dir/tests
+        run: pinto -p $test_dir run pytest $test_dir/tests
 
       # run trainer tests if architecture library has changed
       # or if data library has changed
