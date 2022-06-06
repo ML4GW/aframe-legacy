@@ -92,7 +92,7 @@ jobs:
         if: steps.filter.outputs.parallelize == 'true'
         env:
           test_dir: /github/workspace/libs/parallelize
-        run: pinto run $test_dir pytest $test_dir/tests
+        run: pinto -p $test_dir run pytest $test_dir/tests
 
       # run I/O tests then analysis tests that depend
       # on them, adding I/O to analysis filter
@@ -101,7 +101,7 @@ jobs:
         if: steps.filter.outputs.io == 'true'
         env:
           test_dir: /github/workspace/libs/io
-        run: pinto run $test_dir pytest $test_dir/tests
+        run: pinto -p $test_dir run pytest $test_dir/tests
 
       -
         name: run analysis tests
