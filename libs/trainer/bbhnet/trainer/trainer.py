@@ -97,6 +97,7 @@ def train(
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
     valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
+    preprocessor: Optional[torch.nn.Module] = None,
     # optimization params
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
@@ -165,7 +166,6 @@ def train(
     """
 
     device = device or "cpu"
-
     os.makedirs(outdir, exist_ok=True)
 
     # Creating model, loss function, optimizer and lr scheduler
@@ -177,6 +177,13 @@ def train(
 
     model = architecture(num_ifos)
     model.to(device)
+
+    # if we passed a module for preprocessing,
+    # include it in the model so that the weights
+    # get exported along with everything else
+    if preprocessor is not None:
+        preprocessor.to(device)
+        model = torch.nn.Sequential([preprocessor, model])
 
     if init_weights is not None:
         # allow us to easily point to the best weights
@@ -281,17 +288,6 @@ def train(
                         "epochs, halting training early".format(early_stop)
                     )
                     break
-
-    # if our dataloader has a `transform_model` method,
-    # attempt to use it to build any pre- or post-processing
-    # parameters into the model itself
-    model.load_state_dict(torch.load(weights_path))
-    try:
-        model = train_dataset.transform_model(model)
-    except AttributeError:
-        pass
-    else:
-        torch.save(model.state_dict(), weights_path)
 
     # return the training results
     return history

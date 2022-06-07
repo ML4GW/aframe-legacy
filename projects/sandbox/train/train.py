@@ -1,4 +1,5 @@
 from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
+from bbhnet.data.transforms import WhiteningTransform
 from bbhnet.trainer import trainify
 
 # note that this function decorator acts both to
@@ -104,6 +105,12 @@ def main(
         glitch_frac,
         device,
     )
+
+    preprocessor = WhiteningTransform(2, sample_rate, kernel_length)
+    preprocessor.fit(
+        train_dataset.hanford_background, train_dataset.livingston_background
+    )
+
     # deterministic validation glitch sampler
     if validate:
         val_glitch_sampler = GlitchSampler(
@@ -134,8 +141,7 @@ def main(
             glitch_frac,
             device,
         )
-
-        return train_dataset, valid_dataset
-
     else:
-        return train_dataset
+        valid_dataset = None
+
+    return train_dataset, valid_dataset, preprocessor
