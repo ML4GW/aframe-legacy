@@ -110,7 +110,6 @@ def train(
     device: Optional[str] = None,
     use_amp: bool = False,
     profile: bool = False,
-    verbose: bool = False,
 ) -> float:
 
     """Train BBHnet model on in-memory data
