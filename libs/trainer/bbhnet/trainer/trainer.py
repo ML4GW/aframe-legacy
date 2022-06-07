@@ -24,6 +24,7 @@ def train_for_one_epoch(
     model.train()
 
     for samples, targets in train_dataset:
+
         optimizer.zero_grad(set_to_none=True)  # reset gradient
 
         # do forward step in mixed precision
@@ -88,7 +89,7 @@ def train_for_one_epoch(
         valid_loss = None
 
     logging.info(msg)
-    return train_loss, valid_loss, duration, throughput
+    return train_loss, valid_loss, duration, throughput, samples
 
 
 def train(
@@ -240,7 +241,13 @@ def train(
             profiler = None
 
         logging.info(f"=== Epoch {epoch + 1}/{max_epochs} ===")
-        train_loss, valid_loss, duration, throughput = train_for_one_epoch(
+        (
+            train_loss,
+            valid_loss,
+            duration,
+            throughput,
+            samples,
+        ) = train_for_one_epoch(
             model,
             optimizer,
             criterion,
@@ -249,6 +256,12 @@ def train(
             profiler,
             scaler,
         )
+
+        # TODO: delete me and other related code
+        # purpose is to see what data looks like
+        # right before passing to model
+        np.save(outdir / "samples", samples)
+
         history["train_loss"].append(train_loss)
 
         # do some house cleaning with our

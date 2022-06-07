@@ -27,7 +27,7 @@ stop = "${base.stop}"
 ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
 minimum_length = 8000
-force_generation = true
+force_generation = false
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 8
@@ -47,7 +47,7 @@ chunk_duration = 124
 segment_duration = 64 
 overlap = 4 
 mismatch_max = 0.2
-force_generation = true
+force_generation = false
 
 ifos = "${base.ifos}"
 outdir = "${base.outdir}/data"
@@ -59,7 +59,7 @@ n_samples = 10000
 prior_file = "./generate_waveforms/priors/nonspin_BBH.prior"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = 8
-force_generation = true
+force_generation = false
 
 [tool.typeo.scripts.train]
 hanford_background = "${base.outdir}/data/H1_background.h5"

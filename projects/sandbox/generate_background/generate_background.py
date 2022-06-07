@@ -36,6 +36,9 @@ def main(
         outdir: where to store data
     """
 
+    # make output dir
+    outdir.mkdir(exist_ok=True)
+
     # configure logging output file
     configure_logging(outdir / "generate_background.log", verbose)
 

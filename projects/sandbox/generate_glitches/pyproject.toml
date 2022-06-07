@@ -26,7 +26,7 @@ ifos = ['H1', 'L1']
 sample_rate = 1024 
 
 [tool.poetry.dependencies]
-python = ">3.8,<3.11"
+python = ">3.9,<3.11"
 "hermes.typeo" = "^0.1.4"
 htcondor = "^9.8.1"
 dqsegdb2="<1.1.0"

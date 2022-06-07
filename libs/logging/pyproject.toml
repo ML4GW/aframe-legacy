@@ -1,16 +1,17 @@
 [tool.poetry]
 name = "bbhnet.logging"
-version = "0.1.0"
-description = "Basic logging utilities"
-authors = ["ethan.marx <ethan.marx@ligo.org>"]
+version = "0.0.1"
+description = "BBHNet logging utilities"
+authors = ["Alec Gunny"]
 license = "MIT"
+packages = [
+    {include = "bbhnet"}
+]
 # readme = "README.md"
-packages = [{include = "bbhnet"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-
+python = ">=3.9,<3.11"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry>=1.1"]
+build-backend = "poetry.masonry.api"
