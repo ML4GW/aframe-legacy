@@ -12,7 +12,7 @@ def train_for_one_epoch(
     optimizer: torch.optim.Optimizer,
     criterion: torch.nn.Module,
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
-    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
     profiler: Optional[torch.profiler.profile] = None,
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
 ):
@@ -27,7 +27,8 @@ def train_for_one_epoch(
         optimizer.zero_grad(set_to_none=True)  # reset gradient
 
         # do forward step in mixed precision
-        with torch.autocast("cuda"):
+        # hard code false for now
+        with torch.autocast("cuda", enabled=scaler is not None):
             predictions = torch.flatten(model(samples))
             targets = torch.flatten(targets)
             loss = criterion(predictions, targets)
@@ -92,10 +93,10 @@ def train_for_one_epoch(
 
 def train(
     architecture: Callable,
-    output_directory: str,
+    outdir: str,
     # data params
     train_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
-    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]],
+    valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
     # optimization params
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
@@ -106,6 +107,7 @@ def train(
     early_stop: int = 20,
     # misc params
     device: Optional[str] = None,
+    use_amp: bool = False,
     profile: bool = False,
 ) -> float:
 
@@ -115,7 +117,7 @@ def train(
             A callable which takes as its only input the number
             of ifos, and returns an initialized torch
             Module
-        output_directory:
+        outdir:
             Location to save training artifacts like optimized
             weights, preprocessing objects, and visualizations
         train_dataset:
@@ -162,7 +164,9 @@ def train(
             this first epoch slower.
     """
 
-    os.makedirs(output_directory, exist_ok=True)
+    device = device or "cpu"
+
+    os.makedirs(outdir, exist_ok=True)
 
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
@@ -208,7 +212,14 @@ def train(
 
     # start training
     torch.backends.cudnn.benchmark = True
-    scaler = torch.cuda.amp.GradScaler()
+
+    # start training
+    scaler = None
+    if use_amp and device.startswith("cuda"):
+        scaler = torch.cuda.amp.GradScaler()
+    elif use_amp:
+        logging.warning("'use_amp' flag set but no cuda device, ignoring")
+
     best_valid_loss = np.inf
     since_last_improvement = 0
     history = {"train_loss": [], "valid_loss": []}
@@ -219,7 +230,7 @@ def train(
             profiler = torch.profiler.profile(
                 schedule=torch.profiler.schedule(wait=0, warmup=1, active=10),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                    os.path.join(output_directory, "profile")
+                    os.path.join(outdir, "profile")
                 ),
             )
             profiler.start()
@@ -259,7 +270,7 @@ def train(
                 )
                 best_valid_loss = valid_loss
 
-                weights_path = os.path.join(output_directory, "weights.pt")
+                weights_path = os.path.join(outdir, "weights.pt")
                 torch.save(model.state_dict(), weights_path)
                 since_last_improvement = 0
             else:
