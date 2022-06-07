@@ -89,7 +89,7 @@ def train_for_one_epoch(
         valid_loss = None
 
     logging.info(msg)
-    return train_loss, valid_loss, duration, throughput, samples
+    return train_loss, valid_loss, duration, throughput
 
 
 def train(
@@ -256,11 +256,6 @@ def train(
             profiler,
             scaler,
         )
-
-        # TODO: delete me and other related code
-        # purpose is to see what data looks like
-        # right before passing to model
-        np.save(outdir / "samples", samples)
 
         history["train_loss"].append(train_loss)
 

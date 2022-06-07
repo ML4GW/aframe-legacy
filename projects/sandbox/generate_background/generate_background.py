@@ -1,5 +1,4 @@
 import logging
-import os
 from pathlib import Path
 from typing import List
 
@@ -37,7 +36,7 @@ def main(
     """
 
     # make output dir
-    outdir.mkdir(exist_ok=True)
+    outdir.mkdir(exist_ok=True, parents=True)
 
     # configure logging output file
     configure_logging(outdir / "generate_background.log", verbose)
@@ -45,7 +44,7 @@ def main(
     # check if paths already exist
     # TODO: maybe put all background in one path
     paths_exist = [
-        os.path.exists(outdir / f"{ifo}_background.h5") for ifo in ifos
+        Path(outdir / f"{ifo}_background.h5").exists() for ifo in ifos
     ]
 
     if all(paths_exist) and not force_generation:

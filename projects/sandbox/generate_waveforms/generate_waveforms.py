@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import logging
-import os
 from pathlib import Path
 
 import bilby
@@ -40,15 +39,15 @@ def main(
         path to output file
     """
 
+    # make output dir
+    outdir.mkdir(exist_ok=True, parents=True)
+
     configure_logging(outdir / "generate_waveforms.log", verbose)
 
-    # make output dir
-    os.makedirs(outdir, exist_ok=True)
-
     # check if signal file already exists
-    signal_file = os.path.join(outdir, "signals.h5")
+    signal_file = outdir.joinpath("signals.h5")
 
-    if os.path.exists(signal_file) and not force_generation:
+    if signal_file.exists() and not force_generation:
         logging.info("Signal file already exists, exiting")
         return
 

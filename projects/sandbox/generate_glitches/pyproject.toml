@@ -24,6 +24,8 @@ mismatch_max = 0.2
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 ifos = ['H1', 'L1']
 sample_rate = 1024 
+force_generation= true
+
 
 [tool.poetry.dependencies]
 python = ">3.9,<3.11"

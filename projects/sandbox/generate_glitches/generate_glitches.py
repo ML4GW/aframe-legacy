@@ -1,6 +1,5 @@
 import configparser
 import logging
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -220,6 +219,9 @@ def omicron_main_wrapper(
     config.set(section, "mismatch-max", str(mismatch_max))
     config.set(section, "snr-threshold", str(snr_thresh))
 
+    config.add_section("OUTPUTS")
+    config.set("OUTPUTS", "format", "hdf5")
+
     # in an online setting, can also pass state-vector,
     # and bits to check for science mode
     config.set(section, "state-flag", f"{ifo}:{state_flag}")
@@ -311,13 +313,13 @@ def main(
         to file containing vetoes
     """
 
+    outdir.mkdir(exist_ok=True, parents=True)
+
     configure_logging(outdir / "generate_glitches.log", verbose)
 
     # TODO: add check that system has condor installation.
     # In the future, we can try to eliminate condor dependency,
     # but for now using condor will speed up jobs.
-
-    os.makedirs(outdir, exist_ok=True)
 
     # create logging file in model_dir
     logging.basicConfig(
@@ -330,7 +332,7 @@ def main(
     # output file
     glitch_file = outdir / Path("glitches.h5")
 
-    if os.path.exists(glitch_file) and not force_generation:
+    if glitch_file.exists() and not force_generation:
         logging.info("Glitch file exists, not generating glitvches")
         return
 
@@ -339,7 +341,7 @@ def main(
 
     for ifo in ifos:
         run_dir = outdir / ifo
-        os.makedirs(run_dir, exist_ok=True)
+        run_dir.mkdir(exist_ok=True)
 
         # launch omicron dag for ifo
         omicron_main_wrapper(

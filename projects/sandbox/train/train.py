@@ -67,6 +67,9 @@ def main(
         a `StopIteration` while iteratingkernel_length:
     """
 
+    # make out dir and configure logging file
+    outdir.mkdir(exist_ok=True)
+
     configure_logging(outdir / "train.log", verbose)
 
     # TODO: definitely a cleaner way to set validation flag
