@@ -240,13 +240,7 @@ def train(
             profiler = None
 
         logging.info(f"=== Epoch {epoch + 1}/{max_epochs} ===")
-        (
-            train_loss,
-            valid_loss,
-            duration,
-            throughput,
-            samples,
-        ) = train_for_one_epoch(
+        (train_loss, valid_loss, duration, throughput,) = train_for_one_epoch(
             model,
             optimizer,
             criterion,
