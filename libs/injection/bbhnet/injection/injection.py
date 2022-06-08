@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
 import logging
 import os
 from collections.abc import Iterable
@@ -331,9 +329,9 @@ def inject_signals(
     )
     snr_list = [snr * new_snr / old_snr for snr in snr_list]
 
-    strain_out_paths = [
-        os.path.join(outdir, os.path.basename(fname)) for fname in strain_files
-    ]
+    outdir = Path(outdir)
+    strain_out_paths = [outdir / f.name for f in map(Path, strain_files)]
+
     for strain, signals, strain_path in zip(
         strains, signals_list, strain_out_paths
     ):
