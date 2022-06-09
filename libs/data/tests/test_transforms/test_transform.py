@@ -80,4 +80,5 @@ def test_transform(tensor_type, device):
     assert param.device == device
 
     # this will raise an error, need to figure out what
-    Transform.set_value(None, param, 1.0)
+    with pytest.raises(ValueError):
+        Transform.set_value(None, param, 1.0)

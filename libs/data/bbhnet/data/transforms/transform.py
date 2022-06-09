@@ -41,7 +41,13 @@ class Transform(torch.nn.Module):
     def set_value(
         self, parameter: torch.nn.Parameter, data: TENSORABLE
     ) -> None:
-        parameter.data = _make_tensor(data, parameter.device, parameter.type())
+        tensor = _make_tensor(data, parameter.device, parameter.dtype)
+        if tensor.shape != parameter.shape:
+            raise ValueError(
+                "Tried to set parameter with shape {} "
+                "to data with shape {}".format(parameter.shape, tensor.shape)
+            )
+        parameter.data = tensor
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
