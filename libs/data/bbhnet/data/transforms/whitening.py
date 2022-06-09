@@ -23,10 +23,11 @@ class WhiteningTransform(Transform):
         self.fftlength = fftlength
 
         # initialize the parameter with 0s, then fill it out later
+        kernel_size = int(kernel_length * sample_rate)
         self.time_domain_filter = self.add_parameter(
-            np.zeros(num_ifos, int(fftlength * sample_rate))
+            torch.zeros((num_ifos, kernel_size)),
         )
-        self.window = torch.hann_window(int(fftlength * sample_rate))
+        self.window = torch.hann_window(kernel_size)
 
     def to(self, device: torch.device):
         """
@@ -56,7 +57,7 @@ class WhiteningTransform(Transform):
                 )
             )
 
-        ntaps = int(self.fftlength * self.sample_rate)
+        ntaps = int(self.kernel_length * self.sample_rate)
         tdfs = []
         for x in X.cpu().numpy():
             ts = TimeSeries(x, dt=1 / self.sample_rate)
