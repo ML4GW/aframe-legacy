@@ -1,10 +1,16 @@
 import sys
 
-import numpy as np
 import pytest
+import torch
 
 from bbhnet.data.transforms.transform import Transform
 from bbhnet.trainer.wrapper import trainify
+
+
+@pytest.fixture(scope="session")
+def outdir(tmpdir_factory):
+    out_dir = tmpdir_factory.mktemp("out")
+    return out_dir
 
 
 @pytest.fixture(params=[True, False])
@@ -19,8 +25,8 @@ def preprocess(request):
 
 def dataset(batches):
     for i in range(batches):
-        x = np.random.randn(8, 2, 512)
-        y = np.random.randint(0, 2, size=(8, 1))
+        x = torch.randn(8, 2, 512).type(torch.float32)
+        y = torch.randint(0, 2, size=(8, 1)).type(torch.float32)
         yield x, y
 
 
@@ -45,26 +51,35 @@ def get_data(validate, preprocess):
 
 
 @pytest.fixture(params=[True, False])
-def data_fn(request, get_data):
-    # make sure we can have functions that overlap their args
-    if request.params:
+def unique_args(request):
+    return request.param
 
-        def fn(batches: int, max_epochs: int):
+
+@pytest.fixture
+def data_fn(unique_args, get_data):
+    # make sure we can have functions that overlap their args
+    if not unique_args:
+
+        def fn(batches: int, max_epochs: int, **kwargs):
             return get_data(batches)
 
     else:
 
-        def fn(batches: int):
+        def fn(batches: int, **kwargs):
             return get_data(batches)
 
     return fn
 
 
-def test_wrapper(data_fn, preprocess):
+def test_wrapper(data_fn, preprocess, outdir, unique_args):
     fn = trainify(data_fn)
 
     # make sure we can run the function as-is with regular arguments
-    train_dataset, valid_dataset = fn(4)
+    if unique_args:
+        train_dataset, valid_dataset = fn(4)
+    else:
+        train_dataset, valid_dataset = fn(4, 1)
+
     for i, (X, y) in enumerate(train_dataset):
         continue
     assert i == 3
@@ -73,6 +88,7 @@ def test_wrapper(data_fn, preprocess):
     # for train function
     result = fn(
         4,
+        outdir=outdir,
         max_epochs=1,
         arch="resnet",
         layers=[2, 2, 2],
@@ -81,6 +97,8 @@ def test_wrapper(data_fn, preprocess):
 
     sys.argv = [
         None,
+        "--outdir",
+        str(outdir),
         "--batches",
         "4",
         "--max-epochs",
