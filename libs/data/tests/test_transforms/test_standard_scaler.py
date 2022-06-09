@@ -10,15 +10,15 @@ def test_standard_scaler():
 
     for i, param in enumerate([scaler.mean, scaler.std]):
         assert param.ndim == 1
-        assert len(scaler.mean) == 2
-        assert (scaler.mean == i).all()
+        assert len(param) == 2
+        assert (param == i).all()
 
-    x = torch.arange(10)
+    x = torch.arange(10).type(torch.float32)
     X = torch.stack([x, x + 1])
     scaler.fit(X)
 
-    assert (scaler.mean == torch.Tensor([45, 55])).all()
-    assert (scaler.std == (99 / 12) ** 0.5).all()
+    assert (scaler.mean == torch.Tensor([4.5, 5.5])).all()
+    assert (scaler.std == (110 / 12) ** 0.5).all()
 
     batch = torch.stack([X, X])
     y = scaler(batch)

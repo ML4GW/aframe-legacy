@@ -5,6 +5,7 @@ from bbhnet.data.transforms.transform import Transform
 
 class StandardScaler(Transform):
     def __init__(self, num_ifos: int):
+        super().__init__()
         self.mean = self.add_parameter(torch.zeros([num_ifos]))
         self.std = self.add_parameter(torch.ones([num_ifos]))
 
