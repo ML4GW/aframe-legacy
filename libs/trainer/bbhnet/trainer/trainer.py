@@ -24,7 +24,6 @@ def train_for_one_epoch(
     model.train()
 
     for samples, targets in train_dataset:
-
         optimizer.zero_grad(set_to_none=True)  # reset gradient
 
         # do forward step in mixed precision
@@ -112,7 +111,6 @@ def train(
     use_amp: bool = False,
     profile: bool = False,
 ) -> float:
-
     """Train BBHnet model on in-memory data
     Args:
         architecture:

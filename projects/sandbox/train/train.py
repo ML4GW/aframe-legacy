@@ -117,6 +117,9 @@ def main(
         device,
     )
 
+    # TODO: hard-coding num_ifos into preprocessor. Should
+    # we just expose this as an arg? How will this fit in
+    # to the broader-generalization scheme?
     preprocessor = WhiteningTransform(2, sample_rate, kernel_length)
     preprocessor.fit(
         train_dataset.hanford_background, train_dataset.livingston_background
