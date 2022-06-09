@@ -62,7 +62,7 @@ jobs:
         env:
           test_dir: /github/workspace/libs/architectures
         run: |
-          pinto build $test_dir -E wrapper
+          pinto -p $test_dir build -E wrapper
           pinto -p $test_dir run pytest $test_dir/tests
 
       # test injection library before the libraries that depend on it
