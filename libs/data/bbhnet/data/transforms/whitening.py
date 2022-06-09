@@ -37,24 +37,29 @@ class WhiteningTransform(Transform):
         super().to(device)
         self.window.to(self.time_domain_filter.device)
 
-    def fit(self, *backgrounds: torch.Tensor) -> None:
+    def fit(self, X: torch.Tensor) -> None:
         """
         Build a whitening time domain filter from a set
-        of ASDs. The number of
+        of ASDs. TODO: should this be a single tensor
+        stacking all the backgrounds for consistency?
         """
-        if len(backgrounds) != self.time_domain_filter.shape[0]:
+        if X.ndim != 2:
+            raise ValueError(
+                "Expected background used to fit WhiteningTransform "
+                "to have 2 dimensions, but found {}".format(X.ndim)
+            )
+        if len(X) != self.time_domain_filter.shape[0]:
             raise ValueError(
                 "Expected to fit whitening transform on {} backgrounds, "
                 "but was passed {}".format(
-                    self.time_domain_filter.shape[0], len(backgrounds)
+                    self.time_domain_filter.shape[0], len(X)
                 )
             )
 
         ntaps = int(self.fftlength * self.sample_rate)
         tdfs = []
-        for background in backgrounds:
-            value = background.cpu().numpy()
-            ts = TimeSeries(value, dt=1 / self.sample_rate)
+        for x in X.cpu().numpy():
+            ts = TimeSeries(x, dt=1 / self.sample_rate)
             asd = ts.asd(
                 fftlength=self.fftlength, window="hanning", method="median"
             )

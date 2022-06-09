@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import torch
+
 from bbhnet.data import GlitchSampler, RandomWaveformDataset, WaveformSampler
 from bbhnet.data.transforms import WhiteningTransform
 from bbhnet.logging import configure_logging
@@ -121,9 +123,12 @@ def main(
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
     preprocessor = WhiteningTransform(2, sample_rate, kernel_length)
-    preprocessor.fit(
-        train_dataset.hanford_background, train_dataset.livingston_background
+
+    # TODO: make this a `train_dataset.background` `@property`?
+    background = torch.stack(
+        [train_dataset.hanford_background, train_dataset.livingston_background]
     )
+    preprocessor.fit(background)
 
     # deterministic validation glitch sampler
     if validate:
