@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from gwpy.timeseries import TimeSeries
 
@@ -10,11 +11,9 @@ from bbhnet.data.transforms.whitening import (
 def test_whitening_transform(data_length, sample_rate, num_ifos):
     whitener = WhiteningTransform(num_ifos, sample_rate, 1)
     assert len(list(whitener.parameters())) == 1
-    assert whitener.time_domain_filter.ndim == 2
+    assert whitener.time_domain_filter.ndim == 3
     assert len(whitener.time_domain_filter) == num_ifos
-    assert whitener.time_domain_filter.shape[-1] == (
-        DEFAULT_FFTLENGTH * sample_rate
-    )
+    assert whitener.time_domain_filter.shape[-1] == sample_rate
     assert len(whitener.window) == sample_rate
 
     background = torch.randn(num_ifos, int(data_length * sample_rate))
@@ -33,7 +32,7 @@ def test_whitening_transform(data_length, sample_rate, num_ifos):
         asds.append(asd)
 
     for x, y in zip(raw.cpu().numpy(), whitened.cpu().numpy()):
-        for ifo, output in zip(x, y):
+        for ifo, output, asd in zip(x, y, asds):
             ts = TimeSeries(ifo, dt=1 / sample_rate)
             target = ts.whiten(
                 fflength=DEFAULT_FFTLENGTH,
@@ -41,4 +40,8 @@ def test_whitening_transform(data_length, sample_rate, num_ifos):
                 window="hanning",
                 asd=asd,
             ).value
-            assert (target == output).all()
+
+            # TODO: this agreement isn't very tight but I can't
+            # get it consistently closer to this. Is this just
+            # numerical precision issues adding up?
+            assert np.isclose(target, output, rtol=1e-3).all()

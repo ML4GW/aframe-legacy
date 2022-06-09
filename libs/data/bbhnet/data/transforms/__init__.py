@@ -1,2 +1,2 @@
-from .standard_scaler import StandardScaler
+from .standard_scaler import StandardScalerTransform
 from .whitening import WhiteningTransform
