@@ -129,9 +129,14 @@ class RandomWaveformDataset:
         self.device = device
 
         # load in the background data
-        self.hanford_background, t0 = _load_background(hanford_background)
-        self.livingston_background, _ = _load_background(livingston_background)
-        assert len(self.hanford_background) == len(self.livingston_background)
+        hanford_background, t0 = _load_background(hanford_background)
+        livingston_background, _ = _load_background(livingston_background)
+        assert len(hanford_background) == len(livingston_background)
+
+        self.hanford_background = torch.Tensor(hanford_background).to(device)
+        self.livingston_background = torch.Tensor(livingston_background).to(
+            device
+        )
 
         # if we specified a waveform sampler, fit its snr
         # computation to the given background asd

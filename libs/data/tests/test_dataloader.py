@@ -142,7 +142,7 @@ def validate_speed(dataset, N, limit):
     assert delta / N < limit
 
 
-def validate_dataset(dataset, num_background, target):
+def validate_dataset(dataset, cutoff_idx, target):
     # TODO: include "test_sample: Callable" argument
     # for testing each individual X, y sample that
     # isn't background. Check that the center is in
@@ -152,10 +152,21 @@ def validate_dataset(dataset, num_background, target):
         y = y.cpu().numpy()
         for i, x in enumerate(X):
             # check to make sure ifo is not all 0s
-            is_background = (x == 0).all(axis=-1)
-            assert (i >= num_background) ^ (is_background.all())
+            is_background = (x == 0).all()
+
             if target:
-                assert y[i] == int(not is_background.all())
+                # y == 1 targets should come at the end
+                not_background = i >= cutoff_idx
+                assert y[i] == int(not is_background)
+            else:
+                # y == 0 targets that _aren't_ background
+                # should come at the start
+                not_background = i < cutoff_idx
+
+            # make sure you're either in the position
+            # expected for a non-background of the
+            # indicated target type, or you're background
+            assert not_background ^ is_background, (i, x)
 
 
 def test_glitch_sampling(
@@ -180,7 +191,7 @@ def test_glitch_sampling(
     )
     expected_num = max(1, int(glitch_frac * batch_size))
     assert dataset.num_glitches == expected_num
-    validate_dataset(dataset, batch_size - dataset.num_glitches)
+    validate_dataset(dataset, dataset.num_glitches, 0)
 
     if device == "cpu":
         return
@@ -220,7 +231,7 @@ def test_waveform_sampling(
         with pytest.raises(ValueError):
             next(iter(dataset))
         return
-    validate_dataset(dataset, batch_size - dataset.num_waveforms)
+    validate_dataset(dataset, batch_size - dataset.num_waveforms, 1)
 
     if device == "cpu":
         return

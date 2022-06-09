@@ -3,7 +3,7 @@ import torch
 from gwpy.signal.filter_design import fir_from_transfer
 from gwpy.timeseries import TimeSeries
 
-from bbhnet.data.transforms import Transform
+from bbhnet.data.transforms.transform import Transform
 
 DEFAULT_FFTLENGTH = 2
 
