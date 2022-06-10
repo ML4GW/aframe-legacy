@@ -5,6 +5,7 @@ import pytest
 import torch
 from export import export
 
+from bbhnet.architectures import ResNet
 from bbhnet.data.transforms import WhiteningTransform
 
 
@@ -34,7 +35,7 @@ def kernel_length(request):
 
 @pytest.fixture(params=[None, 1, 2])
 def instances(request):
-    return request.params
+    return request.param
 
 
 @pytest.fixture(params=[1, 4])
@@ -54,7 +55,7 @@ def repo_dir(tmp_path):
     return repo
 
 
-@pytest.fixture(params=[None, "weights.pt", "other.pdf"])
+@pytest.fixture(params=[None, "", "weights.pt", "other.pdf"])
 def weights(request):
     return request.param
 
@@ -70,8 +71,10 @@ def output_dir(tmp_path, num_ifos, sample_rate, kernel_length, weights):
     output_dir.mkdir()
 
     weights = weights or "weights.pt"
-    model = WhiteningTransform(num_ifos, sample_rate, kernel_length)
-    torch.save(model.state_dict(), output_dir / weights)
+    preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
+    bbhnet = ResNet(num_ifos, [2, 2])
+    model = torch.nn.Sequential(preprocessor, bbhnet)
+    torch.save(model.state_dict(prefix=""), output_dir / weights)
     return output_dir
 
 
@@ -87,13 +90,13 @@ def test_export(
     weights,
     clean,
 ):
-    if weights is None:
+    if weights == "":
         weights = output_dir
-    else:
+    elif weights is not None:
         weights = output_dir / weights
 
     def validate_repo(instances, versions):
-        models = list(repo_dir.iterdir())
+        models = [i.name for i in repo_dir.iterdir()]
         assert len(models) == 3
         assert set(models) == set(["bbhnet", "snapshotter", "bbhnet-stream"])
 
@@ -125,8 +128,8 @@ def test_export(
 
     def run_export(instances=instances, clean=clean):
         export(
-            AddOne,
-            repo_dir,
+            lambda num_ifos: ResNet(num_ifos, [2, 2]),
+            str(repo_dir),
             output_dir,
             num_ifos=num_ifos,
             kernel_length=kernel_length,
@@ -139,6 +142,11 @@ def test_export(
         )
 
     # test fully from scratch behavior
+    if kernel_length < (1 / inference_sampling_rate):
+        with pytest.raises(ValueError):
+            run_export()
+        return
+
     run_export()
     validate_repo(instances, 1)
 
@@ -155,9 +163,14 @@ def test_export(
     # the ensemble already exists but bbhnet is not
     # part of it
     shutil.move(repo_dir / "bbhnet", repo_dir / "bbbhnet")
+    bbhnet_config = repo_dir / "bbbhnet" / "config.pbtxt"
+    config = bbhnet_config.read_text()
+    config = re.sub('name: "bbhnet"', 'name: "bbbhnet"', config)
+    bbhnet_config.write_text(config)
+
     ensemble_config = repo_dir / "bbhnet-stream" / "config.pbtxt"
     config = ensemble_config.read_text()
-    re.sub('model_name: "bbhnet"', 'model_name: "bbbhnet"', config)
+    config = re.sub('model_name: "bbhnet"', 'model_name: "bbbhnet"', config)
     ensemble_config.write_text(config)
 
     with pytest.raises(ValueError) as exc_info:
@@ -171,4 +184,5 @@ def test_export(
     # the export function. I guess a try-catch on the
     # ensemble section that deletes the most recent
     # bbhnet version if things go wrong?
-    validate_repo(3, 3 if clean else 4)
+    shutil.rmtree(repo_dir / "bbbhnet")
+    validate_repo(None, 1)

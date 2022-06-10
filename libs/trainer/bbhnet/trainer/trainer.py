@@ -182,7 +182,7 @@ def train(
     # get exported along with everything else
     if preprocessor is not None:
         preprocessor.to(device)
-        model = torch.nn.Sequential([preprocessor, model])
+        model = torch.nn.Sequential(preprocessor, model)
 
     if init_weights is not None:
         # allow us to easily point to the best weights

@@ -89,8 +89,9 @@ class WhiteningTransform(Transform):
         # the background data, using groups to ensure that
         # the convolution is performed independently for
         # each interferometer channel
+        pad = int((len(self.time_domain_filter) - 1) // 2)
         X = torch.nn.functional.conv1d(
-            X, self.time_domain_filter, groups=self.num_ifos, padding="same"
+            X, self.time_domain_filter, groups=self.num_ifos, padding=pad
         )
 
         # scale by sqrt(2 / sample_rate) for some inscrutable

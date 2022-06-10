@@ -49,6 +49,8 @@ jobs:
               - 'projects/sandbox/generate_waveforms/**'
             generate_glitches:
               - 'projects/sandbox/generate_glitches/**'
+            export:
+              - 'projects/sandbox/export/**'
 
       # install gcc for bilby build
       -
@@ -142,3 +144,13 @@ jobs:
         env:
           test_dir: /github/workspace/projects/sandbox/generate_glitches
         run: pinto -p $test_dir run pytest -x $test_dir/tests
+
+      - 
+        name: run export tests
+        if: |
+          (steps.filter.outputs.architectures == 'true')
+          || (steps.filter.outputs.data == 'true')
+          || (steps.filter.outputs.export == 'true')
+        env:
+          test_dir: /github/workspace/projects/sandbox/export
+        run: pinto -p $test_dir run ptest $test_dir/tests

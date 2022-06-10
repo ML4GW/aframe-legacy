@@ -3,16 +3,17 @@ name = "export"
 version = "0.0.1"
 description = "Export BBHNet for IaaS inference"
 authors = ["Alec Gunny <alec.gunny@gmail.com>"]
-readme = "README.md"
+# readme = "README.md"
 
 [tool.poetry.scripts]
 export-model = "export:export"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-packaging = "<21.0"
+gwpy = "^2.1"
 
 "bbhnet.architectures" = {path = "../../../libs/architectures", develop = true}
+"bbhnet.base" = {path = "../../../libs/base", develop = true}
 "bbhnet.data" = {path = "../../../libs/data", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 "hermes.typeo" = {path = "../../../gw-iaas/libs/hermes/hermes.typeo", develop = true}

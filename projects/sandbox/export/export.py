@@ -79,8 +79,9 @@ def export(
 
     # if we didn't specify a weights filename, assume
     # that a "weights.pt" lives in our output directory
-    if weights is None:
-        weights = output_directory / "weights.pt"
+    if weights is None or weights.is_dir():
+        weights_dir = output_directory if weights is None else weights
+        weights = weights_dir / "weights.pt"
     if not weights.exists():
         raise FileNotFoundError(f"No weights file '{weights}'")
 
@@ -93,7 +94,7 @@ def export(
 
     # hardcoding preprocessing, what's the best way to handle?
     preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
-    nn = torch.nn.Sequential([preprocessor, nn])
+    nn = torch.nn.Sequential(preprocessor, nn)
     nn.load_state_dict(torch.load(weights))
     nn.eval()
 
@@ -104,7 +105,7 @@ def export(
     if clean:
         logging.info(f"Cleaning model repository {repository_directory}")
         for model in repo.models:
-            logging.info(f"Removing model {model.name}")
+            logging.info(f"Removing model {model}")
             repo.remove(model)
 
     try:
@@ -114,7 +115,11 @@ def export(
         # a concurrent instance count, scale the existing
         # instance group to this value
         if instances is not None:
-            bbhnet.config.scale_instance_group(instances)
+            # TODO: should quiver handle this under the hood?
+            try:
+                bbhnet.config.scale_instance_group(instances)
+            except ValueError:
+                bbhnet.config.add_instance_group(count=instances)
     except KeyError:
         # otherwise create the model using the indicated
         # platform and set up an instance group with the
@@ -163,15 +168,17 @@ def export(
             )
         else:
             # there's no snapshotter, so make one
-            snapshotter = ensemble.add_streaming_inputs(
+            ensemble.add_streaming_inputs(
                 inputs=[bbhnet.inputs["hoft"]],
                 stream_size=stream_size,
                 name="snapshotter",
                 streams_per_gpu=streams_per_gpu,
             )
+            snapshotter = repo.models["snapshotter"]
 
         # export the ensemble model, which basically amounts
         # to writing its config and creating an empty version entry
+        ensemble.add_output(bbhnet.outputs["discriminator"])
         ensemble.export_version(None)
     else:
         # if there does already exist an ensemble by
