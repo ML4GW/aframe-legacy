@@ -23,6 +23,7 @@ def export(
     streams_per_gpu: int = 1,
     instances: Optional[int] = None,
     platform: qv.Platform = qv.Platform.ONNX,
+    clean: bool = False,
     verbose: bool = False,
 ) -> None:
     """
@@ -68,6 +69,9 @@ def export(
             The backend framework platform used to host the
             DeepClean architecture on the inference service. Right
             now only `"onnxruntime_onnx"` is supported.
+        clean:
+            Whether to clear the repository directory before starting
+            export
         verbose:
             If set, log at `DEBUG` verbosity, otherwise log at
             `INFO` verbosity.
@@ -97,6 +101,12 @@ def export(
     # indicated location and see if a deepclean
     # model already exists in this repository
     repo = qv.ModelRepository(repository_directory)
+    if clean:
+        logging.info(f"Cleaning model repository {repository_directory}")
+        for model in repo.models:
+            logging.info(f"Removing model {model.name}")
+            repo.remove(model)
+
     try:
         bbhnet = repo.models["bbhnet"]
 
@@ -159,6 +169,10 @@ def export(
                 name="snapshotter",
                 streams_per_gpu=streams_per_gpu,
             )
+
+        # export the ensemble model, which basically amounts
+        # to writing its config and creating an empty version entry
+        ensemble.export_version(None)
     else:
         # if there does already exist an ensemble by
         # the given name, make sure it has BBHNet
@@ -180,10 +194,6 @@ def export(
         6e9
     )
     snapshotter.config.write()
-
-    # export the ensemble model, which basically amounts
-    # to writing its config and creating an empty version entry
-    ensemble.export_version(None)
 
 
 if __name__ == "__main__":

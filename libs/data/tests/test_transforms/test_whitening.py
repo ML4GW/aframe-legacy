@@ -45,3 +45,5 @@ def test_whitening_transform(data_length, sample_rate, num_ifos):
             # get it consistently closer to this. Is this just
             # numerical precision issues adding up?
             assert np.isclose(target, output, rtol=1e-3).all()
+
+    # TODO: test shape checks on fit and forward
