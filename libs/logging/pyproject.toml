@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "bbhnet.logging"
+version = "0.0.1"
+description = "BBHNet logging utilities"
+authors = ["Alec Gunny"]
+license = "MIT"
+packages = [
+    {include = "bbhnet"}
+]
+# readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+
+[build-system]
+requires = ["poetry>=1.1"]
+build-backend = "poetry.masonry.api"

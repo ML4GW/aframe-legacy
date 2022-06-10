@@ -1,24 +1,29 @@
 #!/usr/bin/env python
 # coding: utf-8
+
 import logging
-import os
+from pathlib import Path
 
 import bilby
 import h5py
+import numpy as np
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from hermes.typeo import typeo
 
 from bbhnet.injection import generate_gw
+from bbhnet.logging import configure_logging
 
 
 @typeo
 def main(
     prior_file: str,
     n_samples: int,
-    outdir: str,
+    outdir: Path,
     waveform_duration: float = 8,
     sample_rate: float = 4096,
+    force_generation: bool = False,
+    verbose: bool = False,
 ):
 
     """Simulates a set of raw BBH signals and saves them to an output file.
@@ -29,10 +34,22 @@ def main(
         outdir: output directory to which signals will be written
         waveform_duration: length of injected waveforms
         sample_rate: sample rate of the signal in Hz
-
+        force_generation: if True, generate signals even if path already exists
     Returns:
         path to output file
     """
+
+    # make output dir
+    outdir.mkdir(exist_ok=True, parents=True)
+
+    configure_logging(outdir / "generate_waveforms.log", verbose)
+
+    # check if signal file already exists
+    signal_file = outdir.joinpath("signals.h5")
+
+    if signal_file.exists() and not force_generation:
+        logging.info("Signal file already exists, exiting")
+        return
 
     # log and print out some simulation parameters
     logging.info("Simulation parameters")
@@ -54,16 +71,15 @@ def main(
     )
 
     # sample GW parameters from prior distribution
-    priors = bilby.gw.prior.BBHPriorDict(prior_file)
+    priors = bilby.gw.prior.PriorDict(prior_file)
     sample_params = priors.sample(n_samples)
 
     signals = generate_gw(sample_params, waveform_generator=waveform_generator)
 
     # Write params and similar to output file
-    prior_name = os.path.basename(prior_file)[:-6]
-    signal_file = os.path.join(
-        outdir, f"signal_file_{prior_name}-{waveform_duration}.h5"
-    )
+
+    if np.isnan(signals).any():
+        raise ValueError("The signals contain NaN values")
 
     with h5py.File(signal_file, "w") as f:
         # write signals attributes, snr, and signal parameters
