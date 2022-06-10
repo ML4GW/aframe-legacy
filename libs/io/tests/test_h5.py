@@ -103,7 +103,7 @@ def check_file_contents(
 
 def check_filename_format(write_dir: "Path", fname: "Path", t, prefix):
     # check the file name format
-    length = t[-1] - t[0]
+    length = t[-1] - t[0] + t[1] - t[0]
     assert fname == write_dir / f"{prefix}_{t[0]}-{length}.hdf5"
 
 
@@ -150,7 +150,7 @@ def test_write_timeseries_ValueErrorInDatasetLen(
 # This test checks the read_timeseries function
 def test_read_timeseries(write_dir: "Path", t, prefix, datasets):
 
-    length = t[-1] - t[0]
+    length = t[-1] - t[0] + t[1] - t[0]
     fname = write_dir / f"{prefix}_{t[0]}-{length}.hdf5"
 
     # first manually write the timeseries in the required format
@@ -165,7 +165,7 @@ def test_read_timeseries(write_dir: "Path", t, prefix, datasets):
     # each array in "values", except the last one
     #  should match with dataset arrays
     for key, value in zip(datasets, values[:-1]):
-        assert (value == datasets[key][:]).all()
+        assert (value == datasets[key]).all()
 
     # last array in "values" should be the timeseries
     assert (values[-1][:] == t).all()

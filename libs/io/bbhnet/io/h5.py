@@ -5,7 +5,7 @@ import h5py
 if TYPE_CHECKING:
     from pathlib import Path
 
-import numpy as np
+    import numpy as np
 
 
 def write_timeseries(
@@ -21,7 +21,7 @@ def write_timeseries(
     t0 = t[0]
     t0 = int(t0) if int(t0) == t0 else t0
 
-    length = t[-1] - t[0]
+    length = t[-1] - t[0] + t[1] - t[0]
     length = int(length) if int(length) == length else length
 
     # format the filename and write the data to an archive
@@ -39,7 +39,11 @@ def write_timeseries(
 
         for key, value in datasets.items():
             if len(value) != len(t):
-                raise ValueError("Length of t and data arrays don't match")
+                raise ValueError(
+                    "Length of data array:",
+                    key,
+                    "doesn't match the length of timeseries",
+                )
             f[key] = value
 
     return fname
