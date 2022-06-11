@@ -14,7 +14,7 @@ def test_standard_scaler_transform(num_ifos):
         assert (param == i).all()
 
     x = torch.arange(10).type(torch.float32)
-    X = torch.stack([x, x + i] for i in range(num_ifos))
+    X = torch.stack([x + i for i in range(num_ifos)])
     scaler.fit(X)
 
     expected_mean = torch.Tensor([4.5 + i for i in range(num_ifos)])
