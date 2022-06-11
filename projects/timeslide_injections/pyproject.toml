@@ -14,7 +14,7 @@ python = ">=3.9,<3.11"
 pytest = "^6.2"
 
 [tool.poetry.scripts]
-timeslide = "timeslide_injections:main"
+timeslide_injections = "timeslide_injections:main"
 
 [tool.typeo]
 # Nov 27 2019 - Jan 05 2020
