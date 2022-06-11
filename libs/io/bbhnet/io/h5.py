@@ -40,9 +40,8 @@ def write_timeseries(
         for key, value in datasets.items():
             if len(value) != len(t):
                 raise ValueError(
-                    "Length of data array:",
-                    key,
-                    "doesn't match the length of timeseries",
+                    f"Length of data array '{key}' "
+                    f"doesn't match the length of timeseries",
                 )
             f[key] = value
 
