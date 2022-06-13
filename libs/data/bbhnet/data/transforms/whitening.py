@@ -24,11 +24,16 @@ class WhiteningTransform(Transform):
 
         # initialize the parameter with 0s, then fill it out later
         kernel_size = int(kernel_length * sample_rate)
+
+        # subtract one to make kernel_size odd since the last value
+        # of the filter will be 0. anyway. TODO: should we check
+        # to confirm kernel_size is even first? Does that 0. still
+        # get appended in the odd case?
         self.time_domain_filter = self.add_parameter(
-            torch.zeros((num_ifos, 1, kernel_size)),
+            torch.zeros((num_ifos, 1, kernel_size - 1)),
         )
         self.window = torch.hann_window(kernel_size)
-        self.pad = int((kernel_size - 1) // 2)
+        self.pad = int(kernel_size // 2) - 1
 
     def to(self, device: torch.device):
         """
@@ -71,7 +76,7 @@ class WhiteningTransform(Transform):
             )
             tdfs.append(tdf)
 
-        tdf = np.stack(tdfs)[:, None]
+        tdf = np.stack(tdfs)[:, None, :-1]
         self.set_value(self.time_domain_filter, tdf)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:

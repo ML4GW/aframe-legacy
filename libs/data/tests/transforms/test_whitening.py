@@ -13,7 +13,7 @@ def test_whitening_transform(data_length, sample_rate, num_ifos):
     assert len(list(whitener.parameters())) == 1
     assert whitener.time_domain_filter.ndim == 3
     assert len(whitener.time_domain_filter) == num_ifos
-    assert whitener.time_domain_filter.shape[-1] == sample_rate
+    assert whitener.time_domain_filter.shape[-1] == (sample_rate - 1)
     assert len(whitener.window) == sample_rate
 
     background = torch.randn(num_ifos, int(data_length * sample_rate))
