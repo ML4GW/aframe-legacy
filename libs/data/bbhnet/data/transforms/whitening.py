@@ -28,6 +28,7 @@ class WhiteningTransform(Transform):
             torch.zeros((num_ifos, 1, kernel_size)),
         )
         self.window = torch.hann_window(kernel_size)
+        self.pad = int((kernel_size - 1) // 2)
 
     def to(self, device: torch.device):
         """
@@ -89,9 +90,8 @@ class WhiteningTransform(Transform):
         # the background data, using groups to ensure that
         # the convolution is performed independently for
         # each interferometer channel
-        pad = int((len(self.time_domain_filter) - 1) // 2)
         X = torch.nn.functional.conv1d(
-            X, self.time_domain_filter, groups=self.num_ifos, padding=pad
+            X, self.time_domain_filter, groups=self.num_ifos, padding=self.pad
         )
 
         # scale by sqrt(2 / sample_rate) for some inscrutable
