@@ -27,10 +27,9 @@ def export(
     verbose: bool = False,
 ) -> None:
     """
-    Export a DeepClean architecture to model repository
-    for streaming inference, including adding models for
-    caching input snapshot state as well as aggregated
-    output state.
+    Export a BBHNet architecture to a model repository
+    for streaming inference, including adding a model
+    for caching input snapshot state on the server.
     Args:
         architecture:
             A function which takes as input a number of witness
