@@ -153,4 +153,4 @@ jobs:
           || (steps.filter.outputs.export == 'true')
         env:
           test_dir: /github/workspace/projects/sandbox/export
-        run: pinto -p $test_dir run ptest $test_dir/tests
+        run: pinto -p $test_dir run pytest $test_dir/tests
