@@ -252,7 +252,6 @@ class RandomWaveformDataset:
                 idx = 0
 
             if livingston_glitches is not None:
-                slc = slice(idx, idx + len(livingston_glitches))
                 slc = slice(self.num_glitches - num_livingston, self.num_glitches)
                 X[slc, 1] = livingston_glitches
 
