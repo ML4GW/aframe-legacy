@@ -1,5 +1,7 @@
+import logging
 import time
 from pathlib import Path
+from queue import Empty
 from typing import Iterable
 
 import numpy as np
@@ -7,8 +9,9 @@ from hermes.stillwater import InferenceClient
 from hermes.stillwater.utils import Package
 from hermes.typeo import typeo
 
+from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment, TimeSlide
-from bbhnet.parallelize import AsyncExecutor
+from bbhnet.parallelize import AsyncExecutor, as_completed
 from tritonserve import serve
 
 
@@ -21,10 +24,9 @@ def load(segment: Segment):
 def stream_data(
     x: np.ndarray, stream_size: int, sequence_id: int, client: InferenceClient
 ):
-    # TODO: make more robust to when this does not evenly divide
-    num_streams = x.shape[-1] // stream_size
+    num_streams = (x.shape[-1] - 1) // stream_size + 1
     for i in range(num_streams):
-        stream = x[i * stream_size : (i + 1) * stream_size]
+        stream = x[:, i * stream_size : (i + 1) * stream_size]
         package = Package(
             x=stream,
             t0=time.time(),
@@ -43,13 +45,64 @@ def infer(
     stream_size: int,
     base_sequence_id: int,
 ):
-    records = {}
     for timeslide in timeslides:
+        write_dir = timeslide.root / "out"
+        write_dir.mkdir(parents=True, exist_ok=True)
+        timeseries = {}
+
         data_it = executor.imap(load, timeslide.segments)
-        for i, (x, t, fnames) in enumerate(data_it):
+        for i, (x, t) in enumerate(data_it):
             sequence_id = base_sequence_id + i
-            records[sequence_id] = (t, fnames)
+
+            # create a new timeseries entry to keep track of
+            # as results come back in from the inference server
+            t = t[::stream_size]
+            timeseries[sequence_id] = {"t": t, "y": np.array([])}
+
+            # submit all the streaming inference requests to
+            # the inference server for the corresponding sequence
             stream_data(x, stream_size, sequence_id, client)
+
+        # iterate through inference service responses
+        # that have been written to the client's out_q
+        futures = []
+        while len(timeseries) > 0:
+            try:
+                package = client.out_q.get_nowait()
+            except Empty:
+                continue
+
+            # grab the network output and the corresponding
+            # sequence id that the output belongs to
+            y = package.x.reshape(-1)
+            sequence_id = package.sequence_id
+
+            # update our running neural network outputs
+            y = np.append(timeseries[sequence_id]["y"], y)
+            timeseries[sequence_id]["y"] = y
+            if package.sequence_end:
+                logging.debug(f"Finished inference on sequence {sequence_id}")
+
+                # grab the relevant data from the dictionary entry
+                # and make sure that they have the same length
+                ts = timeseries.pop(sequence_id)
+                y, t = ts["y"], ts["t"]
+                if len(y) != len(t):
+                    raise ValueError(
+                        "Sequence {} has completed but output array "
+                        "has length {} which doesn't match length "
+                        "of time array {}".format(sequence_id, len(y), len(t))
+                    )
+
+                # submit a write job to the process pool
+                future = executor.submit(
+                    write_timeseries, write_dir, "out", t=t, y=y
+                )
+                futures.append(future)
+
+        # wait for all the files from this timeslide to get written
+        for fname in as_completed(futures):
+            logging.debug(f"Wrote inferred segment to file '{fname}'")
 
 
 @typeo
@@ -57,6 +110,7 @@ def main(
     model_repo_dir: Path,
     data_dir: Path,
     field: str,
+    output_field: str,
     sample_rate: float,
     inference_sampling_rate: float,
     num_workers: int,
