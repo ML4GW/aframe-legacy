@@ -1,7 +1,9 @@
+from typing import Union
+
 import h5py
 import numpy as np
 import torch
-from typing import Union
+
 from bbhnet.data.utils import sample_kernels
 
 
@@ -17,19 +19,19 @@ class GlitchSampler:
         self.livingston = torch.Tensor(livingston_glitches).to(device)
 
     def sample(self, N: Union[int, tuple], size: int) -> np.ndarray:
-        
+
         if isinstance(N, int):
-            #specifying number of glitches, no coincidence
+            # specifying number of glitches, no coincidence
             num_hanford = np.random.randint(N)
             num_livingston = N - num_hanford
         else:
-            assert(isinstance(N, tuple))
-            #specifying number of glitches to each ifo
+            assert isinstance(N, tuple)
+            # specifying number of glitches to each ifo
             num_hanford, num_livingston = N
-            
-        #sanity check
+
+        # sanity check
         num_coincident = num_hanford + num_livingston - N
-        assert(num_coincident >= 0)
+        assert num_coincident >= 0
 
         if num_hanford > 0:
             hanford = sample_kernels(self.hanford, size, num_hanford)
