@@ -2,7 +2,7 @@ import logging
 import time
 from pathlib import Path
 from queue import Empty
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 from hermes.stillwater import InferenceClient
@@ -11,6 +11,7 @@ from hermes.typeo import typeo
 
 from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment, TimeSlide
+from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor, as_completed
 from tritonserve import serve
 
@@ -111,20 +112,42 @@ def infer(
 @typeo
 def main(
     model_repo_dir: Path,
+    model_name: str,
     data_dir: Path,
     field: str,
-    output_field: str,
     sample_rate: float,
     inference_sampling_rate: float,
     num_workers: int,
+    model_version: int = 1,
     base_sequence_id: int = 1001,
+    log_file: Optional[str] = None,
+    verbose: bool = False,
 ):
+    configure_logging(log_file, verbose)
     stream_size = int(sample_rate // inference_sampling_rate)
+
+    # spin up a triton server and don't move on until it's ready
     with serve(model_repo_dir, wait=True):
-        client = InferenceClient("localhost:8001")
+        # now build a client to connect to the inference service
+        client = InferenceClient("localhost:8001", model_name, model_version)
+
+        # create a process pool that we'll use to perform
+        # read/writes of timeseries in parallel
         executor = AsyncExecutor(num_workers, thread=False)
+
+        # initialize all the `TimeSlide`s which will organize
+        # their corresponding files into segments
         timeslides = [TimeSlide(i, field) for i in data_dir.iterdir()]
+
+        # now enter a context which will:
+        # - for the client, start a streaming connection with
+        #       with the inference service and launch a separate
+        #       process for inference
+        # - for the executor, launch the process pool
         with client, executor:
+            # now actually do inference in a separate function since
+            # we're already 2 contexts deep and we'll need to do
+            # some nested looping on top of this
             infer(client, executor, timeslides, stream_size, base_sequence_id)
 
 
