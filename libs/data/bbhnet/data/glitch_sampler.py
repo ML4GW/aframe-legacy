@@ -29,10 +29,6 @@ class GlitchSampler:
             # specifying number of glitches to each ifo
             num_hanford, num_livingston = N
 
-        # sanity check
-        num_coincident = num_hanford + num_livingston - N
-        assert num_coincident >= 0
-
         if num_hanford > 0:
             hanford = sample_kernels(self.hanford, size, num_hanford)
             hanford = torch.stack(hanford, axis=0)
