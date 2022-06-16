@@ -244,7 +244,7 @@ class RandomWaveformDataset:
             else:
                 num_livingston = np.random.randint(
                     self.num_glitches - num_hanford, self.num_glitches
-            )
+                )
 
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
                 (num_hanford, num_livingston), self.kernel_size
