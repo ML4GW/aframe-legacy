@@ -18,7 +18,7 @@ from tritonserve import serve
 def load(segment: Segment):
     hanford, t = segment.load("hanford")
     livingston, _ = segment.load("livingston")
-    return np.stack([hanford, livingston]), t, segment.fnames
+    return np.stack([hanford, livingston]), t
 
 
 def stream_data(
@@ -67,9 +67,12 @@ def infer(
         # that have been written to the client's out_q
         futures = []
         while len(timeseries) > 0:
+            # see if the client has a response for us,
+            # otherwise take a breath then keep going
             try:
                 package = client.out_q.get_nowait()
             except Empty:
+                time.sleep(1e-4)
                 continue
 
             # grab the network output and the corresponding
