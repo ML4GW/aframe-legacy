@@ -43,15 +43,57 @@ def calc_snr(data, noise_psd, fs, fmin=20):
     return snr
 
 
+def _set_missing_params(default, supplied):
+    common = set(default).intersection(supplied)
+    res = {k: supplied[k] for k in common}
+    for k in default.keys() - common:
+        res.update({k: default[k]})
+    return res
+
+
+def get_waveform_generator(**waveform_generator_params):
+    """Get a waveform generator using
+    :meth:`bilby.gw.waveform_generator.WaveformGenerator`
+
+    Args:
+        waveform_generator_params: dict
+        Keyword arguments to waveform generator
+    """
+    default_waveform_sampling_params = dict(
+        duration=8,
+        sampling_frequency=16384,
+        frequency_domain_source_model=lal_binary_black_hole,
+        parameter_conversion=convert_to_lal_binary_black_hole_parameters,
+    )
+    default_waveform_approximant_params = dict(
+        waveform_approximant="IMRPhenomPv2",
+        reference_frequency=50,
+        minimum_frequency=20,
+    )
+
+    sampling_params = _set_missing_params(
+        default_waveform_sampling_params, waveform_generator_params
+    )
+    waveform_approximant_params = _set_missing_params(
+        default_waveform_approximant_params, waveform_generator_params
+    )
+
+    sampling_params["waveform_arguments"] = waveform_approximant_params
+
+    logging.debug("Waveform parameters: {}".format(sampling_params))
+    return bilby.gw.waveform_generator.WaveformGenerator(**sampling_params)
+
+
 def generate_gw(
-    sample_params,
-    waveform_generator=None,
+    sample_params, waveform_generator=None, **waveform_generator_params
 ):
     """Generate raw gravitational-wave signals, pre-interferometer projection.
 
     Args:
         sample_params: dictionary of GW parameters
         waveform_generator: bilby.gw.WaveformGenerator with appropriate params
+        waveform_generator_params: keyword arguments to
+        :meth:`bilby.gw.WaveformGenerator`
 
     Returns:
         An (n_samples, 2, waveform_size) array, containing both polarizations
@@ -64,18 +106,9 @@ def generate_gw(
     ]
     n_samples = len(sample_params)
 
-    if waveform_generator is None:
-        waveform_generator = bilby.gw.WaveformGenerator(
-            duration=8,
-            sampling_frequency=16384,
-            frequency_domain_source_model=lal_binary_black_hole,
-            parameter_conversion=convert_to_lal_binary_black_hole_parameters,
-            waveform_arguments={
-                "waveform_approximant": "IMRPhenomPv2",
-                "reference_frequency": 50,
-                "minimum_frequency": 20,
-            },
-        )
+    waveform_generator = waveform_generator or get_waveform_generator(
+        **waveform_generator_params
+    )
 
     sample_rate = waveform_generator.sampling_frequency
     waveform_duration = waveform_generator.duration
@@ -84,16 +117,31 @@ def generate_gw(
     num_pols = 2
     signals = np.zeros((n_samples, num_pols, waveform_size))
 
-    b, a = sig.butter(
+    filtered_signal = apply_high_pass_filter(
+        signals, sample_params, waveform_generator
+    )
+    return filtered_signal
+
+
+def apply_high_pass_filter(signals, sample_params, waveform_generator):
+    sos = sig.butter(
         N=8,
         Wn=waveform_generator.waveform_arguments["minimum_frequency"],
         btype="highpass",
+        output="sos",
         fs=waveform_generator.sampling_frequency,
     )
+    polarization_names = None
     for i, p in enumerate(sample_params):
         polarizations = waveform_generator.time_domain_strain(p)
-        signals[i] = sig.filtfilt(b, a, list(polarizations.values()), axis=1)
+        if polarization_names is None:
+            polarization_names = sorted(polarizations.keys())
 
+        polarizations = np.stack(
+            [polarizations[p] for p in polarization_names]
+        )
+        filtered = sig.sosfiltfilt(sos, polarizations, axis=1)
+        signals[i] = filtered
     return signals
 
 
