@@ -43,7 +43,7 @@ class WhiteningTransform(Transform):
         self.fduration = fduration or kernel_length / 2
 
         # initialize the parameter with 0s, then fill it out later
-        self.tdf_size = int(self.fduration * self.sample_rate)
+        self.ntaps = int(self.fduration * self.sample_rate)
 
         self.kernel_size = int(self.kernel_length * self.sample_rate)
 
@@ -52,9 +52,9 @@ class WhiteningTransform(Transform):
         # to confirm kernel_size is even first? Does that 0. still
         # get appended in the odd case?
         self.time_domain_filter = self.add_parameter(
-            torch.zeros((num_ifos, 1, self.tdf_size - 1)),
+            torch.zeros((num_ifos, 1, self.ntaps - 1)),
         )
-        self.window = torch.hann_window(self.tdf_size)
+        self.window = torch.hann_window(self.ntaps)
 
     def to(self, device: torch.device):
         """
@@ -84,7 +84,6 @@ class WhiteningTransform(Transform):
                 )
             )
 
-        ntaps = int(self.fduration * self.sample_rate)
         tdfs = []
         for x in X.cpu().numpy():
 
@@ -94,7 +93,10 @@ class WhiteningTransform(Transform):
             )
             asd = asd.interpolate(self.df).value
             tdf = fir_from_transfer(
-                1 / asd, ntaps=ntaps, window="hanning", ncorner=self.ncorner
+                1 / asd,
+                ntaps=self.ntaps,
+                window="hanning",
+                ncorner=self.ncorner,
             )
             tdfs.append(tdf)
 
