@@ -117,7 +117,7 @@ class WhiteningTransform(Transform):
         X = X.transpose(0, 2)
 
         X[:, :, : self.pad] *= self.window[: self.pad]
-        # X[:, :, -self.pad :] *= self.window[-self.pad :]
+        X[:, :, -self.pad :] *= self.window[-self.pad :]
 
         # convolve the detrended data with the time-domain
         # filters constructed during initialization from
@@ -135,7 +135,6 @@ class WhiteningTransform(Transform):
         # due to settling in of whitening filter
         crop_samples = int((self.fduration / 2) * self.sample_rate)
 
-        conv = X
         if nfft >= self.kernel_size / 2:
             conv = torch.nn.functional.conv1d(
                 X,
