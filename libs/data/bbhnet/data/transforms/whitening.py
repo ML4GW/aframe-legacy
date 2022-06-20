@@ -54,6 +54,8 @@ class WhiteningTransform(Transform):
         self.time_domain_filter = self.add_parameter(
             torch.zeros((num_ifos, 1, self.ntaps - 1)),
         )
+
+        self.pad = int(np.ceil(self.time_domain_filter.size(-1) / 2))
         self.window = torch.hann_window(self.ntaps)
 
     def to(self, device: torch.device):
@@ -114,10 +116,8 @@ class WhiteningTransform(Transform):
         X = X - X.mean(axis=0)
         X = X.transpose(0, 2)
 
-        self.pad = int(np.ceil(self.time_domain_filter.size(-1) / 2))
-
         X[:, :, : self.pad] *= self.window[: self.pad]
-        X[:, :, -self.pad :] *= self.window[-self.pad :]
+        # X[:, :, -self.pad :] *= self.window[-self.pad :]
 
         # convolve the detrended data with the time-domain
         # filters constructed during initialization from
@@ -135,6 +135,7 @@ class WhiteningTransform(Transform):
         # due to settling in of whitening filter
         crop_samples = int((self.fduration / 2) * self.sample_rate)
 
+        conv = X
         if nfft >= self.kernel_size / 2:
             conv = torch.nn.functional.conv1d(
                 X,
@@ -145,6 +146,9 @@ class WhiteningTransform(Transform):
 
             # crop the beginning and ending fduration / 2
             conv = conv[:, :, crop_samples:-crop_samples]
+
+        # TODO: speed this up using torch.unfold
+        # and removing while loop
 
         # else use the overlap-save algorithm
         else:
@@ -171,6 +175,7 @@ class WhiteningTransform(Transform):
                     :, :, self.pad : -self.pad
                 ]
                 k += nstep
+
             # handle last chunk separately
             conv[:, :, -nfft + self.pad :] = torch.nn.functional.conv1d(
                 X[:, :, -nfft:],
@@ -184,4 +189,5 @@ class WhiteningTransform(Transform):
 
         # scale by sqrt(2 / sample_rate) for some inscrutable
         # signal processing reason beyond my understanding
+
         return conv * (2 / self.sample_rate) ** 0.5
