@@ -35,8 +35,8 @@ def data_size(sample_rate, data_length):
 
 
 @pytest.fixture
-def zero_data(data_size):
-    return np.zeros((data_size,))
+def ones_data(data_size):
+    return np.ones((data_size,))
 
 
 @pytest.fixture
@@ -64,13 +64,13 @@ def sequential_livingston_background(sequential_data, write_background):
 
 
 @pytest.fixture
-def zeros_hanford_background(zero_data, write_background):
-    return write_background("hanford.h5", zero_data)
+def ones_hanford_background(ones_data, write_background):
+    return write_background("hanford.h5", ones_data)
 
 
 @pytest.fixture
-def zeros_livingston_background(zero_data, write_background):
-    return write_background("livingston.h5", zero_data)
+def ones_livingston_background(ones_data, write_background):
+    return write_background("livingston.h5", ones_data)
 
 
 @pytest.fixture(params=["path", "sampler"])
@@ -170,8 +170,8 @@ def validate_dataset(dataset, cutoff_idx, target):
 
 
 def test_glitch_sampling(
-    zeros_hanford_background,
-    zeros_livingston_background,
+    ones_hanford_background,
+    ones_livingston_background,
     glitch_sampler,
     glitch_frac,
     sample_rate,
@@ -179,8 +179,8 @@ def test_glitch_sampling(
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        zeros_hanford_background,
-        zeros_livingston_background,
+        ones_hanford_background,
+        ones_livingston_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -199,8 +199,8 @@ def test_glitch_sampling(
 
 
 def test_waveform_sampling(
-    zeros_hanford_background,
-    zeros_livingston_background,
+    ones_hanford_background,
+    ones_livingston_background,
     sine_waveforms,
     waveform_frac,
     sample_rate,
@@ -212,8 +212,8 @@ def test_waveform_sampling(
 
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        zeros_hanford_background,
-        zeros_livingston_background,
+        ones_hanford_background,
+        ones_livingston_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
