@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import torch
 from export import export
+from tritonclient.grpc.model_config_pb2 import ModelConfig
 
 from bbhnet.architectures import ResNet
 from bbhnet.data.transforms import WhiteningTransform
@@ -61,6 +62,12 @@ def output_dir(tmp_path):
     output_dir = tmp_path / "output"
     output_dir.mkdir()
     return output_dir
+
+
+def load_config(config_path: Path):
+    config = ModelConfig()
+    config.MergeFromString(config_path.read_text())
+    return config
 
 
 @pytest.fixture
@@ -231,7 +238,8 @@ def test_export_for_scaling(
     instances,
     clean,
     architecture,
-    valdiate_repo,
+    validate_repo,
+    get_network_weights,
 ):
     num_ifos = 2
     kernel_length = 1
