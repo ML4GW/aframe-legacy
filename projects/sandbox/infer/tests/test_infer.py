@@ -110,11 +110,30 @@ def data_dir(tmpdir, sample_rate):
     return data_dir
 
 
-@patch("tritonserve.serve")
-def test_infer(data_dir, sample_rate, inference_sampling_rate, new_init):
+def fake_init(obj, *args, **kwargs):
+    obj._instance = MagicMock()
+    obj._thread = MagicMock()
+    obj._response_queue = MagicMock()
+
+
+@patch("tritonserve.SingularityInstance.__init__", new=fake_init)
+@patch("tritonserve.SingularityInstance.run")
+@patch("tritonserve.SingularityInstance.name", return_value="FAKE")
+@patch(
+    "tritonclient.grpc.InferenceServerClient.is_server_live", return_value=True
+)
+def test_infer(
+    init_mock,
+    run_mock,
+    name_mock,
+    data_dir,
+    sample_rate,
+    inference_sampling_rate,
+    new_init,
+):
     with patch("hermes.stillwater.InferenceClient.__init__", new=new_init):
         infer(
-            None,
+            "",
             "",
             data_dir=data_dir,
             field="out",

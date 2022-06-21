@@ -9,7 +9,7 @@ authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 infer = "infer:main"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.11"
 
 "bbhnet.io" = {path = "../../../libs/io", develop = true}
 "bbhnet.parallelize" = {path = "../../../libs/parallelize", develop = true}
