@@ -255,7 +255,7 @@ class RandomWaveformDataset:
         # we have glitch data to use
         if self.glitch_sampler is not None:
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
-                self.num_glitches, self.kernel_size
+                self.num_glitches, self.kernel_size, self.trigger_distance_size
             )
 
             if hanford_glitches is not None:
@@ -272,7 +272,9 @@ class RandomWaveformDataset:
         # generated waveforms to sample from
         if self.waveform_sampler is not None:
             waveforms = self.waveform_sampler.sample(
-                self.num_waveforms, self.kernel_size
+                self.num_waveforms,
+                self.kernel_size,
+                self.trigger_distance_size,
             )
             waveforms = np.stack(waveforms)
             waveforms = torch.Tensor(waveforms).to(self.device)
