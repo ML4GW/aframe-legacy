@@ -36,6 +36,7 @@ class RandomWaveformDataset:
         waveform_frac: float = 0,
         glitch_sampler: Union[GlitchSampler, str, None] = None,
         glitch_frac: float = 0,
+        trigger_distance: Optional[float] = None,
         device: torch.device = "cuda",
     ) -> None:
         """Iterable dataset which can sample and inject auxiliary data
@@ -113,10 +114,20 @@ class RandomWaveformDataset:
                 The fraction of each batch that should consist
                 of inserted glitches, marked as `0.` in the
                 target tensor produced during iteration
+            trigger_distance:
+                The maximum number of seconds the t0 of signals and glitches
+                can lie away from the center of sampled kernels
             device:
                 The device on which to host all the relevant
                 torch tensors.
         """
+
+        # default behavior is set trigger_distance to half
+        # kernel length
+        # with this setting t0 can lie anywhere in the kernel
+        self.trigger_distance = trigger_distance or kernel_length / 2
+
+        self.trigger_distance_size = self.trigger_distance * sample_rate
 
         # sanity check our fractions
         assert 0 <= waveform_frac <= 1
@@ -207,10 +218,16 @@ class RandomWaveformDataset:
         """
 
         hanford_kernels = sample_kernels(
-            self.hanford_background, self.kernel_size, self.batch_size
+            self.hanford_background,
+            self.kernel_size,
+            self.trigger_distance_size,
+            self.batch_size,
         )
         livingston_kernels = sample_kernels(
-            self.livingston_background, self.kernel_size, self.batch_size
+            self.livingston_background,
+            self.kernel_size,
+            self.trigger_distance_size,
+            self.batch_size,
         )
 
         # interweave these kernels along the 0th axis so that

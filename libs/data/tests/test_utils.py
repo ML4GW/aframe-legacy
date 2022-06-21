@@ -19,7 +19,18 @@ def N(request):
     return request.param
 
 
+@pytest.fixture(params=[8, 40, 100])
+def trigger_distance_size(request):
+    return request.param
+
+
 def test_sample_kernels(ndim, size, N):
+    # set trigger_dist_size = size / 2
+    # this replicates behavior
+    # that allows t0 to lie anywhere in kernel
+
+    trigger_dist_size = size / 2
+
     # for 1D arrays we need more data so that we
     # have enough to sample across
     if ndim == 1 and N is None:
@@ -40,16 +51,18 @@ def test_sample_kernels(ndim, size, N):
     if ndim == 1 and N is None:
         # must specify number of samples for ndim == 1
         with pytest.raises(ValueError):
-            data_utils.sample_kernels(x, size, N)
+            data_utils.sample_kernels(x, size, trigger_dist_size, N)
         return
     elif ndim == 1:
         # timeseries has to be long enough to sample
         # N kernels of size size
         with pytest.raises(ValueError):
-            data_utils.sample_kernels(x[: N + size - 1], size, N)
+            data_utils.sample_kernels(
+                x[: N + size - 1], size, trigger_dist_size, N
+            )
 
     # make sure we returned the appropriate number of kernels
-    kernels = data_utils.sample_kernels(x, size, N)
+    kernels = data_utils.sample_kernels(x, size, trigger_dist_size, N)
     if N is not None:
         assert len(kernels) == N
     else:
@@ -113,3 +126,31 @@ def test_sample_kernels(ndim, size, N):
         # verify no overlapping samples
         if N is not None and N <= len(x):
             assert len(idx_seen) == len(list(set(idx_seen)))
+
+
+def test_sample_kernels_with_trigger_distance(trigger_distance_size, size):
+
+    # test on a lot of samples for robustness
+    N = 10000
+
+    # create dummy arrays
+    # where the difference between
+    # two values in the array
+    # is also the amount of samples apart
+    xsize = 200
+    x = np.arange(xsize)
+    x = np.stack([x + i * xsize for i in range(8)])
+
+    kernels = data_utils.sample_kernels(x, size, trigger_distance_size, N)
+
+    for kernel in kernels:
+
+        # the trigger t0 is half way through timeseries
+        t0_value = xsize // 2
+
+        # get the center of the sampled kernel
+        kernel_center_value = (np.max(kernel) - (size // 2)) % xsize
+
+        # assert that the number of samples between t0 and the center is
+        # less than the trigger distance
+        assert abs(t0_value - kernel_center_value) <= trigger_distance_size
