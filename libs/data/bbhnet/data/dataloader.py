@@ -237,18 +237,26 @@ class RandomWaveformDataset:
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitch_sampler is not None:
+            # coincident glitch insertion
+            num_hanford = np.random.randint(self.num_glitches)
+            if num_hanford == 0:
+                num_livingston = self.num_glitches
+            else:
+                num_livingston = np.random.randint(
+                    self.num_glitches - num_hanford, self.num_glitches
+                )
+
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
-                self.num_glitches, self.kernel_size
+                (num_hanford, num_livingston), self.kernel_size
             )
 
             if hanford_glitches is not None:
                 X[: len(hanford_glitches), 0] = hanford_glitches
-                idx = len(hanford_glitches)
-            else:
-                idx = 0
 
             if livingston_glitches is not None:
-                slc = slice(idx, idx + len(livingston_glitches))
+                slc = slice(
+                    self.num_glitches - num_livingston, self.num_glitches
+                )
                 X[slc, 1] = livingston_glitches
 
         # inject waveforms into the background if we have
