@@ -1,3 +1,4 @@
+import time
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -6,7 +7,7 @@ from hermes.stillwater.process import PipelineProcess
 from hermes.stillwater.utils import Package
 from infer import main as infer
 
-from bbhnet.io.h5 import write_timeseries
+from bbhnet.io.h5 import read_timeseries, write_timeseries
 
 
 class DummyInferInput:
@@ -23,7 +24,8 @@ def get_async_stream_infer(obj):
         obj.out_q.put(
             {
                 "prob": Package(
-                    x=kwargs["inputs"][0].x[-1] + 1,
+                    x=kwargs["inputs"][0].x[0, 0, -1] + 1,
+                    t0=time.time(),
                     sequence_id=kwargs["sequence_id"],
                     sequence_end=kwargs["sequence_end"],
                 )
@@ -60,7 +62,7 @@ def new_init(sample_rate, inference_sampling_rate):
         obj.client.async_stream_infer = get_async_stream_infer(obj)
 
         obj.inputs = []
-        obj.states = [(infer_input, {})]
+        obj.states = [(infer_input, {"": (1, 2, stream_size)})]
         obj.model_name = model_name
         obj.model_version = model_version
         obj.message_start_times = {}
@@ -94,7 +96,7 @@ def data_dir(tmpdir, sample_rate):
             write_timeseries(
                 write_dir,
                 prefix="raw",
-                hanford=x,
+                hanford=x + i * 1024,
                 livingston=-x,
                 t=t + i * 1024,
             )
@@ -102,7 +104,7 @@ def data_dir(tmpdir, sample_rate):
             write_timeseries(
                 write_dir,
                 prefix="raw",
-                hanford=x,
+                hanford=x + i * 1024,
                 livingston=-x,
                 t=t + (i + 4) * 1024,
             )
@@ -136,13 +138,23 @@ def test_infer(
             "",
             "",
             data_dir=data_dir,
-            field="out",
+            field="raw",
             sample_rate=sample_rate,
             inference_sampling_rate=inference_sampling_rate,
             num_workers=2,
         )
 
+    step_size = int(sample_rate // inference_sampling_rate)
     for dt in ["0.0", "0.5", "1.0"]:
         out_dir = data_dir / f"dt-{dt}" / "out"
         assert out_dir.exists()
-        assert len(list(out_dir.iterdir())) == 2
+
+        for i, fname in enumerate(out_dir.iterdir()):
+            length = int(fname.stem.split("-")[-1])
+            y, t = read_timeseries(fname, "out")
+            assert len(y) == (length * inference_sampling_rate)
+
+            expected = np.arange(0, length, 1 / sample_rate)
+            expected = expected[::step_size] + expected[step_size - 1] + 1
+            assert (expected == y).all()
+        assert i == 1

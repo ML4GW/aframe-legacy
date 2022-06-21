@@ -6,7 +6,7 @@ from typing import Iterable, Optional
 
 import numpy as np
 from hermes.stillwater import InferenceClient
-from hermes.stillwater.utils import Package
+from hermes.stillwater.utils import ExceptionWrapper, Package
 from hermes.typeo import typeo
 
 from bbhnet.io.h5 import write_timeseries
@@ -76,6 +76,8 @@ def infer(
                 time.sleep(1e-4)
                 continue
             else:
+                if isinstance(package, ExceptionWrapper):
+                    package.reraise()
                 package = package["prob"]
 
             # grab the network output and the corresponding
