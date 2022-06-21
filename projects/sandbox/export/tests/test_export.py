@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 import torch
 from export import export
+from google.protobuf import text_format
 from tritonclient.grpc.model_config_pb2 import ModelConfig
 
 from bbhnet.architectures import ResNet
@@ -66,40 +67,78 @@ def output_dir(tmp_path):
 
 def load_config(config_path: Path):
     config = ModelConfig()
-    config.MergeFromString(config_path.read_text())
+    text_format.Merge(config_path.read_text(), config)
     return config
 
 
 @pytest.fixture
 def validate_repo(repo_dir):
-    def fn(expected_instances, expected_versions):
-        models = [i.name for i in repo_dir.iterdir()]
-        assert len(models) == 3
-        assert set(models) == set(["bbhnet", "snapshotter", "bbhnet-stream"])
+    def fn(
+        expected_instances,
+        expected_snapshots,
+        expected_versions,
+        expected_num_ifos,
+        expected_stream_size,
+        expected_kernel_size,
+    ):
+        for i, model in enumerate(repo_dir.iterdir()):
+            config = load_config(model / "config.pbtxt")
+            if model.name == "snapshotter":
+                try:
+                    instance_group = config.instance_group[0]
+                except IndexError:
+                    if expected_snapshots is not None:
+                        raise ValueError(
+                            "No instance group but expected snapshots "
+                            f"is {expected_snapshots}"
+                        )
+                else:
+                    if expected_snapshots is None:
+                        raise ValueError(
+                            "Didn't expect snapshots but found "
+                            f"instance group {instance_group}"
+                        )
+                    assert instance_group.count == expected_snapshots
 
-        # verify that the instance group scale is correct
-        bbhnet_config = repo_dir / "bbhnet" / "config.pbtxt"
-        assert bbhnet_config.exists()
-        config = bbhnet_config.read_text()
-        has_scale = f"count: {expected_instances}" in config
-        assert has_scale ^ (expected_instances is None)
+                assert config.input[0].dims[1] == expected_num_ifos
+                assert config.input[0].dims[2] == expected_stream_size
 
-        # TODO: check shapes in config
-        # is this our business or do we trust quiver to test
-        # for this correctly? I guess it's more of a test as
-        # to whether we fed the arguments to quiver correctly
+                assert config.output[0].dims[1] == expected_num_ifos
+                assert config.output[0].dims[2] == expected_kernel_size
 
-        # verify that we have all the versions we expect of bbhnet
-        bbhnet_versions = list((repo_dir / "bbhnet").iterdir())
-        bbhnet_versions = [i.name for i in bbhnet_versions]
-        for i in range(1, expected_versions + 1):
-            assert str(i) in bbhnet_versions
-            assert (repo_dir / "bbhnet" / str(i) / "model.onnx").is_file()
+                assert (model / "1" / "model.savedmodel").is_dir()
+                assert not (model / "2").is_dir()
+            elif model.name == "bbhnet":
+                try:
+                    instance_group = config.instance_group[0]
+                except IndexError:
+                    if expected_instances is not None:
+                        raise ValueError(
+                            "No instance group but expected instances "
+                            f"is {expected_instances}"
+                        )
+                else:
+                    if expected_instances is None:
+                        raise ValueError(
+                            "Didn't expect bbhnet instances but found "
+                            f"instance group {instance_group}"
+                        )
+                    assert instance_group.count == expected_instances
 
-        # make sure we only ever have one snapshotter
-        # and ensemble model version
-        assert len(list((repo_dir / "snapshotter").iterdir())) == 2
-        assert len(list((repo_dir / "bbhnet-stream").iterdir())) == 2
+                assert config.input[0].dims[1] == expected_num_ifos
+                assert config.input[0].dims[2] == expected_kernel_size
+                assert [j == 1 for j in config.output[0].dims]
+
+                for j in range(expected_versions):
+                    assert (model / str(j + 1) / "model.onnx").is_file()
+                assert not (model / str(j + 2)).is_dir()
+            elif model.name == "bbhnet-stream":
+                assert (model / "1").is_dir()
+                assert not (model / "2").is_dir()
+            else:
+                raise ValueError(f"Unexpected model {model.name} in repo")
+
+        assert i == 2, f"Wrong number of models {i + 1}"
 
     return fn
 
@@ -159,7 +198,14 @@ def test_export_for_shapes(
             streams_per_gpu=1,
             instances=1,
         )
-        validate_repo(1, 1)
+        validate_repo(
+            expected_instances=1,
+            expected_snapshots=1,
+            expected_versions=1,
+            expected_num_ifos=num_ifos,
+            expected_stream_size=int(sample_rate / inference_sampling_rate),
+            expected_kernel_size=int(sample_rate * kernel_length),
+        )
 
 
 # next test how passing different values of the
@@ -209,7 +255,14 @@ def test_export_for_weights(
         streams_per_gpu=1,
         instances=1,
     )
-    validate_repo(1, 1)
+    validate_repo(
+        expected_instances=1,
+        expected_snapshots=1,
+        expected_versions=1,
+        expected_num_ifos=num_ifos,
+        expected_stream_size=int(sample_rate / inference_sampling_rate),
+        expected_kernel_size=int(sample_rate * kernel_length),
+    )
 
 
 # now test how different values of scaling parameters
@@ -265,16 +318,37 @@ def test_export_for_scaling(
         )
 
     run_export()
-    validate_repo(instances, 1)
+    validate_repo(
+        expected_instances=instances,
+        expected_snapshots=streams_per_gpu,
+        expected_versions=1,
+        expected_num_ifos=num_ifos,
+        expected_stream_size=int(sample_rate / inference_sampling_rate),
+        expected_kernel_size=int(sample_rate * kernel_length),
+    )
 
     # now check what happens if the repo already exists
     run_export()
-    validate_repo(instances, 1 if clean else 2)
+    validate_repo(
+        expected_instances=instances,
+        expected_snapshots=streams_per_gpu,
+        expected_versions=1 if clean else 2,
+        expected_num_ifos=num_ifos,
+        expected_stream_size=int(sample_rate / inference_sampling_rate),
+        expected_kernel_size=int(sample_rate * kernel_length),
+    )
 
     # now make sure if we change the scale
     # we get another version and the config changes
     run_export(instances=3, clean=False)
-    validate_repo(3, 2 if clean else 3)
+    validate_repo(
+        expected_instances=3,
+        expected_snapshots=streams_per_gpu,
+        expected_versions=2 if clean else 3,
+        expected_num_ifos=num_ifos,
+        expected_stream_size=int(sample_rate / inference_sampling_rate),
+        expected_kernel_size=int(sample_rate * kernel_length),
+    )
 
     # now test to make sure an error gets raised if the
     # ensemble already exists but bbhnet is not part of it
@@ -301,4 +375,11 @@ def test_export_for_scaling(
     # ensemble section that deletes the most recent
     # bbhnet version if things go wrong?
     shutil.rmtree(repo_dir / "bbbhnet")
-    validate_repo(None, 1)
+    validate_repo(
+        expected_instances=instances,
+        expected_snapshots=streams_per_gpu,
+        expected_versions=1,
+        expected_num_ifos=num_ifos,
+        expected_stream_size=int(sample_rate / inference_sampling_rate),
+        expected_kernel_size=int(sample_rate * kernel_length),
+    )
