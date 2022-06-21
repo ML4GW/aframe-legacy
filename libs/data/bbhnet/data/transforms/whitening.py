@@ -151,6 +151,10 @@ class WhiteningTransform(Transform):
 
         # else use the overlap-save algorithm
         else:
+            raise NotImplementedError(
+                "An optimal torch implementation of whitening for short "
+                "fdurations is not complete. Use a larger fduration "
+            )
             nstep = nfft - 2 * self.pad
             conv = torch.zeros_like(X)
             # handle first chunk separately
