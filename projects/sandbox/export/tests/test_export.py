@@ -1,5 +1,6 @@
 import re
 import shutil
+from pathlib import Path
 
 import pytest
 import torch
@@ -9,18 +10,16 @@ from bbhnet.architectures import ResNet
 from bbhnet.data.transforms import WhiteningTransform
 
 
-class AddOne(torch.nn.Module):
-    def __init__(self, num_ifos: int) -> None:
-        super().__init__()
-        self.num_ifos = num_ifos
-
-    def forward(self, x):
-        return x + 1
+# start by parameterizing all the properties of
+# the inputs to the neural network
+@pytest.fixture
+def num_ifos():
+    return 2
 
 
-@pytest.fixture(params=[128, 512])
-def sample_rate(request):
-    return request.param
+@pytest.fixture
+def sample_rate():
+    return 128
 
 
 @pytest.fixture(params=[1, 4, 8])
@@ -28,12 +27,13 @@ def inference_sampling_rate(request):
     return request.param
 
 
-@pytest.fixture(params=[0.5, 1, 2])
+@pytest.fixture(params=[1, 2])
 def kernel_length(request):
     return request.param
 
 
-@pytest.fixture(params=[None, 1, 2])
+# parameterize some of the deployment parameters
+@pytest.fixture(params=[None, 1])
 def instances(request):
     return request.param
 
@@ -43,9 +43,67 @@ def streams_per_gpu(request):
     return request.param
 
 
-@pytest.fixture(params=[1, 2, 4])
-def num_ifos(request):
+# set up a directory for the entirety of the session
+# which will store all the weight values of each
+# NN we need to create in response to a particular
+# num_ifos/sample_rate/kernel_length combination
+@pytest.fixture(scope="session")
+def weights_dir():
+    weights_dir = Path(__file__).resolve().parent / "weights"
+    weights_dir.mkdir(exist_ok=True)
+    yield weights_dir
+    shutil.rmtree(weights_dir)
+
+
+# only create a new neural network if the weights for
+# a network of this num_ifos/sample_rate/kernel_length
+# combination has not yet been created. Otherwise just
+# return the path to those weights as-is
+@pytest.fixture
+def network(weights_dir, num_ifos, sample_rate, kernel_length):
+    weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
+    if weights.exists():
+        return weights
+
+    preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
+    bbhnet = ResNet(num_ifos, [2, 2])
+    model = torch.nn.Sequential(preprocessor, bbhnet)
+    torch.save(model.state_dict(prefix=""), weights)
+    return weights
+
+
+# now create a couple different permutations for the
+# `weights` parameter to reflect different behavior.
+# - `None` will indicate to not pass anything to the function,
+#       which it will use to infer that it should look for
+#       a `weights.pt` file in the `output_dir`
+# - `None` will indicate to pass output_dir to `weights, which
+#       will indicate that this is a directory that it ought
+#       to check for a `weights.pt`
+# - `weights.pt` indicates a full, sensible path to a weights file
+# - `other.pdf` just tests that even with a weird name, the
+#       path is still resolved appropriately
+@pytest.fixture(params=[None, "", "weights.pt", "other.pdf"])
+def weights(request):
     return request.param
+
+
+# indicates whether we ought to delete the contents
+# of the model repository before doing export
+@pytest.fixture(params=[True, False])
+def clean(request):
+    return request.param
+
+
+# now set up temporary directories with a function scope
+@pytest.fixture
+def output_dir(tmp_path, weights, network):
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    weights = weights or "weights.pt"
+    shutil.copy(network, weights)
+    return output_dir
 
 
 @pytest.fixture
@@ -53,29 +111,6 @@ def repo_dir(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     return repo
-
-
-@pytest.fixture(params=[None, "", "weights.pt", "other.pdf"])
-def weights(request):
-    return request.param
-
-
-@pytest.fixture(params=[True, False])
-def clean(request):
-    return request.param
-
-
-@pytest.fixture
-def output_dir(tmp_path, num_ifos, sample_rate, kernel_length, weights):
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
-
-    weights = weights or "weights.pt"
-    preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
-    bbhnet = ResNet(num_ifos, [2, 2])
-    model = torch.nn.Sequential(preprocessor, bbhnet)
-    torch.save(model.state_dict(prefix=""), output_dir / weights)
-    return output_dir
 
 
 def test_export(
