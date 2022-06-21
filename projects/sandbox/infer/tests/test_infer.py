@@ -23,7 +23,7 @@ def get_async_stream_infer(obj):
         obj.out_q.put(
             {
                 "prob": Package(
-                    x=kwargs["inputs"][0][-1] + 1,
+                    x=kwargs["inputs"][0].x[-1] + 1,
                     sequence_id=kwargs["sequence_id"],
                     sequence_end=kwargs["sequence_end"],
                 )
@@ -71,7 +71,7 @@ def new_init(sample_rate, inference_sampling_rate):
 
 @pytest.fixture
 def tmpdir(tmp_path):
-    tmp_path.mkdir(parents=True)
+    tmp_path.mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
