@@ -1,5 +1,6 @@
 import re
 import shutil
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -10,8 +11,94 @@ from bbhnet.architectures import ResNet
 from bbhnet.data.transforms import WhiteningTransform
 
 
-# start by parameterizing all the properties of
-# the inputs to the neural network
+# set up a directory for the entirety of the session
+# which will store all the weight values of each
+# NN we need to create in response to a particular
+# num_ifos/sample_rate/kernel_length combination
+@pytest.fixture(scope="session")
+def weights_dir():
+    weights_dir = Path(__file__).resolve().parent / "weights"
+    weights_dir.mkdir(exist_ok=True)
+    yield weights_dir
+    shutil.rmtree(weights_dir)
+
+
+# only create a new neural network if the weights for
+# a network of this num_ifos/sample_rate/kernel_length
+# combination has not yet been created. Otherwise just
+# return the path to those weights as-is
+@pytest.fixture
+def architecture():
+    return lambda num_ifos: ResNet(num_ifos, [2, 2])
+
+
+@pytest.fixture
+def get_network_weights(weights_dir, architecture):
+    def fn(num_ifos, sample_rate, kernel_length, target):
+        weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
+        if not weights.exists():
+            preprocessor = WhiteningTransform(
+                num_ifos, sample_rate, kernel_length
+            )
+            bbhnet = architecture(num_ifos)
+            model = torch.nn.Sequential(preprocessor, bbhnet)
+            torch.save(model.state_dict(prefix=""), weights)
+
+        shutil.copy(weights, target)
+
+    return fn
+
+
+@pytest.fixture
+def repo_dir(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    return repo
+
+
+@pytest.fixture
+def output_dir(tmp_path):
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    return output_dir
+
+
+@pytest.fixture
+def validate_repo(repo_dir):
+    def fn(expected_instances, expected_versions):
+        models = [i.name for i in repo_dir.iterdir()]
+        assert len(models) == 3
+        assert set(models) == set(["bbhnet", "snapshotter", "bbhnet-stream"])
+
+        # verify that the instance group scale is correct
+        bbhnet_config = repo_dir / "bbhnet" / "config.pbtxt"
+        assert bbhnet_config.exists()
+        config = bbhnet_config.read_text()
+        has_scale = f"count: {expected_instances}" in config
+        assert has_scale ^ (expected_instances is None)
+
+        # TODO: check shapes in config
+        # is this our business or do we trust quiver to test
+        # for this correctly? I guess it's more of a test as
+        # to whether we fed the arguments to quiver correctly
+
+        # verify that we have all the versions we expect of bbhnet
+        bbhnet_versions = list((repo_dir / "bbhnet").iterdir())
+        bbhnet_versions = [i.name for i in bbhnet_versions]
+        for i in range(1, expected_versions + 1):
+            assert str(i) in bbhnet_versions
+            assert (repo_dir / "bbhnet" / str(i) / "model.onnx").is_file()
+
+        # make sure we only ever have one snapshotter
+        # and ensemble model version
+        assert len(list((repo_dir / "snapshotter").iterdir())) == 2
+        assert len(list((repo_dir / "bbhnet-stream").iterdir())) == 2
+
+    return fn
+
+
+# first set of tests will check that all the properties
+# of the inputs to the neural network get set up properly
 @pytest.fixture
 def num_ifos():
     return 2
@@ -32,7 +119,94 @@ def kernel_length(request):
     return request.param
 
 
-# parameterize some of the deployment parameters
+def test_export_for_shapes(
+    repo_dir,
+    output_dir,
+    num_ifos,
+    sample_rate,
+    kernel_length,
+    inference_sampling_rate,
+    architecture,
+    get_network_weights,
+    validate_repo,
+):
+    weights = output_dir / "weights.pt"
+    get_network_weights(num_ifos, sample_rate, kernel_length, weights)
+
+    # test fully from scratch behavior
+    if kernel_length < (1 / inference_sampling_rate):
+        context = pytest.raises(ValueError)
+    else:
+        context = nullcontext()
+
+    with context:
+        export(
+            architecture,
+            str(repo_dir),
+            output_dir,
+            num_ifos=num_ifos,
+            kernel_length=kernel_length,
+            inference_sampling_rate=inference_sampling_rate,
+            sample_rate=sample_rate,
+            weights=weights,
+            streams_per_gpu=1,
+            instances=1,
+        )
+        validate_repo(1, 1)
+
+
+# next test how passing different values of the
+# `weights` parameter causes different behavior.
+# - `None` will indicate to not pass anything to the function,
+#       which it will use to infer that it should look for
+#       a `weights.pt` file in the `output_dir`
+# - `None` will indicate to pass output_dir to `weights, which
+#       will indicate that this is a directory that it ought
+#       to check for a `weights.pt`
+# - `weights.pt` indicates a full, sensible path to a weights file
+# - `other.pdf` just tests that even with a weird name, the
+#       path is still resolved appropriately
+@pytest.mark.parametrize("weights", [None, "", "weights.pt", "other.pdf"])
+def test_export_for_weights(
+    repo_dir,
+    output_dir,
+    weights,
+    architecture,
+    get_network_weights,
+    validate_repo,
+):
+    num_ifos = 2
+    kernel_length = 1
+    sample_rate = 128
+    inference_sampling_rate = 4
+
+    if not weights:
+        target = output_dir / "weights.pt"
+        if weights is None:
+            weights = output_dir
+        else:
+            weights = output_dir / "weights.pt"
+    else:
+        weights = target = output_dir / weights
+    get_network_weights(num_ifos, sample_rate, kernel_length, target)
+
+    export(
+        architecture,
+        str(repo_dir),
+        output_dir,
+        num_ifos=num_ifos,
+        kernel_length=kernel_length,
+        inference_sampling_rate=inference_sampling_rate,
+        sample_rate=sample_rate,
+        weights=weights,
+        streams_per_gpu=1,
+        instances=1,
+    )
+    validate_repo(1, 1)
+
+
+# now test how different values of scaling parameters
+# lead to different configs
 @pytest.fixture(params=[None, 1])
 def instances(request):
     return request.param
@@ -43,51 +217,6 @@ def streams_per_gpu(request):
     return request.param
 
 
-# set up a directory for the entirety of the session
-# which will store all the weight values of each
-# NN we need to create in response to a particular
-# num_ifos/sample_rate/kernel_length combination
-@pytest.fixture(scope="session")
-def weights_dir():
-    weights_dir = Path(__file__).resolve().parent / "weights"
-    weights_dir.mkdir(exist_ok=True)
-    yield weights_dir
-    shutil.rmtree(weights_dir)
-
-
-# only create a new neural network if the weights for
-# a network of this num_ifos/sample_rate/kernel_length
-# combination has not yet been created. Otherwise just
-# return the path to those weights as-is
-@pytest.fixture
-def network(weights_dir, num_ifos, sample_rate, kernel_length):
-    weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
-    if weights.exists():
-        return weights
-
-    preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
-    bbhnet = ResNet(num_ifos, [2, 2])
-    model = torch.nn.Sequential(preprocessor, bbhnet)
-    torch.save(model.state_dict(prefix=""), weights)
-    return weights
-
-
-# now create a couple different permutations for the
-# `weights` parameter to reflect different behavior.
-# - `None` will indicate to not pass anything to the function,
-#       which it will use to infer that it should look for
-#       a `weights.pt` file in the `output_dir`
-# - `None` will indicate to pass output_dir to `weights, which
-#       will indicate that this is a directory that it ought
-#       to check for a `weights.pt`
-# - `weights.pt` indicates a full, sensible path to a weights file
-# - `other.pdf` just tests that even with a weird name, the
-#       path is still resolved appropriately
-@pytest.fixture(params=[None, "", "weights.pt", "other.pdf"])
-def weights(request):
-    return request.param
-
-
 # indicates whether we ought to delete the contents
 # of the model repository before doing export
 @pytest.fixture(params=[True, False])
@@ -95,75 +224,26 @@ def clean(request):
     return request.param
 
 
-# now set up temporary directories with a function scope
-@pytest.fixture
-def output_dir(tmp_path, weights, network):
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
-
-    weights = weights or "weights.pt"
-    shutil.copy(network, weights)
-    return output_dir
-
-
-@pytest.fixture
-def repo_dir(tmp_path):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    return repo
-
-
-def test_export(
+def test_export_for_scaling(
     repo_dir,
     output_dir,
-    num_ifos,
-    kernel_length,
-    inference_sampling_rate,
-    sample_rate,
     streams_per_gpu,
     instances,
-    weights,
     clean,
+    architecture,
+    valdiate_repo,
 ):
-    if weights == "":
-        weights = output_dir
-    elif weights is not None:
-        weights = output_dir / weights
+    num_ifos = 2
+    kernel_length = 1
+    sample_rate = 128
+    inference_sampling_rate = 4
 
-    def validate_repo(instances, versions):
-        models = [i.name for i in repo_dir.iterdir()]
-        assert len(models) == 3
-        assert set(models) == set(["bbhnet", "snapshotter", "bbhnet-stream"])
-
-        # verify that the instance group scale is correct
-        bbhnet_config = repo_dir / "bbhnet" / "config.pbtxt"
-        assert bbhnet_config.exists()
-        config = bbhnet_config.read_text()
-        has_scale = f"count: {instances}" in config
-        assert has_scale ^ (instances is None)
-
-        # TODO: check shapes in config
-        # is this our business or do we trust quiver to test
-        # for this correctly? I guess it's more of a test as
-        # to whether we fed the arguments to quiver correctly
-
-        # verify that we have all the versions we expect of bbhnet
-        bbhnet_versions = list((repo_dir / "bbhnet").iterdir())
-        bbhnet_versions = [i.name for i in bbhnet_versions]
-        for i in range(1, versions + 1):
-            assert str(i) in bbhnet_versions
-            assert (repo_dir / "bbhnet" / str(i) / "model.onnx").is_file()
-
-        # make sure we only ever have one snapshotter
-        # and ensemble model version
-        assert len(list((repo_dir / "snapshotter").iterdir())) == 2
-        assert len(list((repo_dir / "bbhnet-stream").iterdir())) == 2
-
-        # TODO: check shapes in configs
+    weights = output_dir / "weights.pt"
+    get_network_weights(num_ifos, sample_rate, kernel_length, weights)
 
     def run_export(instances=instances, clean=clean):
         export(
-            lambda num_ifos: ResNet(num_ifos, [2, 2]),
+            architecture,
             str(repo_dir),
             output_dir,
             num_ifos=num_ifos,
@@ -175,12 +255,6 @@ def test_export(
             instances=instances,
             clean=clean,
         )
-
-    # test fully from scratch behavior
-    if kernel_length < (1 / inference_sampling_rate):
-        with pytest.raises(ValueError):
-            run_export()
-        return
 
     run_export()
     validate_repo(instances, 1)
@@ -194,9 +268,8 @@ def test_export(
     run_export(instances=3, clean=False)
     validate_repo(3, 2 if clean else 3)
 
-    # now test to make sure an error gets raised if
-    # the ensemble already exists but bbhnet is not
-    # part of it
+    # now test to make sure an error gets raised if the
+    # ensemble already exists but bbhnet is not part of it
     shutil.move(repo_dir / "bbhnet", repo_dir / "bbbhnet")
     bbhnet_config = repo_dir / "bbbhnet" / "config.pbtxt"
     config = bbhnet_config.read_text()
