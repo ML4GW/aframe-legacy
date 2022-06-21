@@ -75,6 +75,8 @@ def infer(
             except Empty:
                 time.sleep(1e-4)
                 continue
+            else:
+                package = package["prob"]
 
             # grab the network output and the corresponding
             # sequence id that the output belongs to
@@ -129,7 +131,9 @@ def main(
     # spin up a triton server and don't move on until it's ready
     with serve(model_repo_dir, wait=True):
         # now build a client to connect to the inference service
-        client = InferenceClient("localhost:8001", model_name, model_version)
+        client = InferenceClient(
+            "localhost:8001", model_name, model_version, name="client"
+        )
 
         # create a process pool that we'll use to perform
         # read/writes of timeseries in parallel
