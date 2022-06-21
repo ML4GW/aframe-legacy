@@ -136,7 +136,7 @@ def export(
         nn,
         input_shapes={"hoft": input_shape},
         output_names=["discriminator"],
-        opset_version=11,
+        opset_version=15,
     )
 
     # now try to create an ensemble that has a snapshotter

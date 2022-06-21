@@ -55,7 +55,7 @@ class WhiteningTransform(Transform):
             torch.zeros((num_ifos, 1, self.ntaps - 1)),
         )
 
-        self.pad = int(np.ceil(self.time_domain_filter.size(-1) / 2))
+        self.pad = int(self.time_domain_filter.size(-1) // 2)
         self.window = torch.hann_window(self.ntaps)
 
     def to(self, device: torch.device):
@@ -140,7 +140,7 @@ class WhiteningTransform(Transform):
                 X,
                 self.time_domain_filter,
                 groups=self.num_ifos,
-                padding="same",
+                padding=self.pad,
             )
 
             # crop the beginning and ending fduration / 2
@@ -158,7 +158,7 @@ class WhiteningTransform(Transform):
                 X[:, :, :nfft],
                 self.time_domain_filter,
                 groups=self.num_ifos,
-                padding="same",
+                padding=self.pad,
             )[:, :, : nfft - self.pad]
 
             # process chunks of length nstep
@@ -168,7 +168,7 @@ class WhiteningTransform(Transform):
                     X[:, :, k - self.pad : k + nstep + self.pad],
                     self.time_domain_filter,
                     groups=self.num_ifos,
-                    padding="same",
+                    padding=self.pad,
                 )
                 conv[:, :, k : k + yk.size(-1) - 2 * self.pad] = yk[
                     :, :, self.pad : -self.pad
@@ -180,7 +180,7 @@ class WhiteningTransform(Transform):
                 X[:, :, -nfft:],
                 self.time_domain_filter,
                 groups=self.num_ifos,
-                padding="same",
+                padding=self.pad,
             )[:, :, -nfft + self.pad :]
 
             # crop the beginning and ending fduration / 2
