@@ -36,7 +36,7 @@ class RandomWaveformDataset:
         waveform_frac: float = 0,
         glitch_sampler: Union[GlitchSampler, str, None] = None,
         glitch_frac: float = 0,
-        trigger_distance: Optional[float] = None,
+        trigger_distance: float = 0,
         device: torch.device = "cuda",
     ) -> None:
         """Iterable dataset which can sample and inject auxiliary data
@@ -116,7 +116,7 @@ class RandomWaveformDataset:
                 target tensor produced during iteration
             trigger_distance:
                 The maximum number of seconds the t0 of signals and glitches
-                can lie away from the center of sampled kernels
+                can lie away from the edge of sampled kernels
             device:
                 The device on which to host all the relevant
                 torch tensors.
@@ -125,7 +125,7 @@ class RandomWaveformDataset:
         # default behavior is set trigger_distance to half
         # kernel length
         # with this setting t0 can lie anywhere in the kernel
-        self.trigger_distance = trigger_distance or kernel_length / 2
+        self.trigger_distance = trigger_distance
 
         self.trigger_distance_size = self.trigger_distance * sample_rate
 

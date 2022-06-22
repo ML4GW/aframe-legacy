@@ -87,7 +87,7 @@ class WaveformSampler:
         return signals.transpose(2, 0, 1)
 
     def sample(
-        self, N: int, size: int, trigger_distance_size: int
+        self, N: int, size: int, trigger_distance_size: int = 0
     ) -> np.ndarray:
         if self.background_asd is None:
             raise RuntimeError(

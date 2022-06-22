@@ -6,7 +6,7 @@ import numpy as np
 def sample_kernels(
     x: np.ndarray,
     size: int,
-    trigger_distance_size: int,
+    trigger_distance_size: int = 0,
     N: Optional[int] = None,
 ) -> np.ndarray:
     """Sample fixed-size kernels from a timeseries array
@@ -25,12 +25,15 @@ def sample_kernels(
             a kernel will be generated from each row in `x` in order
             if `x.ndim > 1`, otherwise a `ValueError` will be
             raised.
-        trigger_distance_size: Maximum amount of samples away from the center
-            of the kernel to allow the t0 of the signals or glitches to lie.
-            To allow the t0 of the trigger to lie anywhere in the kernel,
-            set trigger_distance_size = size / 2.
-    Returns:
-        Array of sampled kernels of size `(n, ..., size)`, where
+        trigger_distance_size:
+            Maximum amount of samples away from the closest edge
+            of the kernel the trigger time (t0) is allowed. A positive
+            value allows kernels where the trigger is not in the kernel.
+            A value of 0 allows the trigger to lie anywhere in the kernel.
+            A negative value sets a 'padding' from either kernel edge where
+            trigger cannot lie.
+        Returns:
+            Array of sampled kernels of size `(n, ..., size)`, where
             `n = len(x) if N is None else N` and `...` represents
             all of `x`'s intermediate dimensions between its first
             and last.
@@ -66,14 +69,31 @@ def sample_kernels(
     # always make sure that the center of x's
     # 1st axis is in the kernel that we sample
     # if we're doing >1D sampling
-    min_sample_start = max(
-        x.shape[-1] // 2 + 1 - trigger_distance_size - (size / 2), 0
-    )
-    max_sample_start = min(
-        x.shape[-1] // 2 - 1 - (size / 2) + trigger_distance_size,
-        x.shape[-1] - size,
-    )
 
+    # TODO: not sure if theres a logical way to
+    # combine this if else statement.
+    # Was spending too much time thinking about it
+
+    # allows for kernels that don't contain trigger
+    if trigger_distance_size > 0:
+        min_sample_start = max(
+            x.shape[-1] // 2 + 1 - trigger_distance_size - size, 0
+        )
+        max_sample_start = min(
+            x.shape[-1] // 2 - 1,
+            x.shape[-1] - size,
+        )
+
+    # trigger must be trigger_distance_size away from
+    # either kernel edge
+    elif trigger_distance_size <= 0:
+        min_sample_start = max(
+            x.shape[-1] // 2 + 1 - trigger_distance_size - size, 0
+        )
+        max_sample_start = min(
+            x.shape[-1] // 2 - 1 + trigger_distance_size,
+            x.shape[-1] - size,
+        )
     # now iterate through and grab all the kernels
     # TODO: is there a more array-friendly way of doing this?
     samples = []

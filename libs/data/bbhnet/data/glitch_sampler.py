@@ -17,7 +17,7 @@ class GlitchSampler:
         self.livingston = torch.Tensor(livingston_glitches).to(device)
 
     def sample(
-        self, N: int, size: int, trigger_distance_size: int
+        self, N: int, size: int, trigger_distance_size: int = 0
     ) -> np.ndarray:
         num_hanford = np.random.randint(N)
         num_livingston = N - num_hanford

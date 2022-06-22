@@ -29,7 +29,7 @@ def test_sample_kernels(ndim, size, N):
     # this replicates behavior
     # that allows t0 to lie anywhere in kernel
 
-    trigger_dist_size = size / 2
+    trigger_dist_size = 0
 
     # for 1D arrays we need more data so that we
     # have enough to sample across
@@ -128,10 +128,12 @@ def test_sample_kernels(ndim, size, N):
             assert len(idx_seen) == len(list(set(idx_seen)))
 
 
-def test_sample_kernels_with_trigger_distance(trigger_distance_size, size):
+def test_sample_kernels_with_positive_trigger_distance(size):
 
     # test on a lot of samples for robustness
     N = 10000
+
+    trigger_distance_size = 22
 
     # create dummy arrays
     # where the difference between
@@ -148,9 +150,44 @@ def test_sample_kernels_with_trigger_distance(trigger_distance_size, size):
         # the trigger t0 is half way through timeseries
         t0_value = xsize // 2
 
-        # get the center of the sampled kernel
-        kernel_center_value = (np.max(kernel) - (size // 2)) % xsize
+        # get the distance of the closest sample in the kernel
+        minimum_dist = np.min(np.abs((kernel % xsize) - t0_value))
 
         # assert that the number of samples between t0 and the center is
         # less than the trigger distance
-        assert abs(t0_value - kernel_center_value) <= trigger_distance_size
+        assert minimum_dist <= trigger_distance_size
+
+
+def test_sample_kernels_with_negative_trigger_distance(size):
+
+    # test on a lot of samples for robustness
+    N = 10000
+
+    trigger_distance_size = -4
+
+    # create dummy arrays
+    # where the difference between
+    # two values in the array
+    # is also the amount of samples apart
+    xsize = 200
+    x = np.arange(xsize)
+    x = np.stack([x + i * xsize for i in range(8)])
+
+    kernels = data_utils.sample_kernels(x, size, trigger_distance_size, N)
+
+    for kernel in kernels:
+
+        # the trigger t0 is half way through timeseries
+        t0_value = xsize // 2
+
+        # for negative trigger distance should
+        # always be in kernel
+        assert t0_value in (kernel % xsize)
+
+        # get the distance of the closest edge in the kernel
+        minimum_edge_dist = min(
+            np.abs((kernel % xsize)[0] - t0_value),
+            np.abs((kernel % xsize)[-1] - t0_value),
+        )
+
+        assert minimum_edge_dist >= np.abs(trigger_distance_size)
