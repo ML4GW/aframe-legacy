@@ -1,7 +1,14 @@
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
 from bbhnet.data import utils as data_utils
+
+
+@pytest.fixture(params=[0, -4, -8, -20, -40, 4, 8, 20, 40])
+def trigger_distance(request):
+    return request.param
 
 
 @pytest.fixture(params=[16, 20, 64])
@@ -128,66 +135,52 @@ def test_sample_kernels(ndim, size, N):
             assert len(idx_seen) == len(list(set(idx_seen)))
 
 
-def test_sample_kernels_with_positive_trigger_distance(size):
-
-    # test on a lot of samples for robustness
-    N = 10000
-
-    trigger_distance_size = 22
+def test_sample_kernels_with_trigger_distance(size, trigger_distance_size, N):
 
     # create dummy arrays
     # where the difference between
     # two values in the array
     # is also the amount of samples apart
+
     xsize = 200
     x = np.arange(xsize)
     x = np.stack([x + i * xsize for i in range(8)])
 
-    kernels = data_utils.sample_kernels(x, size, trigger_distance_size, N)
+    t0_value = xsize // 2
 
-    for kernel in kernels:
+    if trigger_distance_size < 0 and abs(trigger_distance_size) >= (size / 2):
+        with pytest.raises(ValueError):
+            data_utils.sample_kernels(x, size, trigger_distance_size, N)
+        return
 
-        # the trigger t0 is half way through timeseries
-        t0_value = xsize // 2
+    else:
 
-        # get the distance of the closest sample in the kernel
-        minimum_dist = np.min(np.abs((kernel % xsize) - t0_value))
+        # patch so that either the max or min sample is returned
+        with patch(
+            "bbhnet.data.utils.np.random.randint",
+            new=lambda i, j: np.random.choice([i, j]),
+        ):
+            kernels = data_utils.sample_kernels(
+                x, size, trigger_distance_size, N
+            )
 
-        # assert that the number of samples between t0 and the center is
-        # less than the trigger distance
-        assert minimum_dist <= trigger_distance_size
+        for kernel in kernels:
+            diffs = (kernel % xsize) - t0_value
+            closest_edge = np.abs([diffs.min(), diffs.max()]).min()
 
+            if trigger_distance_size < 0:
+                # for negative trigger distances
+                # t0 should always be in kernel
+                assert t0_value in (kernel % xsize)
 
-def test_sample_kernels_with_negative_trigger_distance(size):
+                # the closest edge should be greater than trigger
+                # distance size away
+                assert closest_edge >= abs(trigger_distance_size)
 
-    # test on a lot of samples for robustness
-    N = 10000
+            elif trigger_distance_size >= 0:
 
-    trigger_distance_size = -4
-
-    # create dummy arrays
-    # where the difference between
-    # two values in the array
-    # is also the amount of samples apart
-    xsize = 200
-    x = np.arange(xsize)
-    x = np.stack([x + i * xsize for i in range(8)])
-
-    kernels = data_utils.sample_kernels(x, size, trigger_distance_size, N)
-
-    for kernel in kernels:
-
-        # the trigger t0 is half way through timeseries
-        t0_value = xsize // 2
-
-        # for negative trigger distance should
-        # always be in kernel
-        assert t0_value in (kernel % xsize)
-
-        # get the distance of the closest edge in the kernel
-        minimum_edge_dist = min(
-            np.abs((kernel % xsize)[0] - t0_value),
-            np.abs((kernel % xsize)[-1] - t0_value),
-        )
-
-        assert minimum_edge_dist >= np.abs(trigger_distance_size)
+                # for positive trigger distance sizes
+                # either the sample is in the kernel,
+                # or a maximum of trigger_distance away
+                # from closest edge
+                assert closest_edge <= trigger_distance_size

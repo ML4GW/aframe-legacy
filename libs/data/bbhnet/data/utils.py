@@ -39,6 +39,12 @@ def sample_kernels(
             and last.
     """
 
+    if trigger_distance_size < 0 and abs(trigger_distance_size) >= size / 2:
+        raise ValueError(
+            "If trigger_distance_size is negative, "
+            "its magnitude cannot be more than half the kernel size"
+        )
+
     if len(x.shape) == 1 and N is None:
         raise ValueError(
             "Must specify number of samples N when x is 1 dimensional"
@@ -70,29 +76,25 @@ def sample_kernels(
     # 1st axis is in the kernel that we sample
     # if we're doing >1D sampling
 
-    # TODO: not sure if theres a logical way to
-    # combine this if else statement.
-    # Was spending too much time thinking about it
+    # t0 is the center sample
+
+    dim = x.shape[-1]
 
     # allows for kernels that don't contain trigger
     if trigger_distance_size > 0:
-        min_sample_start = max(
-            x.shape[-1] // 2 + 1 - trigger_distance_size - size, 0
-        )
+        min_sample_start = max(dim // 2 + 1 - trigger_distance_size - size, 0)
         max_sample_start = min(
-            x.shape[-1] // 2 - 1,
-            x.shape[-1] - size,
+            dim // 2 - 1,
+            dim - size,
         )
 
     # trigger must be trigger_distance_size away from
     # either kernel edge
     elif trigger_distance_size <= 0:
-        min_sample_start = max(
-            x.shape[-1] // 2 + 1 - trigger_distance_size - size, 0
-        )
+        min_sample_start = max(dim // 2 + 1 - trigger_distance_size - size, 0)
         max_sample_start = min(
-            x.shape[-1] // 2 - 1 + trigger_distance_size,
-            x.shape[-1] - size,
+            dim // 2 - 1 + trigger_distance_size,
+            dim - size,
         )
     # now iterate through and grab all the kernels
     # TODO: is there a more array-friendly way of doing this?
