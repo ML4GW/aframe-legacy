@@ -144,10 +144,12 @@ class RandomWaveformDataset:
         livingston_background, _ = _load_background(livingston_background)
         assert len(hanford_background) == len(livingston_background)
 
-        self.hanford_background = torch.Tensor(hanford_background).to(device)
-        self.livingston_background = torch.Tensor(livingston_background).to(
-            device
-        )
+        self.hanford_background = torch.tensor(
+            hanford_background, dtype=torch.float64
+        ).to(device)
+        self.livingston_background = torch.tensor(
+            livingston_background, dtype=torch.float64
+        ).to(device)
 
         # if we specified a waveform sampler, fit its snr
         # computation to the given background asd
