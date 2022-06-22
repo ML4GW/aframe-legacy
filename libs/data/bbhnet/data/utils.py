@@ -79,23 +79,10 @@ def sample_kernels(
     # t0 is the center sample
 
     dim = x.shape[-1]
+    min_sample_start = max(dim // 2 + 1 - trigger_distance_size - size, 0)
+    right_pad = min(trigger_distance_size, 0)
+    max_sample_start = min(dim // 2 - 1 + right_pad, x.shape[-1] - size)
 
-    # allows for kernels that don't contain trigger
-    if trigger_distance_size > 0:
-        min_sample_start = max(dim // 2 + 1 - trigger_distance_size - size, 0)
-        max_sample_start = min(
-            dim // 2 - 1,
-            dim - size,
-        )
-
-    # trigger must be trigger_distance_size away from
-    # either kernel edge
-    elif trigger_distance_size <= 0:
-        min_sample_start = max(dim // 2 + 1 - trigger_distance_size - size, 0)
-        max_sample_start = min(
-            dim // 2 - 1 + trigger_distance_size,
-            dim - size,
-        )
     # now iterate through and grab all the kernels
     # TODO: is there a more array-friendly way of doing this?
     samples = []
