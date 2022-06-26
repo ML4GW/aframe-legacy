@@ -1,32 +1,98 @@
-import os
-from collections.abc import Iterable
+from pathlib import Path
+from typing import Iterable, List, Optional
 
-import h5py
+import gwdatafind
 import numpy as np
-from gwpy.segments import Segment, SegmentList
-from gwpy.timeseries import TimeSeries
+from gwpy.segments import (
+    DataQualityDict,
+    Segment,
+    SegmentList,
+    SegmentListDict,
+)
+from gwpy.timeseries import TimeSeries, TimeSeriesDict
 from hermes.typeo import typeo
 
-from bbhnet.injection import inject_signals
+from bbhnet.injection import inject_signals_into_timeslide
+from bbhnet.io import h5
+from bbhnet.io.timeslides import TimeSlide
+
+
+def circular_shift_segments(
+    start: float, stop: float, shift: float, segments: SegmentList
+):
+    """Takes a gwpy SegmentList object and performs a circular time shift.
+
+    For example:
+        circ_shifted_segments = circular_shift_segments(
+            start=0,
+            stop=100,
+            shift = 50,
+            segments = SegmentList(Segment([70, 90]))
+        )
+
+        circ_shifted_segments = SegmentList(Segment([20, 40]))
+
+    """
+    # shift segments by specified amount
+    shifted_segments = segments.shift(shift)
+
+    # create output of circularly shifted segments
+    circular_shifted_segments = SegmentList([])
+
+    # create full segment from start to stop
+    # to use for deciding if part of a segment
+    # needs to wrap around to the front
+    full_segment = Segment([start, stop])
+
+    for segment in shifted_segments:
+        seg_start, seg_stop = segment
+
+        # if segment is entirely between
+        # start and stop just append
+        if segment in full_segment:
+            circular_shifted_segments.append(segment)
+
+        # the entire segment got shifted
+        # past the stop, so loop the segment around
+        elif seg_start > stop:
+
+            segment = segment.shift(start - stop)
+            circular_shifted_segments.append(segment)
+
+        # only a portion of the segment got shifted to front
+        # so need to split up the segment
+        elif seg_stop > stop:
+            first_segment = Segment([seg_start, stop])
+            second_segment = Segment([start, seg_stop - stop])
+            circular_shifted_segments.extend([first_segment, second_segment])
+
+    return circular_shifted_segments
 
 
 @typeo
 def main(
     start: int,
     stop: int,
-    outdir: str,
+    outdir: Path,
     prior_file: str,
-    n_samples: int,
-    n_slides: int = 600,
-    shift: float = 0.5,
-    ifos: Iterable[str] = ["H1", "L1"],
-    seg_length: int = 1024,
-    fmin: float = 20,
-    waveform_duration: float = 8,
-    snr_range: Iterable[float] = [25, 50],
-    gw_file: str = None,
+    spacing: float,
+    jitter: float,
+    buffer: float,
+    n_slides: int,
+    shifts: Iterable[float],
+    ifos: Iterable[str],
+    file_length: int,
+    fmin: float,
+    sample_rate: float,
+    frame_type: str,
+    channel: str,
+    waveform_duration: float,
+    reference_frequency: float,
+    waveform_approximant: str,
+    snr_range: List[float],
+    state_flag: Optional[str] = None,
 ):
-    """Generates timeslides of background and background+injections.
+    """Generates timeslides of background and background + injections.
     Also saves the original and injected timeseries as frame files.
 
     Args:
@@ -36,116 +102,128 @@ def main(
         prior_file: a .prior file containing the priors for the GW simulation
         n_samples: number of signals to simulate per file
         n_slides: number of timeslides
-        shift: time in seconds of each slide
+        shift:
+            List of shift multiples for each ifo. Will create n_slides
+            worth of shifts, at multiples of shift. If 0 is passed,
+            will not shift this ifo for any slide.
         ifos: pair of interferometers to be compared
         seg_length: length in seconds of each separate file
         fmin: min frequency for highpass filter, used for simulating
         waveform_duration: length of injected waveforms
         snr_range: desired signal SNR range
-        gw_file: path to txt file containing GPS times of GWs
+        gw_timesfile: path to txt file containing GPS times of GWs
 
     """
 
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
 
-    for t0 in np.arange(start, stop, seg_length):
+    # query all necessary data up front
 
-        tf = min(t0 + seg_length, stop)
+    data = TimeSeriesDict()
+    for ifo in ifos:
 
-        # Go to the next seg_length segment if segment contains a known GW
-        if gw_file is not None:
-            gw_times = np.loadtxt(gw_file)
-            gw_seg_list = SegmentList([Segment(t, t) for t in gw_times])
-            if gw_seg_list.intersects_segment(Segment(t0, tf)):
-                continue
-
-        # Go to the next seg_length segment if either ifo has nan values
-        background = {}
-        for ifo in ifos:
-            background[ifo] = TimeSeries.fetch_open_data(ifo, t0, tf)
-            background[ifo].name = ifo
-
-        strain_sum = np.sum([np.sum(bg.value) for bg in background.values()])
-        if np.isnan(strain_sum):
-            continue
-
-        # Write data to gwf so signals can be added
-        orig_path = os.path.join(outdir, "original")
-        if not os.path.exists(orig_path):
-            os.mkdir(orig_path)
-
-        fpaths = []
-        file_dur = tf - t0
-        for ifo in ifos:
-            fname = f"{ifo}_{t0}_{file_dur}.gwf"
-            background[ifo].write(os.path.join(orig_path, fname))
-            fpaths.append(os.path.join(orig_path, fname))
-
-        inj_path = os.path.join(outdir, "injected")
-        if not os.path.exists(inj_path):
-            os.mkdir(inj_path)
-
-        # Adjust n_samples for last segment to match density of others
-        if tf == stop:
-            n_samples = int(n_samples * file_dur / seg_length)
-
-        outpaths, _ = inject_signals(
-            frame_files=fpaths,
-            channels=ifos,
-            ifos=ifos,
-            prior_file=prior_file,
-            n_samples=n_samples,
-            outdir=inj_path,
-            fmin=fmin,
-            waveform_duration=waveform_duration,
-            snr_range=snr_range,
+        files = gwdatafind.find_urls(
+            site=ifo.strip("1"),
+            frametype=f"{ifo}_{frame_type}",
+            gpsstart=start,
+            gpsend=stop,
+            urltype="file",
+        )
+        data[ifo] = TimeSeries.read(
+            files, channel=f"{ifo}:{channel}", start=start, end=stop
         )
 
-        # Grab this value before converting TimeSeries to just values
-        sample_rate = background[ifos[0]].sample_rate.value
+    # if state_flag is passed,
+    # query segments for each ifo.
+    # a certificate is needed for this
+    if state_flag:
+        segments = DataQualityDict.query_dqsegdb(
+            [f"{ifo}:{state_flag}" for ifo in ifos],
+            start,
+            stop,
+        )
 
-        injected = {}
-        for i, ifo in enumerate(ifos):
-            background[ifo] = background[ifo].value
-            injected[ifo] = TimeSeries.read(outpaths[i], ifo).value
-
-        for ts in np.linspace(0, shift * (n_slides - 1), num=n_slides):
-
-            # Create the desired structure in the output directory
-            # The naming method for the dt-* directories will break if we ever
-            # want to use a shift with two decimal places
-            ts_path = os.path.join(outdir, "dt-{:.1f}".format(ts))
-            orig_path = os.path.join(ts_path, "original")
-            inj_path = os.path.join(ts_path, "injected")
-
-            if not os.path.exists(ts_path):
-                os.mkdir(ts_path)
-
-            if not os.path.exists(orig_path):
-                os.mkdir(orig_path)
-
-            if not os.path.exists(inj_path):
-                os.mkdir(inj_path)
-
-            # Write strain timeseries into appropriate locations
-            orig_file_path = os.path.join(orig_path, f"{t0}_{file_dur}.hdf5")
-            inj_file_path = os.path.join(inj_path, f"{t0}_{file_dur}.hdf5")
-            with h5py.File(orig_file_path, "w") as f:
-                for ifo in ifos:
-                    f.create_dataset(ifo, data=background[ifo])
-
-            with h5py.File(inj_file_path, "w") as f:
-                for ifo in ifos:
-                    f.create_dataset(ifo, data=injected[ifo])
-
-            # Roll the strain data of the second ifo by the desired shift
-            background[ifos[1]] = np.roll(
-                background[ifos[1]], int(shift * sample_rate)
+    else:
+        # make segment from start to stop
+        segments = SegmentListDict()
+        for ifo in ifos:
+            segments[f"{ifo}:{state_flag}"] = SegmentList(
+                [Segment(start, stop)]
             )
-            injected[ifos[1]] = np.roll(
-                injected[ifos[1]], int(shift * sample_rate)
+
+    # create timeslides
+    # for each ifo
+    timeslides = [
+        np.linspace(0, shift * (n_slides - 1), num=n_slides)
+        for shift in shifts
+    ]
+
+    for shifts in timeslides:
+
+        # TODO: might be overly complex naming,
+        # but wanted to attempt to generalize to multi ifo
+        root = outdir / f"dt-{'-'.join(shifts)}"
+
+        # create TimeSlide object for injection
+        injection_ts = TimeSlide(root=root, field="injection")
+
+        # create TimeSlide object for raw data
+        raw_ts = TimeSlide(root=root, field="raw")
+
+        # initiate segment intersection as full
+        # segment from start, stop
+        intersection = SegmentList([start, stop])
+
+        # circularly shift data
+        # circularly shift segments to 'mirror' data
+        for shift, ifo in zip(shifts, ifos):
+
+            segments[f"{ifo}:{state_flag}"] = circular_shift_segments(
+                start, stop, shift, segments[f"{ifo}:{state_flag}"]
             )
+
+            shifted_data = np.roll(data[ifo].value, int(shift * sample_rate))
+            data[ifo] = TimeSeries(
+                shifted_data, dt=1 / sample_rate, start=start, stop=stop
+            )
+
+            # calculate intersection of circularly shifted segments
+            intersection &= segments[f"{ifo}:{state_flag}"].active
+
+        for segment in intersection:
+
+            # crop data to segment
+            segment_start, segment_stop = segment
+
+            times = np.arange(segment_start, segment_stop, sample_rate)
+
+            raw_datasets = {}
+            for ifo in ifos:
+                raw_datasets[ifo] = data[ifo].crop(start, stop).value
+
+            # write timeseries
+            h5.write_timeseries(
+                raw_ts.root, prefix="raw", t=times, datasets=raw_datasets
+            )
+
+        # now inject signals into raw files;
+        # this function automatically writes h5 files to TimeSlide
+        # for injected data
+        inject_signals_into_timeslide(
+            raw_ts,
+            injection_ts,
+            ifos,
+            prior_file,
+            spacing,
+            fmin,
+            waveform_duration,
+            sample_rate,
+            fmin,
+            reference_frequency,
+            waveform_approximant,
+            snr_range,
+            buffer,
+        )
 
 
 if __name__ == "__main__":

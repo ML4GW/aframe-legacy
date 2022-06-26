@@ -1,10 +1,8 @@
 import logging
-import os
-from collections.abc import Iterable
 from pathlib import Path
+from typing import List
 
 import bilby
-import h5py
 import numpy as np
 import scipy.signal as sig
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
@@ -12,7 +10,7 @@ from bilby.gw.source import lal_binary_black_hole
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.io import h5
-from bbhnet.io.timeslides import MAYBE_PATHS
+from bbhnet.io.timeslides import TimeSlide
 
 
 def calc_snr(data, noise_psd, fs, fmin=20):
@@ -219,210 +217,130 @@ def project_raw_gw(
     return signals
 
 
-def inject_signals(
-    strain_files: MAYBE_PATHS,
-    channels: [str],
-    ifos: [str],
-    prior_file: str,
-    n_samples: int,
-    outdir: str,
-    fmin: float = 20,
-    waveform_duration: float = 8,
-    snr_range: Iterable[float] = [25, 50],
+def inject_signals_into_timeslide(
+    raw_timeslide: TimeSlide,
+    out_timeslide: TimeSlide,
+    ifos: List[str],
+    prior_file: Path,
+    spacing: float,
+    waveform_duration: float,
+    sample_rate: float,
+    fmin: float,
+    reference_frequency: float,
+    waveform_approximant: float,
+    snr_range: List[float],
+    buffer: float = 0,
+    fftlength: float = 2,
 ):
 
-    """Injects simulated BBH signals into backgorund that is read from
-    either a frame file, a set of frame files corresponding to different
-    interferometers, or an HDF5 file. If injecting into data from
-    multiple interferometers, the timeseries must have the same
-    start/stop time and the same sample rate
+    """Injects simulated BBH signals into a TimeSlide object that represents
+    timeshifted background data. Currently only supports h5 file format.
 
     Args:
-        strain_files: list of paths to files to be injected
-        channels: channel names of the strain data in each file
+        raw_timeslide: TimeSlide object of raw background data
+        out_timeslide: TimeSlide object to store injections
         ifos: list of interferometers corresponding to timeseries
         prior_file: prior file for bilby to sample from
-        n_samples: number of signal to inject
-        outdir: output directory to which injected files will be written
+        spacing: seconds between each injection
         fmin: Minimum frequency for highpass filter
         waveform_duration: length of injected waveforms
+        sample_rate: sampling rate
         snr_range: desired signal SNR range
+        buffer:
 
     Returns:
         Paths to the injected files and the parameter file
     """
 
-    if isinstance(strain_files, (str, Path)):
-        if str(strain_files).endswith(".gwf"):
-            # Put in a list for consistency with other cases
-            strains = [TimeSeries.read(strain_files, channels[0])]
-
-        # If strain_files is a single string or Path, and not a .gwf file,
-        # it should be an HDF5 file
-        else:
-            timeseries = h5.read_timeseries(strain_files, channels)
-            t = timeseries[-1]
-            strains = [
-                TimeSeries(data, t0=t[0], dt=t[1] - t[0], name=ch)
-                for data, ch in zip(timeseries[:-1], channels)
-            ]
-    else:
-        strains = [
-            TimeSeries.read(frame, ch)
-            for frame, ch in zip(strain_files, channels)
-        ]
-
-    logging.info("Read strain from strain files")
-
-    span = set([strain.span for strain in strains])
-    if len(span) != 1:
-        raise ValueError(
-            "strain files {} and {} have different durations".format(
-                *strain_files
-            )
-        )
-
-    strain_start, strain_stop = next(iter(span))
-    strain_duration = strain_stop - strain_start
-
-    # The N-2 accounts for the buffer on either end of the strain
-    if (n_samples - 2) * waveform_duration > strain_duration:
-        raise ValueError(
-            "The length of signals is greater than the length of the strain"
-        )
-
-    sample_rate = set([int(strain.sample_rate.value) for strain in strains])
-    if len(sample_rate) != 1:
-        raise ValueError(
-            "strain files {} and {} have different sample rates".format(
-                *strain_files
-            )
-        )
-
-    sample_rate = next(iter(sample_rate))
-    fftlength = int(max(2, np.ceil(2048 / sample_rate)))
-
-    # set the non-overlapping times of the signals in the strains randomly
-    # leaves buffer at either end of the series so edge effects aren't an issue
-    signal_times = sorted(
-        np.random.choice(
-            np.arange(
-                waveform_duration,
-                strain_duration - waveform_duration,
-                waveform_duration,
-            ),
-            size=n_samples,
-            replace=False,
-        )
-    )
-
-    # log and print out some simulation parameters
-    logging.info("Simulation parameters")
-    logging.info("Number of samples     : {}".format(n_samples))
-    logging.info("Sample rate [Hz]      : {}".format(sample_rate))
-    logging.info("High pass filter [Hz] : {}".format(fmin))
-    logging.info("Prior file            : {}".format(prior_file))
-
     # define a Bilby waveform generator
-    waveform_generator = bilby.gw.WaveformGenerator(
+
+    # TODO: should sampling rate be automatically inferred
+    # from raw data?
+    waveform_generator = get_waveform_generator(
+        waveform_approximant=waveform_approximant,
+        reference_frequency=reference_frequency,
+        minimum_frequency=fmin,
+        sample_rate=sample_rate,
         duration=waveform_duration,
-        sampling_frequency=sample_rate,
-        frequency_domain_source_model=lal_binary_black_hole,
-        parameter_conversion=convert_to_lal_binary_black_hole_parameters,
-        waveform_arguments={
-            "waveform_approximant": "IMRPhenomPv2",
-            "reference_frequency": 50,
-            "minimum_frequency": 20,
-        },
     )
 
-    # sample GW parameters from prior distribution
+    # initiate prior
     priors = bilby.gw.prior.BBHPriorDict(prior_file)
-    sample_params = priors.sample(n_samples)
-    sample_params["geocent_time"] = signal_times
 
-    signals_list = []
-    snr_list = []
-    for strain, channel, ifo in zip(strains, channels, ifos):
+    for segment in raw_timeslide.segments:
 
-        # calculate the PSD
-        strain_psd = strain.psd(fftlength)
+        start = segment.t0
+        stop = segment.tf
 
-        # generate GW waveforms
+        # determine signal times
+        # based on length of segment and spacing;
+        # The signal time represents the first sample
+        # in the signals generated by project_raw_gw.
+        # not to be confused with the t0, which should
+        # be the middle sample
+
+        signal_times = np.arange(start + buffer, stop - buffer, spacing)
+        n_samples = len(signal_times)
+
+        # sample prior
+        parameters = priors.sample(n_samples)
+
+        # generate raw waveforms
         raw_signals = generate_gw(
-            sample_params,
-            waveform_generator=waveform_generator,
+            parameters, waveform_generator=waveform_generator
         )
 
-        signals, snr = project_raw_gw(
-            raw_signals,
-            sample_params,
-            waveform_generator,
-            ifo,
-            get_snr=True,
-            noise_psd=strain_psd,
-        )
+        # dictionary to store
+        # gwpy timeseries of background
+        raw_ts = {}
 
-        signals_list.append(signals)
-        snr_list.append(snr)
+        # dictionary to store injection
+        # datasets to write to h5
+        inj_datasets = {}
 
-    old_snr = np.sqrt(np.sum(np.square(snr_list), axis=0))
-    new_snr = np.random.uniform(snr_range[0], snr_range[1], len(snr_list[0]))
+        # load segment;
+        # expects that ifo is the name
+        # of the dataset
+        data = segment.load(datasets=ifos)
 
-    signals_list = [
-        signals * (new_snr / old_snr)[:, None] for signals in signals_list
-    ]
-    sample_params["luminosity_distance"] = (
-        sample_params["luminosity_distance"] * old_snr / new_snr
-    )
-    snr_list = [snr * new_snr / old_snr for snr in snr_list]
-
-    outdir = Path(outdir)
-    strain_out_paths = [outdir / f.name for f in map(Path, strain_files)]
-
-    for strain, signals, strain_path in zip(
-        strains, signals_list, strain_out_paths
-    ):
-        for i in range(n_samples):
-            idx1 = int(
-                (signal_times[i] - waveform_duration / 2.0) * sample_rate
-            )
-            idx2 = idx1 + waveform_duration * sample_rate
-            strain[idx1:idx2] += signals[i]
-
-        strain.write(strain_path)
-
-    # Write params and similar to output file
-    param_file = os.path.join(
-        outdir, f"param_file_{strain_start}-{strain_stop}.h5"
-    )
-    with h5py.File(param_file, "w") as f:
-        # write signals attributes, snr, and signal parameters
-        params_gr = f.create_group("signal_params")
-        for k, v in sample_params.items():
-            params_gr.create_dataset(k, data=v)
-
-        # Save signal times as actual GPS times
-        f.create_dataset("GPS-start", data=signal_times + strain_start)
+        # parse data based on ifos passed
+        # into gwpy timeseries
+        times = data[-1]
 
         for i, ifo in enumerate(ifos):
-            ifo_gr = f.create_group(ifo)
-            ifo_gr.create_dataset("signal", data=signals_list[i])
-            ifo_gr.create_dataset("snr", data=snr_list[i])
+            raw_ts = TimeSeries(data[i], times=times)
 
-        # write strain attributes
-        f.attrs.update(
-            {
-                "size": n_samples,
-                "strain_start": strain_start,
-                "strain_stop": strain_stop,
-                "sample_rate": sample_rate,
-                "psd_fftlength": fftlength,
-            }
+            # calculate psd for this segment
+            psd = raw_ts.psd(fftlength)
+
+            # project raw waveforms
+            signals, snr = project_raw_gw(
+                raw_signals,
+                parameters,
+                waveform_generator,
+                ifo,
+                get_snr=True,
+                noise_psd=psd,
+            )
+
+            # loop over signals, injecting them into the
+            # raw strain
+
+            for start, signal in zip(signal_times, signals):
+                stop = start + len(signal) * sample_rate
+                times = np.arange(start, stop, 1 / sample_rate)
+
+                # create gwpy timeseries for signal
+                signal = TimeSeries(signal, times=times)
+
+                # inject into raw background
+                raw_ts.inject(signal)
+
+            inj_datasets[ifo] = raw_ts.value
+
+        # now write this segment to out TimeSlide
+        h5.write_timeseries(
+            out_timeslide.root, prefix="inj", t=times, datasets=inj_datasets
         )
 
-        # Update signal attributes
-        f.attrs["waveform_duration"] = waveform_duration
-        f.attrs["flag"] = "GW"
-
-    return strain_out_paths, param_file
+    return out_timeslide
