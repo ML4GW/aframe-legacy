@@ -33,6 +33,13 @@ def circular_shift_segments(
         circ_shifted_segments = SegmentList(Segment([20, 40]))
 
     """
+
+    if shift < 0:
+        raise NotImplementedError(
+            "circularly shifting segments is not"
+            " yet implemented for negative shifts"
+        )
+
     # shift segments by specified amount
     shifted_segments = segments.shift(shift)
 
@@ -66,6 +73,7 @@ def circular_shift_segments(
             second_segment = Segment([start, seg_stop - stop])
             circular_shifted_segments.extend([first_segment, second_segment])
 
+    circular_shifted_segments = circular_shifted_segments.coalesce()
     return circular_shifted_segments
 
 

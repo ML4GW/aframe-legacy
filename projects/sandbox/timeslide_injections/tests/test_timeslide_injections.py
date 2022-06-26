@@ -2,9 +2,9 @@ import os
 import shutil
 from pathlib import Path
 
-import numpy as np
 import pytest
-from timeslide_injections import main
+from gwpy.segments import Segment, SegmentList
+from timeslide_injections import circular_shift_segments
 
 
 @pytest.fixture(scope="session")
@@ -15,66 +15,82 @@ def data_dir():
     shutil.rmtree(data_dir)
 
 
-@pytest.fixture(params=[0, 1, 10])
-def n_slides(request):
-    return request.param
-
-
 @pytest.fixture(params=[-1, 0, 1])
 def shift(request):
     return request.param
 
 
-@pytest.fixture(params=[512, 1024])
-def seg_length(request):
-    return request.param
-
-
-# This test just makes sure that all the expected directories are present
-# and that the number of files is consistent between them.
-# Nothing within the files is checked.
-
-
-def test_output_file_structure(data_dir, n_slides, shift, seg_length):
-
-    start = 1258848000
-    stop = 1258851000
-    prior_file = "priors/nonspin_BBH.prior"
-    n_samples = 10
-    gw_file = "../O3b_GW_times.txt"
-
-    main(
-        start=start,
-        stop=stop,
-        outdir=data_dir,
-        prior_file=prior_file,
-        n_samples=n_samples,
-        n_slides=n_slides,
-        shift=shift,
-        seg_length=seg_length,
-        gw_file=gw_file,
+def test_circular_shift_segments_with_zero_shift():
+    start = 0
+    stop = 1000
+    shift = 0
+    segmentlist = SegmentList(
+        [Segment([0, 100]), Segment([200, 300]), Segment([400, 1000])]
     )
 
-    dirs = os.listdir(data_dir)
+    circularly_shifted = circular_shift_segments(
+        start, stop, shift, segmentlist
+    )
 
-    # Check for all the directories
-    assert "original" in dirs
-    assert "injected" in dirs
-    for ts in np.linspace(0, shift * (n_slides - 1), n_slides):
-        assert "dt-{:.1f}".format(ts) in dirs
-        dt_dir = os.path.join(data_dir, "dt-{:.1f}".format(ts))
-        assert "original" in os.listdir(dt_dir)
-        assert "injected" in os.listdir(dt_dir)
+    assert circularly_shifted == segmentlist
 
-    # 1 file per segment for each ifo
-    num_segs = len(os.listdir(os.path.join(data_dir, "original"))) / 2
-    assert num_segs.is_integer()
 
-    # 3 per segment for injected due to signal parameter file
-    assert num_segs * 3 == len(os.listdir(os.path.join(data_dir, "injected")))
+def test_circular_shift_segments_with_full_segment():
+    start = 0
+    stop = 1000
+    shift = 0
+    segmentlist = SegmentList([Segment([start, stop])])
 
-    # 1 file per segment per timeslide in both original and injected
-    for ts in np.linspace(0, shift * (n_slides - 1), n_slides):
-        dt_dir = os.path.join(data_dir, "dt-{:.1f}".format(ts))
-        assert num_segs == len(os.listdir(os.path.join(dt_dir, "original")))
-        assert num_segs == len(os.listdir(os.path.join(dt_dir, "injected")))
+    circularly_shifted = circular_shift_segments(
+        start, stop, shift, segmentlist
+    )
+
+    assert circularly_shifted == segmentlist
+
+
+def test_circular_shift_segments_with_positive_shift():
+    start = 0
+    stop = 600
+    shift = 100
+    segmentlist = SegmentList(
+        [Segment([0, 100]), Segment([200, 300]), Segment([400, 550])]
+    )
+    expected_output = SegmentList(
+        [
+            Segment([0, 50]),
+            Segment([100, 200]),
+            Segment([300, 400]),
+            Segment([500, 600]),
+        ]
+    )
+
+    circularly_shifted = circular_shift_segments(
+        start, stop, shift, segmentlist
+    )
+
+    print(circularly_shifted)
+    assert circularly_shifted == expected_output
+
+
+def test_circular_shift_segments_with_negative_shift():
+    start = 0
+    stop = 600
+    shift = -100
+    segmentlist = SegmentList(
+        [Segment([0, 100]), Segment([200, 300]), Segment([400, 550])]
+    )
+    expected_output = SegmentList(
+        [
+            Segment([0, 50]),
+            Segment([100, 200]),
+            Segment([300, 400]),
+            Segment([500, 600]),
+        ]
+    )
+
+    circularly_shifted = circular_shift_segments(
+        start, stop, shift, segmentlist
+    )
+
+    print(circularly_shifted)
+    assert circularly_shifted == expected_output
