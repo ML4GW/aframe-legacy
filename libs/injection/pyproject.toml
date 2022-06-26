@@ -14,6 +14,7 @@ bilby = "^1.1.5"
 lalsuite = "^7.4"
 
 "bbhnet.base" = {path = "../base", extras = ["gwpy"], develop = true}
+"bbhnet.io" ={ path = "../io",  develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
