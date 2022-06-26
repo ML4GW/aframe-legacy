@@ -8,7 +8,8 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
 "hermes.typeo" = "^0.1.4"
-"bbhnet.injection" = {path="../../libs/injection", develop=true}
+"bbhnet.injection" = {path="../../../libs/injection", develop=true}
+"bbhnet.io" = {path = "../../../libs/io/", develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
@@ -16,14 +17,7 @@ pytest = "^6.2"
 [tool.poetry.scripts]
 timeslide_injections = "timeslide_injections:main"
 
-[tool.typeo]
-# Nov 27 2019 - Jan 05 2020
-start = 1258848000
-stop = 1262304000
-outdir = "."
-prior_file = "./priors/nonspin_BBH.prior"
-n_samples = 25
-gw_file = "O3b_GW_times.txt"
+
 
 [build-system]
 requires = ["poetry>=1.2"]
