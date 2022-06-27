@@ -266,3 +266,42 @@ def test_signal_injected(ifos, frame_duration):
                     exp_output == act_output
                 ), f"Sum of signal {n} and orignal data does not match \
                     injected data for {ifo}"
+
+
+@pytest.fixture(params=[60, 100])
+def spacing(request):
+    return request.param
+
+
+@pytest.mark.parametrize(
+    "ifos,sample_rate,spacing,file_length,fmin,prior",
+    [
+        (["H1", "L1"], 2048, 60, 4096, 32, "nonspin_BBH.prior"),
+    ],
+)
+def test_inject_signals_into_timeslide(
+    raw_timeslide,
+    inj_timeslide,
+    ifos,
+    sample_rate,
+    spacing,
+    file_length,
+    fmin,
+    prior,
+):
+
+    # TODO: why did we get rid of this fixture? just re using code
+    prior_file = Path(__file__).absolute().parent / "prior_files"
+    prior_file /= prior
+    prior_file = prior_file.as_posix()
+
+    bbhnet.injection.inject_signals_into_timeslide(
+        raw_timeslide,
+        inj_timeslide,
+        ifos,
+        prior_file,
+        spacing,
+        sample_rate,
+        file_length,
+        fmin,
+    )

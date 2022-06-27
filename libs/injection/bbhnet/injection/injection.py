@@ -223,12 +223,12 @@ def inject_signals_into_timeslide(
     ifos: List[str],
     prior_file: Path,
     spacing: float,
-    waveform_duration: float,
     sample_rate: float,
+    file_length: int,
     fmin: float,
-    reference_frequency: float,
-    waveform_approximant: float,
-    snr_range: List[float],
+    waveform_duration: float = 8,
+    reference_frequency: float = 20,
+    waveform_approximant: float = "IMRPhenomPv2",
     buffer: float = 0,
     fftlength: float = 2,
 ):
@@ -245,7 +245,6 @@ def inject_signals_into_timeslide(
         fmin: Minimum frequency for highpass filter
         waveform_duration: length of injected waveforms
         sample_rate: sampling rate
-        snr_range: desired signal SNR range
         buffer:
 
     Returns:
@@ -260,7 +259,7 @@ def inject_signals_into_timeslide(
         waveform_approximant=waveform_approximant,
         reference_frequency=reference_frequency,
         minimum_frequency=fmin,
-        sample_rate=sample_rate,
+        sampling_frequency=sample_rate,
         duration=waveform_duration,
     )
 
@@ -284,6 +283,7 @@ def inject_signals_into_timeslide(
 
         # sample prior
         parameters = priors.sample(n_samples)
+        parameters["geocent_time"] = signal_times
 
         # generate raw waveforms
         raw_signals = generate_gw(
@@ -294,24 +294,22 @@ def inject_signals_into_timeslide(
         # gwpy timeseries of background
         raw_ts = {}
 
-        # dictionary to store injection
-        # datasets to write to h5
-        inj_datasets = {}
-
         # load segment;
         # expects that ifo is the name
         # of the dataset
-        data = segment.load(datasets=ifos)
+        data = segment.load(*ifos)
 
         # parse data based on ifos passed
         # into gwpy timeseries
         times = data[-1]
 
+        print(times[1] - times[0])
+
         for i, ifo in enumerate(ifos):
-            raw_ts = TimeSeries(data[i], times=times)
+            raw_ts[ifo] = TimeSeries(data[i], times=times)
 
             # calculate psd for this segment
-            psd = raw_ts.psd(fftlength)
+            psd = raw_ts[ifo].psd(fftlength)
 
             # project raw waveforms
             signals, snr = project_raw_gw(
@@ -326,21 +324,30 @@ def inject_signals_into_timeslide(
             # loop over signals, injecting them into the
             # raw strain
 
-            for start, signal in zip(signal_times, signals):
-                stop = start + len(signal) * sample_rate
-                times = np.arange(start, stop, 1 / sample_rate)
+            for signal_start, signal in zip(signal_times, signals):
+                signal_stop = signal_start + len(signal) * (1 / sample_rate)
+                signal_times = np.arange(
+                    signal_start, signal_stop, 1 / sample_rate
+                )
 
                 # create gwpy timeseries for signal
-                signal = TimeSeries(signal, times=times)
+                signal = TimeSeries(signal, times=signal_times)
 
                 # inject into raw background
-                raw_ts.inject(signal)
+                raw_ts[ifo].inject(signal)
 
-            inj_datasets[ifo] = raw_ts.value
+        # now write this segment to out TimeSlide;
+        for t0 in np.arange(start, stop, file_length):
+            inj_datasets = {}
 
-        # now write this segment to out TimeSlide
-        h5.write_timeseries(
-            out_timeslide.root, prefix="inj", t=times, datasets=inj_datasets
-        )
+            tf = min(t0 + file_length, stop)
+            times = np.arange(t0, tf, 1 / sample_rate)
+
+            for ifo in ifos:
+                inj_datasets[ifo] = raw_ts[ifo].crop(t0, tf)
+
+            h5.write_timeseries(
+                out_timeslide.path, prefix="inj", t=times, **inj_datasets
+            )
 
     return out_timeslide

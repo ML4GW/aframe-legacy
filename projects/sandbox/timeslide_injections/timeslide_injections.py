@@ -205,14 +205,19 @@ def main(
 
             times = np.arange(segment_start, segment_stop, sample_rate)
 
-            raw_datasets = {}
-            for ifo in ifos:
-                raw_datasets[ifo] = data[ifo].crop(start, stop).value
-
             # write timeseries
-            h5.write_timeseries(
-                raw_ts.root, prefix="raw", t=times, datasets=raw_datasets
-            )
+            for t0 in np.arange(segment_start, segment_stop, file_length):
+
+                tf = min(t0 + file_length, segment_stop)
+                raw_datasets = {}
+
+                for ifo in ifos:
+                    raw_datasets[ifo] = data[ifo].crop(t0, tf).value
+
+                times = np.arange(t0, tf, 1 / sample_rate)
+                h5.write_timeseries(
+                    raw_ts.root, prefix="raw", t=times, datasets=raw_datasets
+                )
 
         # now inject signals into raw files;
         # this function automatically writes h5 files to TimeSlide
