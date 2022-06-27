@@ -5,7 +5,7 @@ steps = [
     "generate_glitches:generate-glitches",
     "train:train:resnet",
     "export:export:resnet",
-    "timeslide_injections:timeslide_injections:
+    "timeslide_injections:timeslide_injections"
 ]
 
 [tool.typeo.base]
@@ -103,7 +103,7 @@ shifts = [0, 1]
 ifos = "${base.ifos}"
 file_length = 4096
 fmin = "${base.fmin}" 
-sample_rate = ${base.sample_rate} 
+sample_rate = "${base.sample_rate}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}" 
 state_flag = "${base.state_flag}"
