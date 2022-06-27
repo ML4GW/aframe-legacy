@@ -270,9 +270,9 @@ def inject_signals_into_timeslide(
                 out_timeslide.path, prefix="inj", t=times, **inj_datasets
             )
 
-        # save parameters
-        with h5py.File(out_timeslide.path / "params.h5", "w") as f:
-            for k, v in parameters.items():
-                f.create_dataset(k, data=v)
+    # save parameters
+    with h5py.File(out_timeslide.path / "params.h5", "w") as f:
+        for k, v in parameters.items():
+            f.create_dataset(k, data=v)
 
     return out_timeslide

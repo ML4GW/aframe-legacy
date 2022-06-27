@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -123,11 +124,10 @@ def main(
 
     """
 
-    print("Beginning timeslides")
     outdir.mkdir(parents=True, exist_ok=True)
     configure_logging(outdir / "timeslide_injections.log")
 
-    # query all necessary data up front
+    # query and read all necessary data up front
 
     data = TimeSeriesDict()
     for ifo in ifos:
@@ -143,7 +143,6 @@ def main(
             files, channel=f"{ifo}:{channel}", start=start, end=stop
         )
 
-    print("Done querying data")
     # if state_flag is passed,
     # query segments for each ifo.
     # a certificate is needed for this
@@ -162,19 +161,24 @@ def main(
                 [Segment(start, stop)]
             )
 
-    print("Done making segments")
-    # create timeslides
+    # create list of timeslides
     # for each ifo
-    timeslides = [
-        np.linspace(0, shift * (n_slides - 1), num=n_slides)
-        for shift in shifts
-    ]
+    timeslides = np.column_stack(
+        [
+            np.linspace(0, shift * (n_slides - 1), num=n_slides)
+            for shift in shifts
+        ]
+    )
 
     for shifts in timeslides:
-        print(f"analyzing timeslide for {shifts}")
         # TODO: might be overly complex naming,
         # but wanted to attempt to generalize to multi ifo
-        root = outdir / f"dt-{'-'.join(shifts)}"
+        root = outdir / f"dt-{'-'.join(map(str,shifts))}"
+
+        # make root and timeslide directories
+        root.mkdir(exist_ok=True, parents=True)
+        Path(root / "injection").mkdir(exist_ok=True, parents=True)
+        Path(root / "raw").mkdir(exist_ok=True, parents=True)
 
         # create TimeSlide object for injection
         injection_ts = TimeSlide(root=root, field="injection")
@@ -184,30 +188,34 @@ def main(
 
         # initiate segment intersection as full
         # segment from start, stop
-        intersection = SegmentList([start, stop])
+        intersection = SegmentList([[start, stop]])
 
         # circularly shift data
         # circularly shift segments to 'mirror' data
         for shift, ifo in zip(shifts, ifos):
 
-            segments[f"{ifo}:{state_flag}"] = circular_shift_segments(
-                start, stop, shift, segments[f"{ifo}:{state_flag}"]
+            circular_shifted_segments = circular_shift_segments(
+                start, stop, shift, segments[f"{ifo}:{state_flag}"].active
             )
 
             shifted_data = np.roll(data[ifo].value, int(shift * sample_rate))
-            data[ifo] = TimeSeries(
-                shifted_data, dt=1 / sample_rate, start=start, stop=stop
-            )
+            data[ifo] = TimeSeries(shifted_data, dt=1 / sample_rate, t0=start)
 
             # calculate intersection of circularly shifted segments
-            intersection &= segments[f"{ifo}:{state_flag}"].active
+            intersection &= circular_shifted_segments
+
+        if len(intersection) == 0:
+            logging.info(
+                f"No intersecting segments found for {ifos}"
+                " after time shifting by {shifts}"
+            )
+            continue
 
         for segment in intersection:
-
-            # crop data to segment
             segment_start, segment_stop = segment
-
-            times = np.arange(segment_start, segment_stop, sample_rate)
+            segment_start, segment_stop = float(segment_start), float(
+                segment_stop
+            )
 
             # write timeseries
             for t0 in np.arange(segment_start, segment_stop, file_length):
@@ -219,8 +227,9 @@ def main(
                     raw_datasets[ifo] = data[ifo].crop(t0, tf).value
 
                 times = np.arange(t0, tf, 1 / sample_rate)
+                print(times, type(times))
                 h5.write_timeseries(
-                    raw_ts.root, prefix="raw", t=times, datasets=raw_datasets
+                    raw_ts.path, prefix="raw", t=times, **raw_datasets
                 )
 
         # now inject signals into raw files;

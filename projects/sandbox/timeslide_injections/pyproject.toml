@@ -19,10 +19,10 @@ pytest = "^6.2"
 timeslide_injections = "timeslide_injections:main"
 
 [tool.typeo]
-start = 1262588390
+start = 1262688390
 stop = 1262698390
 outdir = "/home/ethan.marx/bbhnet/timeslide_injections/"
-prior_file = "/home/ethan.marx/forks/BBHnet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
+prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
 spacing = 60
 buffer = 10
 n_slides = 100

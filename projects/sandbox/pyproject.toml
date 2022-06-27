@@ -4,7 +4,8 @@ steps = [
     "generate_waveforms:generate-waveforms",
     "generate_glitches:generate-glitches",
     "train:train:resnet",
-    "export:export:resnet"
+    "export:export:resnet",
+    "timeslide_injections:timeslide_injections:
 ]
 
 [tool.typeo.base]
@@ -88,3 +89,21 @@ early_stop = 100
 device = "cuda"
 profile = false
 commands.resnet = {layers = [4, 4, 4]}
+
+[tool.typeo.scripts.timeslide_injections]
+start = "${base.start}"  
+stop = "${base.stop}" 
+
+outdir = "${base.outdir}/timeslide_injections/"
+prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
+spacing = 60
+buffer = 10
+n_slides = 100
+shifts = [0, 1]
+ifos = "${base.ifos}"
+file_length = 4096
+fmin = "${base.fmin}" 
+sample_rate = ${base.sample_rate} 
+channel = "${base.channel}"
+frame_type = "${base.frame_type}" 
+state_flag = "${base.state_flag}"
