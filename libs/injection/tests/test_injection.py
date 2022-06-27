@@ -219,61 +219,6 @@ def test_snr_range(ifos, snr_range):
 
 
 @pytest.mark.parametrize(
-    "ifos,frame_duration", [(["H1"], 20), (["H1", "L1"], 200)]
-)
-def test_signal_injected(ifos, frame_duration):
-    data_dir = tempfile.mkdtemp()
-    n_samples = 1
-    waveform_duration = 8
-
-    frame_files = []
-    channels = []
-    for ifo in ifos:
-        frame_content = mock_frame(2048, frame_duration)
-        frame_filename = tempfile.mktemp(suffix=".gwf")
-        frame_content.write(frame_filename)
-        frame_files.append(frame_filename)
-        channels.append("Strain")
-
-    out_frames, signal_file = bbhnet.injection.inject_signals(
-        frame_files,
-        channels,
-        ifos,
-        prior_file=str(TEST_DIR / "prior_files" / "nonspin_BBH.prior"),
-        n_samples=n_samples,
-        outdir=data_dir,
-        waveform_duration=waveform_duration,
-    )
-
-    with h5py.File(signal_file, "r") as f:
-        signal_times = f["signal_params"]["geocent_time"][:]
-
-        for n in range(n_samples):
-            for i, ifo in enumerate(ifos):
-                orig_data = TimeSeries.read(frame_files[i], channels[i])
-                inj_data = TimeSeries.read(out_frames[i], channels[i])
-                sample_rate = orig_data.sample_rate.value
-                signal_time = signal_times[n]
-                signal = f[ifo]["signal"][n, :]
-
-                idx1 = int((signal_time - waveform_duration / 2) * sample_rate)
-                idx2 = int(idx1 + waveform_duration * sample_rate)
-
-                exp_output = signal + orig_data.value[idx1:idx2]
-                act_output = inj_data.value[idx1:idx2]
-
-                assert all(
-                    exp_output == act_output
-                ), f"Sum of signal {n} and orignal data does not match \
-                    injected data for {ifo}"
-
-
-@pytest.fixture(params=[60, 100])
-def spacing(request):
-    return request.param
-
-
-@pytest.mark.parametrize(
     "ifos,sample_rate,spacing,file_length,fmin,prior",
     [
         (["H1", "L1"], 2048, 60, 4096, 32, "nonspin_BBH.prior"),
@@ -295,7 +240,7 @@ def test_inject_signals_into_timeslide(
     prior_file /= prior
     prior_file = prior_file.as_posix()
 
-    bbhnet.injection.inject_signals_into_timeslide(
+    out_timeslide = bbhnet.injection.inject_signals_into_timeslide(
         raw_timeslide,
         inj_timeslide,
         ifos,
@@ -305,3 +250,7 @@ def test_inject_signals_into_timeslide(
         file_length,
         fmin,
     )
+
+    param_file = out_timeslide.path / "params.h5"
+    assert out_timeslide.path.exists()
+    assert param_file.exists()

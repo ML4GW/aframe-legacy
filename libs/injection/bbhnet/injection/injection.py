@@ -1,8 +1,10 @@
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import List
 
 import bilby
+import h5py
 import numpy as np
 import scipy.signal as sig
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
@@ -266,6 +268,8 @@ def inject_signals_into_timeslide(
     # initiate prior
     priors = bilby.gw.prior.BBHPriorDict(prior_file)
 
+    parameters = defaultdict(list)
+
     for segment in raw_timeslide.segments:
 
         start = segment.t0
@@ -282,12 +286,21 @@ def inject_signals_into_timeslide(
         n_samples = len(signal_times)
 
         # sample prior
-        parameters = priors.sample(n_samples)
-        parameters["geocent_time"] = signal_times
+        segment_parameters = priors.sample(n_samples)
+
+        # append to master parameters dict
+        for key, value in segment_parameters.items():
+            parameters[key].extend(value)
+
+        # the center of the sample
+        # is geocent time
+        segment_parameters["geocent_time"] = signal_times + (
+            waveform_duration / 2
+        )
 
         # generate raw waveforms
         raw_signals = generate_gw(
-            parameters, waveform_generator=waveform_generator
+            segment_parameters, waveform_generator=waveform_generator
         )
 
         # dictionary to store
@@ -299,11 +312,8 @@ def inject_signals_into_timeslide(
         # of the dataset
         data = segment.load(*ifos)
 
-        # parse data based on ifos passed
-        # into gwpy timeseries
+        # times array is returned last
         times = data[-1]
-
-        print(times[1] - times[0])
 
         for i, ifo in enumerate(ifos):
             raw_ts[ifo] = TimeSeries(data[i], times=times)
@@ -314,7 +324,7 @@ def inject_signals_into_timeslide(
             # project raw waveforms
             signals, snr = project_raw_gw(
                 raw_signals,
-                parameters,
+                segment_parameters,
                 waveform_generator,
                 ifo,
                 get_snr=True,
@@ -349,5 +359,10 @@ def inject_signals_into_timeslide(
             h5.write_timeseries(
                 out_timeslide.path, prefix="inj", t=times, **inj_datasets
             )
+
+        # save parameters
+        with h5py.File(out_timeslide.path / "params.h5", "w") as f:
+            for k, v in parameters.items():
+                f.create_dataset(k, data=v)
 
     return out_timeslide
