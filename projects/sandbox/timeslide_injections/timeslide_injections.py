@@ -123,6 +123,7 @@ def main(
 
     """
 
+    print("Beginning timeslides")
     outdir.mkdir(parents=True, exist_ok=True)
     configure_logging(outdir / "timeslide_injections.log")
 
@@ -142,6 +143,7 @@ def main(
             files, channel=f"{ifo}:{channel}", start=start, end=stop
         )
 
+    print("Done querying data")
     # if state_flag is passed,
     # query segments for each ifo.
     # a certificate is needed for this
@@ -160,6 +162,7 @@ def main(
                 [Segment(start, stop)]
             )
 
+    print("Done making segments")
     # create timeslides
     # for each ifo
     timeslides = [

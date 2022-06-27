@@ -10,6 +10,7 @@ python = ">=3.9,<3.11"
 "hermes.typeo" = "^0.1.4"
 "bbhnet.injection" = {path="../../../libs/injection", develop=true}
 "bbhnet.io" = {path = "../../../libs/io/", develop = true}
+"bbhnet.logging" = {path = "../../../libs/logging/", develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
