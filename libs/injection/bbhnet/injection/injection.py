@@ -145,7 +145,7 @@ def inject_signals_into_timeslide(
     fftlength: float = 2,
 ):
 
-    """Injects simulated BBH signals into a TimeSlide object that represents
+    """Injects simulated BBH signals into h5 files TimeSlide object that represents
     timeshifted background data. Currently only supports h5 file format.
 
     Args:
@@ -178,6 +178,8 @@ def inject_signals_into_timeslide(
     # initiate prior
     priors = bilby.gw.prior.BBHPriorDict(prior_file)
 
+    # dict to store all parameters
+    # of injections
     parameters = defaultdict(list)
 
     for segment in raw_timeslide.segments:
@@ -254,7 +256,7 @@ def inject_signals_into_timeslide(
                 signal = TimeSeries(signal, times=signal_times)
 
                 # inject into raw background
-                raw_ts[ifo].inject(signal)
+                raw_ts[ifo] = raw_ts[ifo].inject(signal)
 
         # now write this segment to out TimeSlide;
         for t0 in np.arange(start, stop, file_length):

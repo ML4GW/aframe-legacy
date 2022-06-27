@@ -20,20 +20,14 @@ from bbhnet.logging import configure_logging
 
 
 def circular_shift_segments(
-    start: float, stop: float, shift: float, segments: SegmentList
+    segments: SegmentList,
+    shift: float,
+    start: float,
+    stop: float,
 ):
     """Takes a gwpy SegmentList object and performs a circular time shift.
-
-    For example:
-        circ_shifted_segments = circular_shift_segments(
-            start=0,
-            stop=100,
-            shift = 50,
-            segments = SegmentList(Segment([70, 90]))
-        )
-
-        circ_shifted_segments = SegmentList(Segment([20, 40]))
-
+    The convention we adopt is that a positive timeshift corresponds to
+    moving the data forward in time.
     """
 
     if shift < 0:
@@ -95,6 +89,7 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
+    circular: bool = False,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
@@ -102,7 +97,6 @@ def main(
     state_flag: Optional[str] = None,
 ):
     """Generates timeslides of background and background + injections.
-    Also saves the original and injected timeseries as frame files.
 
     Args:
         start: starting GPS time of time period
@@ -120,7 +114,7 @@ def main(
         fmin: min frequency for highpass filter, used for simulating
         waveform_duration: length of injected waveforms
         snr_range: desired signal SNR range
-        gw_timesfile: path to txt file containing GPS times of GWs
+        circular: specifies a circular time slide
 
     """
 
@@ -142,6 +136,8 @@ def main(
         data[ifo] = TimeSeries.read(
             files, channel=f"{ifo}:{channel}", start=start, end=stop
         )
+
+    data.resample(sample_rate)
 
     # if state_flag is passed,
     # query segments for each ifo.
@@ -171,6 +167,7 @@ def main(
     )
 
     for shifts in timeslides:
+
         # TODO: might be overly complex naming,
         # but wanted to attempt to generalize to multi ifo
         root = outdir / f"dt-{'-'.join(map(str,shifts))}"
@@ -178,31 +175,55 @@ def main(
         # make root and timeslide directories
         root.mkdir(exist_ok=True, parents=True)
         Path(root / "injection").mkdir(exist_ok=True, parents=True)
-        Path(root / "raw").mkdir(exist_ok=True, parents=True)
+        Path(root / "background").mkdir(exist_ok=True, parents=True)
 
         # create TimeSlide object for injection
         injection_ts = TimeSlide(root=root, field="injection")
 
         # create TimeSlide object for raw data
-        raw_ts = TimeSlide(root=root, field="raw")
+        raw_ts = TimeSlide(root=root, field="background")
 
         # initiate segment intersection as full
         # segment from start, stop
         intersection = SegmentList([[start, stop]])
 
-        # circularly shift data
-        # circularly shift segments to 'mirror' data
+        #  shift data
+        #  shift segments to 'mirror' data
+        shifted_data = TimeSeriesDict()
         for shift, ifo in zip(shifts, ifos):
 
-            circular_shifted_segments = circular_shift_segments(
-                start, stop, shift, segments[f"{ifo}:{state_flag}"].active
-            )
+            # if circular timeshift
+            if circular:
+                shifted_segments = circular_shift_segments(
+                    shift,
+                    segments[f"{ifo}:{state_flag}"].active,
+                    start,
+                    stop,
+                )
 
-            shifted_data = np.roll(data[ifo].value, int(shift * sample_rate))
-            data[ifo] = TimeSeries(shifted_data, dt=1 / sample_rate, t0=start)
+                shifted_data = np.roll(
+                    data[ifo].value, int(shift * sample_rate)
+                )
+                shifted_data[ifo] = TimeSeries(
+                    shifted_data, dt=1 / sample_rate, t0=start
+                )
 
-            # calculate intersection of circularly shifted segments
-            intersection &= circular_shifted_segments
+            # global shift
+            else:
+                shifted_segments = segments[
+                    f"{ifo}:{state_flag}"
+                ].active.shift(shift)
+
+                # perform time shift by manually shifting times;
+                # subtracting the shift corresponds to moving
+                # data forward in time
+                shifted_times = data[ifo].times.value - shift
+                shifted_data[ifo] = TimeSeries(
+                    data[ifo].value, times=shifted_times
+                )
+
+            # calculate intersection of shifted segments
+            intersection &= shifted_segments
 
         if len(intersection) == 0:
             logging.info(
@@ -220,17 +241,21 @@ def main(
             # write timeseries
             for t0 in np.arange(segment_start, segment_stop, file_length):
 
-                tf = min(t0 + file_length, segment_stop)
+                tf = min(t0 + file_length, segment_stop, stop)
                 raw_datasets = {}
 
                 for ifo in ifos:
                     raw_datasets[ifo] = data[ifo].crop(t0, tf).value
 
                 times = np.arange(t0, tf, 1 / sample_rate)
-                print(times, type(times))
+
                 h5.write_timeseries(
                     raw_ts.path, prefix="raw", t=times, **raw_datasets
                 )
+
+        # update segments in TimeSlide
+
+        raw_ts.update()
 
         # now inject signals into raw files;
         # this function automatically writes h5 files to TimeSlide

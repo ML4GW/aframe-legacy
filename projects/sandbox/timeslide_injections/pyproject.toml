@@ -11,6 +11,7 @@ python = ">=3.9,<3.11"
 "bbhnet.injection" = {path="../../../libs/injection", develop=true}
 "bbhnet.io" = {path = "../../../libs/io/", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging/", develop = true}
+ipykernel = "^6.15.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
@@ -20,12 +21,12 @@ timeslide_injections = "timeslide_injections:main"
 
 [tool.typeo]
 start = 1262688390
-stop = 1262698390
+stop = 1262689390
 outdir = "/home/ethan.marx/bbhnet/timeslide_injections/"
 prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
 spacing = 60
 buffer = 10
-n_slides = 100
+n_slides = 5
 shifts = [0, 1]
 ifos = ['H1', 'L1']
 file_length = 4096
@@ -34,7 +35,7 @@ sample_rate = 2048
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
-
+circular = false
 
 [build-system]
 requires = ["poetry>=1.2"]
