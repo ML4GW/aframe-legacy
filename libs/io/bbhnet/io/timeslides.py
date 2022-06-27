@@ -340,11 +340,10 @@ class TimeSlide:
     def shift(self):
         return self.root.name
 
-    def __post_init__(self):
-        self.root = Path(self.root)
-
+    @property
+    def segments(self):
         segment = None
-        self.segments = []
+        self._segments = []
         for match in filter_and_sort_files(self.path, return_matches=True):
             fname = self.path / match.string
 
@@ -361,9 +360,13 @@ class TimeSlide:
                     # if a ValueError got raised, this segment does not
                     # start where the current one ends, so terminate the
                     # current one and start a new one
-                    self.segments.append(segment)
+                    self._segments.append(segment)
                     segment = Segment(fname)
 
         # append whichever segment was in
         # process when the loop terminated
-        self.segments.append(segment)
+        self._segments.append(segment)
+        return self._segments
+
+    def __post_init__(self):
+        self.root = Path(self.root)
