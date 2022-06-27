@@ -17,6 +17,22 @@ pytest = "^6.2"
 [tool.poetry.scripts]
 timeslide_injections = "timeslide_injections:main"
 
+[tool.typeo]
+start = 1262588390
+stop = 1262698390
+outdir = "/home/ethan.marx/bbhnet/timeslide_injections/"
+prior_file = "/home/ethan.marx/forks/BBHnet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
+spacing = 60
+buffer = 10
+n_slides = 100
+shifts = [0, 1]
+ifos = ['H1', 'L1']
+file_length = 4096
+fmin = 32
+sample_rate = 2048
+channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+frame_type = "HOFT_C01"
+state_flag = "DCS-ANALYSIS_READY_C01:1"
 
 
 [build-system]

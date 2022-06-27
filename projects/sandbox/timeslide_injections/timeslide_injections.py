@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import gwdatafind
 import numpy as np
@@ -15,6 +15,7 @@ from hermes.typeo import typeo
 from bbhnet.injection import inject_signals_into_timeslide
 from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
+from bbhnet.logging import configure_logging
 
 
 def circular_shift_segments(
@@ -84,7 +85,6 @@ def main(
     outdir: Path,
     prior_file: str,
     spacing: float,
-    jitter: float,
     buffer: float,
     n_slides: int,
     shifts: Iterable[float],
@@ -94,10 +94,10 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
-    waveform_duration: float,
-    reference_frequency: float,
-    waveform_approximant: str,
-    snr_range: List[float],
+    waveform_duration: float = 8,
+    reference_frequency: float = 20,
+    waveform_approximant: str = "IMRPhenomPv2",
+    fftlength=2,
     state_flag: Optional[str] = None,
 ):
     """Generates timeslides of background and background + injections.
@@ -124,6 +124,7 @@ def main(
     """
 
     outdir.mkdir(parents=True, exist_ok=True)
+    configure_logging(outdir / "timeslide_injections.log")
 
     # query all necessary data up front
 
@@ -167,7 +168,7 @@ def main(
     ]
 
     for shifts in timeslides:
-
+        print(f"analyzing timeslide for {shifts}")
         # TODO: might be overly complex naming,
         # but wanted to attempt to generalize to multi ifo
         root = outdir / f"dt-{'-'.join(shifts)}"
@@ -228,13 +229,12 @@ def main(
             ifos,
             prior_file,
             spacing,
+            sample_rate,
+            file_length,
             fmin,
             waveform_duration,
-            sample_rate,
-            fmin,
             reference_frequency,
             waveform_approximant,
-            snr_range,
             buffer,
         )
 
