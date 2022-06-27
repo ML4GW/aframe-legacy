@@ -93,29 +93,34 @@ def main(
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
-    fftlength=2,
+    fftlength: float = 2,
     state_flag: Optional[str] = None,
 ):
     """Generates timeslides of background and background + injections.
 
     Args:
-        start: starting GPS time of time period
-        stop: ending GPS time of time period
-        outdir: base directory where other directories will be created
+        start: starting GPS time of time period to analyze
+        stop: ending GPS time of time period to analyze
+        outdir: base directory where all timeslide directories will be created
         prior_file: a .prior file containing the priors for the GW simulation
-        n_samples: number of signals to simulate per file
+        spacing: spacing between consecutive injections
         n_slides: number of timeslides
         shift:
             List of shift multiples for each ifo. Will create n_slides
             worth of shifts, at multiples of shift. If 0 is passed,
             will not shift this ifo for any slide.
-        ifos: pair of interferometers to be compared
-        seg_length: length in seconds of each separate file
+        ifos: List interferometers
+        file_length: length in seconds of each separate file
         fmin: min frequency for highpass filter, used for simulating
+        sample_rate: sample rate
+        frame_type: frame type for data discovery
+        channel: strain channel to analyze
+        circular: flag for performing circular time shifts
         waveform_duration: length of injected waveforms
-        snr_range: desired signal SNR range
-        circular: specifies a circular time slide
-
+        reference_frequency: reference frequency for generating waveforms
+        waveform_approximant: waveform model to inject
+        fftlength: fftlength for calculating psd
+        state_flag: name of segments to query from segment database
     """
 
     outdir.mkdir(parents=True, exist_ok=True)

@@ -149,15 +149,19 @@ def inject_signals_into_timeslide(
     timeshifted background data. Currently only supports h5 file format.
 
     Args:
-        raw_timeslide: TimeSlide object of raw background data
-        out_timeslide: TimeSlide object to store injections
+        raw_timeslide: TimeSlide object of raw background data Segments
+        out_timeslide: TimeSlide object to store injection Segments
         ifos: list of interferometers corresponding to timeseries
         prior_file: prior file for bilby to sample from
         spacing: seconds between each injection
+        sample_rate: sampling rate
+        file_length: length in seconds of each h5 file
         fmin: Minimum frequency for highpass filter
         waveform_duration: length of injected waveforms
-        sample_rate: sampling rate
-        buffer:
+        reference_frequency: reference frequency for generating waveforms
+        waveform_approximant: waveform type to inject
+        buffer: buffer between beginning and end of segments and waveform
+        fftlength: fftlength to use for calculating psd
 
     Returns:
         Paths to the injected files and the parameter file
@@ -184,6 +188,7 @@ def inject_signals_into_timeslide(
 
     for segment in raw_timeslide.segments:
 
+        # extract start and stop of segment
         start = segment.t0
         stop = segment.tf
 
@@ -197,7 +202,7 @@ def inject_signals_into_timeslide(
         signal_times = np.arange(start + buffer, stop - buffer, spacing)
         n_samples = len(signal_times)
 
-        # sample prior
+        # sample prior for this segment
         segment_parameters = priors.sample(n_samples)
 
         # append to master parameters dict
@@ -258,7 +263,8 @@ def inject_signals_into_timeslide(
                 # inject into raw background
                 raw_ts[ifo] = raw_ts[ifo].inject(signal)
 
-        # now write this segment to out TimeSlide;
+        # now write this segment to out TimeSlide
+        # in files of length file_length
         for t0 in np.arange(start, stop, file_length):
             inj_datasets = {}
 
@@ -272,7 +278,7 @@ def inject_signals_into_timeslide(
                 out_timeslide.path, prefix="inj", t=times, **inj_datasets
             )
 
-    # save parameters
+    # concat parameters for all segments and save
     with h5py.File(out_timeslide.path / "params.h5", "w") as f:
         for k, v in parameters.items():
             f.create_dataset(k, data=v)
