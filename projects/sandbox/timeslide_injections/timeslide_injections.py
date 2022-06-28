@@ -188,10 +188,14 @@ def main(
         root.mkdir(exist_ok=True, parents=True)
 
         # create TimeSlide object for injection
-        injection_ts = TimeSlide(root=root, field="injection")
+        # this will create the directories if
+        # they don't exist
+        injection_ts = TimeSlide.create(root=root, field="injection")
 
         # create TimeSlide object for raw data
-        raw_ts = TimeSlide(root=root, field="background")
+        # this will create the directories
+        # if they don't exist
+        raw_ts = TimeSlide.create(root=root, field="background")
 
         # initiate segment intersection as full
         # segment from start, stop
