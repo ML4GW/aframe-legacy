@@ -147,16 +147,22 @@ def main(
     # if state_flag is passed,
     # query segments for each ifo.
     # a certificate is needed for this
+    segments = SegmentListDict()
+
     if state_flag:
-        segments = DataQualityDict.query_dqsegdb(
+        # query science segments
+        segment_dq = DataQualityDict.query_dqsegdb(
             [f"{ifo}:{state_flag}" for ifo in ifos],
             start,
             stop,
         )
 
+        for ifo in ifos:
+            segments[f"{ifo}:{state_flag}"] = segment_dq[ifo].active
+
     else:
         # make segment from start to stop
-        segments = SegmentListDict()
+        segments = DataQualityDict()
         for ifo in ifos:
             segments[f"{ifo}:{state_flag}"] = SegmentList(
                 [Segment(start, stop)]
@@ -201,7 +207,7 @@ def main(
             if circular:
                 shifted_segments = circular_shift_segments(
                     shift,
-                    segments[f"{ifo}:{state_flag}"].active,
+                    segments[f"{ifo}:{state_flag}"],
                     start,
                     stop,
                 )
@@ -215,9 +221,7 @@ def main(
 
             # global shift
             else:
-                shifted_segments = segments[
-                    f"{ifo}:{state_flag}"
-                ].active.shift(shift)
+                shifted_segments = segments[f"{ifo}:{state_flag}"].shift(shift)
 
                 # perform time shift by manually shifting times;
                 # subtracting the shift corresponds to moving
@@ -279,6 +283,8 @@ def main(
             waveform_approximant,
             buffer,
         )
+
+    return outdir
 
 
 if __name__ == "__main__":
