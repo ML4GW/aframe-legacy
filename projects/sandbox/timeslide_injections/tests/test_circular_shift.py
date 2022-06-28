@@ -29,7 +29,7 @@ def test_circular_shift_segments_with_zero_shift():
     )
 
     circularly_shifted = circular_shift_segments(
-        start, stop, shift, segmentlist
+        segmentlist, shift, start, stop
     )
 
     assert circularly_shifted == segmentlist
@@ -42,7 +42,7 @@ def test_circular_shift_segments_with_full_segment():
     segmentlist = SegmentList([Segment([start, stop])])
 
     circularly_shifted = circular_shift_segments(
-        start, stop, shift, segmentlist
+        segmentlist, shift, start, stop
     )
 
     assert circularly_shifted == segmentlist
@@ -65,31 +65,10 @@ def test_circular_shift_segments_with_positive_shift():
     )
 
     circularly_shifted = circular_shift_segments(
-        start, stop, shift, segmentlist
-    )
-
-    print(circularly_shifted)
-    assert circularly_shifted == expected_output
-
-
-def test_circular_shift_segments_with_negative_shift():
-    start = 0
-    stop = 600
-    shift = -100
-    segmentlist = SegmentList(
-        [Segment([0, 100]), Segment([200, 300]), Segment([400, 550])]
-    )
-    expected_output = SegmentList(
-        [
-            Segment([0, 50]),
-            Segment([100, 200]),
-            Segment([300, 400]),
-            Segment([500, 600]),
-        ]
-    )
-
-    circularly_shifted = circular_shift_segments(
-        start, stop, shift, segmentlist
+        segmentlist,
+        shift,
+        start,
+        stop,
     )
 
     assert circularly_shifted == expected_output
