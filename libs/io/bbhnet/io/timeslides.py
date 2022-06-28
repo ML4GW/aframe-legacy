@@ -342,6 +342,7 @@ class TimeSlide:
 
     def __post_init__(self):
         self.root = Path(self.root)
+        self.path.mkdir(exist_ok=True, parents=True)
         self.update()
 
     def update(self):

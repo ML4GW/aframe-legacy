@@ -186,8 +186,6 @@ def main(
 
         # make root and timeslide directories
         root.mkdir(exist_ok=True, parents=True)
-        Path(root / "injection").mkdir(exist_ok=True, parents=True)
-        Path(root / "background").mkdir(exist_ok=True, parents=True)
 
         # create TimeSlide object for injection
         injection_ts = TimeSlide(root=root, field="injection")
