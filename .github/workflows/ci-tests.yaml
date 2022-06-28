@@ -174,3 +174,6 @@ jobs:
           (steps.filter.outputs.timeslide_injections == 'true')
           || (steps.filter.outputs.io == 'true')
           || (steps.filter.outputs.injection == 'true')
+        env:
+          test_dir: /github/workspace/projects/sandbox/timeslide_injections
+        run: pinto -p $test_dir run pytest $test_dir/tests
