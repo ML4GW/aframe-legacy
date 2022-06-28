@@ -342,30 +342,7 @@ class TimeSlide:
 
     def __post_init__(self):
         self.root = Path(self.root)
-        segment = None
-        self.segments = []
-        for match in filter_and_sort_files(self.path, return_matches=True):
-            fname = self.path / match.string
-
-            if segment is None:
-                # initialize the first segment if we don't have one yet
-                segment = Segment(fname)
-            else:
-                try:
-                    # Otherwise try and append it to the existing segment.
-                    # Pass the actual match object so that we don't have
-                    # to do an re search to find the t0 of the filename again
-                    segment.append(match)
-                except ValueError:
-                    # if a ValueError got raised, this segment does not
-                    # start where the current one ends, so terminate the
-                    # current one and start a new one
-                    self.segments.append(segment)
-                    segment = Segment(fname)
-
-        # append whichever segment was in
-        # process when the loop terminated
-        self.segments.append(segment)
+        self.update()
 
     def update(self):
         """Recrawl through the directory and re filter and sort segments"""
