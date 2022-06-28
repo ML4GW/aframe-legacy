@@ -151,18 +151,19 @@ def main(
 
     if state_flag:
         # query science segments
-        segment_dq = DataQualityDict.query_dqsegdb(
+        segments = DataQualityDict.query_dqsegdb(
             [f"{ifo}:{state_flag}" for ifo in ifos],
             start,
             stop,
         )
-
-        for ifo in ifos:
-            segments[f"{ifo}:{state_flag}"] = segment_dq[ifo].active
+        # convert DQ dict to SegmentList Dict
+        segments = SegmentListDict(
+            {key: segments[key].active for key in segments.keys()}
+        )
 
     else:
         # make segment from start to stop
-        segments = DataQualityDict()
+        segments = SegmentListDict()
         for ifo in ifos:
             segments[f"{ifo}:{state_flag}"] = SegmentList(
                 [Segment(start, stop)]
@@ -198,16 +199,21 @@ def main(
         # segment from start, stop
         intersection = SegmentList([[start, stop]])
 
-        #  shift data
-        #  shift segments to 'mirror' data
+        # shift data
+        # shift segments to 'mirror' data
         shifted_data = TimeSeriesDict()
         for shift, ifo in zip(shifts, ifos):
+
+            # make a copy of segments
+            # as some operations are done
+            # in place
+            segments_copy = segments.copy()
 
             # if circular timeshift
             if circular:
                 shifted_segments = circular_shift_segments(
+                    segments_copy[f"{ifo}:{state_flag}"],
                     shift,
-                    segments[f"{ifo}:{state_flag}"],
                     start,
                     stop,
                 )
@@ -221,7 +227,9 @@ def main(
 
             # global shift
             else:
-                shifted_segments = segments[f"{ifo}:{state_flag}"].shift(shift)
+                shifted_segments = segments_copy[f"{ifo}:{state_flag}"].shift(
+                    shift
+                )
 
                 # perform time shift by manually shifting times;
                 # subtracting the shift corresponds to moving
