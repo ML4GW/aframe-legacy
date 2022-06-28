@@ -219,3 +219,7 @@ def test_timeslide_injections_with_segments(
             shift = float(segment.shift.split("-")[-1])
             assert (segment.t0 - shift) == original_segment[0]
             assert (segment.tf) == original_segment[1]
+
+
+# TODO: add some more edge case tests
+# add tests for circular shift
