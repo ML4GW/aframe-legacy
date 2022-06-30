@@ -18,9 +18,9 @@ stop = 1262698390
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
-resnet = {layers = [4, 4, 4]}
-repository_directory = "/home/ethan.marx/path/to/model/dir"
-
+resnet = {layers = [3, 3, 3]}
+repository_directory = "/home/ethan.marx/bbhnet/first_training_run/model_repo/"
+force_generation = false 
 
 [tool.typeo.scripts.generate-background]
 outdir = "${base.outdir}/data/"
@@ -32,10 +32,10 @@ stop = "${base.stop}"
 ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
 minimum_length = 8000
-force_generation = false
+force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 8
+snr_thresh = 6
 window = 2
 start = "${base.start}"
 stop = "${base.stop}"
@@ -52,7 +52,7 @@ chunk_duration = 124
 segment_duration = 64 
 overlap = 4 
 mismatch_max = 0.2
-force_generation = false
+force_generation = "${base.force_generation}"
 
 ifos = "${base.ifos}"
 outdir = "${base.outdir}/data"
@@ -64,7 +64,7 @@ n_samples = 10000
 prior_file = "./generate_waveforms/priors/nonspin_BBH.prior"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = 8
-force_generation = false
+force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.train]
 hanford_background = "${base.outdir}/data/H1_background.h5"
