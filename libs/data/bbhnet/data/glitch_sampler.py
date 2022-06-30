@@ -16,7 +16,7 @@ class GlitchSampler:
         self.hanford = torch.Tensor(hanford_glitches)
         self.livingston = torch.Tensor(livingston_glitches)
 
-    def to(self, device):
+    def to(self, device: str) -> None:
         self.hanford = self.hanford.to(device)
         self.livingston = self.livingston.to(device)
 
