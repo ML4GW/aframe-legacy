@@ -279,16 +279,18 @@ class RandomWaveformDataset:
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitch_sampler is not None:
-	    	#coincident glitch insertion
+            # coincident glitch insertion
             num_hanford = np.random.randint(self.num_glitches)
             if num_hanford == 0:
                 num_livingston = self.num_glitches
             else:
                 num_livingston = np.random.randint(
-		    		self.num_glitches - num_hanford, self.num_glitches
-						)
+                    self.num_glitches - num_hanford, self.num_glitches
+                )
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
-                self.num_glitches, self.kernel_size, self.trigger_distance_size
+                (num_hanford, num_livingston),
+                self.kernel_size,
+                self.trigger_distance_size,
             )
 
             if hanford_glitches is not None:

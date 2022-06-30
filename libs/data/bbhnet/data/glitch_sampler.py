@@ -25,9 +25,9 @@ class GlitchSampler:
     def sample(
         self, N: Union[int, tuple], size: int, trigger_distance_size: int = 0
     ) -> np.ndarray:
-	
+
         if isinstance(N, int):
-            #specifying number of glitches, no coincidence	
+            # specifying number of glitches, no coincidence
             num_hanford = np.random.randint(N)
             num_livingston = N - num_hanford
         else:
@@ -36,7 +36,7 @@ class GlitchSampler:
         if num_hanford > 0:
             hanford = sample_kernels(
                 self.hanford, size, trigger_distance_size, num_hanford
-                    )
+            )
             hanford = torch.stack(hanford, axis=0)
         else:
             hanford = None
@@ -48,5 +48,5 @@ class GlitchSampler:
             livingston = torch.stack(livingston, axis=0)
         else:
             livingston = None
-            
+
         return hanford, livingston
