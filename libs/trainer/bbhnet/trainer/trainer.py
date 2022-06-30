@@ -167,6 +167,8 @@ def train(
     device = device or "cpu"
     os.makedirs(outdir, exist_ok=True)
 
+    logging.info(f"Device: {device}")
+
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
 
