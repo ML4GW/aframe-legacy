@@ -87,11 +87,11 @@ def ones_livingston_background(ones_data, write_background):
 
 
 @pytest.fixture(params=["path", "sampler"])
-def glitch_sampler(arange_glitches, request, device):
+def glitch_sampler(arange_glitches, request):
     if request.param == "path":
         return arange_glitches
     else:
-        return GlitchSampler(arange_glitches, device)
+        return GlitchSampler(arange_glitches)
 
 
 def validate_sequential(X):
@@ -128,13 +128,13 @@ def test_random_waveform_dataset(
 
     for ifo in ["hanford", "livingston"]:
         background = getattr(dataset, f"{ifo}_background")
-        assert background.device == "cpu"
+        assert background.device.type == "cpu"
         assert background.dtype == torch.float64
 
     dataset.to(device)
     for ifo in ["hanford", "livingston"]:
         background = getattr(dataset, f"{ifo}_background")
-        assert background.device == device
+        assert background.device.type == device
         assert background.dtype == torch.float32
 
     # test the background sampling method to make sure
@@ -217,8 +217,8 @@ def test_glitch_sampling(
             batches_per_epoch=10,
         )
         dataset.to(device)
-        assert dataset.glitch_sampler.hanford.device == device
-        assert dataset.glitch_sampler.livingston.device == device
+        assert dataset.glitch_sampler.hanford.device.type == device
+        assert dataset.glitch_sampler.livingston.device.type == device
 
     expected_num = max(1, int(glitch_frac * batch_size))
     assert dataset.num_glitches == expected_num
