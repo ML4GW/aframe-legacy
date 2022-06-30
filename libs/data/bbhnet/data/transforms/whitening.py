@@ -65,7 +65,7 @@ class WhiteningTransform(Transform):
         a _parameter_, gets moved to the proper device
         """
         super().to(device)
-        self.window.to(self.time_domain_filter.device)
+        self.window.to(device)
 
     def fit(self, X: torch.Tensor) -> None:
         """
