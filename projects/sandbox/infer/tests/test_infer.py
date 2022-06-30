@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from hermes.stillwater.process import PipelineProcess
-from hermes.stillwater.utils import Package
 from infer import main as infer
 
 from bbhnet.io.h5 import read_timeseries, write_timeseries
+from hermes.stillwater.process import PipelineProcess
+from hermes.stillwater.utils import Package
 
 
 class DummyInferInput:
