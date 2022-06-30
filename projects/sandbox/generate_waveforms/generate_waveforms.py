@@ -48,7 +48,10 @@ def main(
     signal_file = outdir.joinpath("signals.h5")
 
     if signal_file.exists() and not force_generation:
-        logging.info("Signal file already exists, exiting")
+        logging.info(
+            "Signal data already exists and forced generation is off."
+            " Not generating signals"
+        )
         return signal_file
 
     # log and print out some simulation parameters

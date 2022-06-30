@@ -50,7 +50,7 @@ def main(
     if all(paths_exist) and not force_generation:
         logging.info(
             "Background data already exists"
-            " and forced generation is off, not generating"
+            " and forced generation is off. Not generating background"
         )
         return
 

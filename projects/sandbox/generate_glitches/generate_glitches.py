@@ -333,7 +333,10 @@ def main(
     glitch_file = outdir / Path("glitches.h5")
 
     if glitch_file.exists() and not force_generation:
-        logging.info("Glitch file exists, not generating glitvches")
+        logging.info(
+            "Glitch data already exists and forced generation is off. "
+            "Not generating glitches"
+        )
         return
 
     # nyquist
