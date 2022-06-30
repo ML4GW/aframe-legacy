@@ -100,7 +100,7 @@ def main(
     # for simplicity
 
     # initiate training glitch sampler
-    train_glitch_sampler = GlitchSampler(glitch_dataset, device=device)
+    train_glitch_sampler = GlitchSampler(glitch_dataset)
 
     # initiate training waveform sampler
     train_waveform_sampler = WaveformSampler(
@@ -127,7 +127,6 @@ def main(
         train_glitch_sampler,
         glitch_frac,
         trigger_distance_size,
-        device,
     )
 
     # TODO: hard-coding num_ifos into preprocessor. Should
@@ -148,7 +147,6 @@ def main(
     if validate:
         val_glitch_sampler = GlitchSampler(
             val_glitch_dataset,
-            device=device,
         )
 
         # deterministic validation waveform sampler
@@ -172,7 +170,6 @@ def main(
             waveform_frac,
             val_glitch_sampler,
             glitch_frac,
-            device,
         )
     else:
         valid_dataset = None
