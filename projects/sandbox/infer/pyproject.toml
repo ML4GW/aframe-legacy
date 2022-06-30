@@ -17,7 +17,7 @@ python = ">=3.9,<3.11"
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 
 "hermes.stillwater" = {path = "../../../hermes/hermes/hermes.stillwater", develop = true}
-"hermes.aeriel" = {path = "../../../hermes/hermes/hermes.aeriel", develop = true}
+"hermes.aeriel" = {path = "../../../hermes/hermes/hermes.aeriel", extras = ["server"], develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
