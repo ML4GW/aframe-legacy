@@ -10,8 +10,8 @@ def test_glitch_sampler(
 ):
     sampler = GlitchSampler(arange_glitches)
     sampler.to(device)
-    assert sampler.hanford.device == device
-    assert sampler.livingston.device == device
+    assert sampler.hanford.device.type == device
+    assert sampler.livingston.device.type == device
 
     assert sampler.hanford.shape == (10, glitch_length * sample_rate)
     assert sampler.livingston.shape == (10, glitch_length * sample_rate)
