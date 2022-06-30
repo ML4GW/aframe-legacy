@@ -88,6 +88,7 @@ def trainify(f):
         # add in the parsed data to our training kwargs
         train_kwargs["train_dataset"] = train_dataset
         train_kwargs["valid_dataset"] = valid_dataset
+        train_kwargs["preprocessor"] = preprocessor
 
         # allow wrapper functionality to be utilized if
         # `f` is called with an "arch" parameter
