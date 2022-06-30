@@ -10,7 +10,6 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    steps:
     - uses: actions/checkout@v2
       with:
         submodules: recursive
