@@ -94,7 +94,7 @@ profile = false
 commands.resnet = "${base.resnet}"
 
 
-[tool.typeo.scripts.export]
+[tool.typeo.scripts.export-model]
 repository_directory = "${base.repository_directory}" 
 output_directory = "${base.outdir}/export"
 num_ifos = 2 

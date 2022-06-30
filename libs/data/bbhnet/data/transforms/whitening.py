@@ -30,6 +30,10 @@ class WhiteningTransform(Transform):
         (kernel_length - fduration)
 
         """
+        # TODO: I started adding everything thats used in
+        # the forward pass as parameter, but not sure thats
+        # what we want.
+
         super().__init__()
         self.num_ifos = num_ifos
         self.sample_rate = sample_rate
@@ -42,10 +46,15 @@ class WhiteningTransform(Transform):
         # TODO: is this the best default behavior
         self.fduration = fduration or kernel_length / 2
 
+        self.fduration = self.add_parameter(self.fduration)
+        self.sample_rate = self.add_parameter(self.sample_rate)
+
         # initialize the parameter with 0s, then fill it out later
         self.ntaps = int(self.fduration * self.sample_rate)
 
-        self.kernel_size = int(self.kernel_length * self.sample_rate)
+        self.kernel_size = self.add_parameter(
+            int(self.kernel_length * self.sample_rate), dtype=torch.int
+        )
 
         # subtract one to make kernel_size odd since the last value
         # of the filter will be 0. anyway. TODO: should we check
@@ -55,7 +64,9 @@ class WhiteningTransform(Transform):
             torch.zeros((num_ifos, 1, self.ntaps - 1)),
         )
 
-        self.pad = int(self.time_domain_filter.size(-1) // 2)
+        self.pad = self.add_parameter(
+            int(self.time_domain_filter.size(-1) // 2), dtype=torch.int
+        )
         self.window = torch.hann_window(self.ntaps)
 
     def to(self, device: torch.device):
@@ -64,8 +75,20 @@ class WhiteningTransform(Transform):
         that our window, which is a _tensor_ and not
         a _parameter_, gets moved to the proper device
         """
+
+        # explicitly send all objects used
+        # in forward pass to specified device
+
+        # TODO: pass device as argument to preprocessor
+        # and add these all as parameters, passing the
+        # device along?
         super().to(device)
-        self.window.to(self.time_domain_filter.device)
+        self.time_domain_filter = self.time_domain_filter.to(device)
+        self.window = self.window.to(device)
+        self.pad = self.pad.to(device)
+        self.kernel_size = self.kernel_size.to(device)
+        self.fduration = self.fduration.to(device)
+        self.sample_rate = self.sample_rate.to(device)
 
     def fit(self, X: torch.Tensor) -> None:
         """
@@ -138,9 +161,9 @@ class WhiteningTransform(Transform):
         if nfft >= self.kernel_size / 2:
             conv = torch.nn.functional.conv1d(
                 X,
-                self.time_domain_filter,
+                self.time_domain_filter.data,
                 groups=self.num_ifos,
-                padding=self.pad,
+                padding=int(self.pad.data),
             )
 
             # crop the beginning and ending fduration / 2
