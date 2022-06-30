@@ -1,7 +1,8 @@
+from typing import Union
+
 import h5py
 import numpy as np
 import torch
-from typing import Union
 
 from bbhnet.data.utils import sample_kernels
 
@@ -24,25 +25,24 @@ class GlitchSampler:
     def sample(
         self, N: Union[int, tuple], size: int, trigger_distance_size: int = 0
     ) -> np.ndarray:
-
+	
 	if isinstance(N, int):
 		#specifying number of glitches, no coincidence	
-            num_hanford = np.random.randint(N)
-            num_livingston = N - num_hanford
+		num_hanford = np.random.randint(N)
+		num_livingston = N - num_hanford
 	else:
-	    assert isinstance(N, tuple)
- 	    num_hanford, num_livingston = N
-	
-        if num_hanford > 0:
-            hanford = sample_kernels(
-                self.hanford, size, trigger_distance_size, num_hanford
-            )
-            hanford = torch.stack(hanford, axis=0)
+		assert isinstance(N, tuple)
+		num_hanford, num_livingston = N
+		if num_hanford > 0:
+			hanford = sample_kernels(
+				self.hanford, size, trigger_distance_size, num_hanford
+					)
+			hanford = torch.stack(hanford, axis=0)
         else:
             hanford = None
 
         if num_livingston > 0:
-            livingston = sample_kernels(
+			livingston = sample_kernels(
                 self.livingston, size, trigger_distance_size, num_livingston
             )
             livingston = torch.stack(livingston, axis=0)
