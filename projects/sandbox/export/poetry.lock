@@ -67,6 +67,7 @@ python-versions = ">=3.8,<3.11"
 develop = true
 
 [package.dependencies]
+"hermes.typeo" = {version = "^0.1.4", optional = true}
 numpy = "^1.22.3"
 torch = "^1.0"
 
@@ -1442,7 +1443,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "eef208d83ce18ecde46ad5451c96fe3363cad21c4daa49742aade2a42cc2c5bd"
+content-hash = "7a601e8bc8abead3fbab8c1ce0a93f13c9db7de712ad095a2f653bc80ec15168"
 
 [metadata.files]
 absl-py = [

@@ -76,6 +76,10 @@ def export(
             `INFO` verbosity.
     """
 
+    # make relevant directories
+    logging.info(architecture)
+    output_directory.mkdir(exist_ok=True, parents=True)
+
     # if we didn't specify a weights filename, assume
     # that a "weights.pt" lives in our output directory
     if weights is None or weights.is_dir():
