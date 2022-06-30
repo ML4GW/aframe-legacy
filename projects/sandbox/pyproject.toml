@@ -4,7 +4,7 @@ steps = [
     "generate_waveforms:generate-waveforms",
     "generate_glitches:generate-glitches",
     "train:train:resnet",
-    "export:export:resnet",
+    "export:export-model:resnet",
     "timeslide_injections:timeslide_injections",
     "infer:infer"
 ]
@@ -35,7 +35,7 @@ minimum_length = 8000
 force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 6
+snr_thresh = 5
 window = 2
 start = "${base.start}"
 stop = "${base.stop}"
@@ -82,8 +82,8 @@ max_snr = 1000
 highpass = 32
 kernel_length = 2
 batch_size = 64
-batches_per_epoch = 300
-max_epochs = 50
+batches_per_epoch = 5 
+max_epochs = 25
 lr = 3.2e-2
 weight_decay = 1e-5
 patience = 10

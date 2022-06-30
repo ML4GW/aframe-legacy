@@ -7,7 +7,7 @@ authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 
 
 [tool.poetry.scripts]
-export = "export:export"
+export-model = "export:export"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
