@@ -46,8 +46,11 @@ class WhiteningTransform(Transform):
         # TODO: is this the best default behavior
         self.fduration = fduration or kernel_length / 2
 
-        self.fduration = self.add_parameter(self.fduration)
-        self.sample_rate = self.add_parameter(self.sample_rate)
+        # number of samples of corrupted data
+        # due to settling in of whitening filter
+        # TODO: should this be a parameter?
+        self.crop_samples = int((self.fduration / 2) * self.sample_rate)
+        self.crop_samples = torch.tensor(self.crop_samples, dtype=torch.long)
 
         # initialize the parameter with 0s, then fill it out later
         self.ntaps = int(self.fduration * self.sample_rate)
@@ -87,8 +90,7 @@ class WhiteningTransform(Transform):
         self.window = self.window.to(device)
         self.pad = self.pad.to(device)
         self.kernel_size = self.kernel_size.to(device)
-        self.fduration = self.fduration.to(device)
-        self.sample_rate = self.sample_rate.to(device)
+        self.crop_samples.to(device)
 
     def fit(self, X: torch.Tensor) -> None:
         """
@@ -154,10 +156,6 @@ class WhiteningTransform(Transform):
 
         nfft = min(8 * self.time_domain_filter.size(-1), self.kernel_size)
 
-        # number of samples of corrupted data
-        # due to settling in of whitening filter
-        crop_samples = int((self.fduration / 2) * self.sample_rate)
-
         if nfft >= self.kernel_size / 2:
             conv = torch.nn.functional.conv1d(
                 X,
@@ -167,7 +165,7 @@ class WhiteningTransform(Transform):
             )
 
             # crop the beginning and ending fduration / 2
-            conv = conv[:, :, crop_samples:-crop_samples]
+            conv = conv[:, :, self.crop_samples : -self.crop_samples]
 
         # TODO: speed this up using torch.unfold
         # and removing while loop
@@ -211,7 +209,7 @@ class WhiteningTransform(Transform):
             )[:, :, -nfft + self.pad :]
 
             # crop the beginning and ending fduration / 2
-            conv = conv[:, :, crop_samples:-crop_samples]
+            conv = conv[:, :, self.crop_samples : -self.crop_samples]
 
         # scale by sqrt(2 / sample_rate) for some inscrutable
         # signal processing reason beyond my understanding
