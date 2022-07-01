@@ -87,16 +87,16 @@ def data_dir(tmpdir, sample_rate):
             write_timeseries(
                 write_dir,
                 prefix="raw",
-                hanford=x + i * 1024,
-                livingston=-x,
+                H1=x + i * 1024,
+                L1=-x,
                 t=t + i * 1024,
             )
         for i in range(2):
             write_timeseries(
                 write_dir,
                 prefix="raw",
-                hanford=x + i * 1024,
-                livingston=-x,
+                H1=x + i * 1024,
+                L1=-x,
                 t=t + (i + 4) * 1024,
             )
 
