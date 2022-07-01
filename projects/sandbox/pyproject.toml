@@ -29,7 +29,7 @@ fmin = 32
 
 [tool.typeo.scripts.generate-background]
 datadir = "${base.datadir}"
-logdir = "${base.logdir}/data/"
+logdir = "${base.logdir}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}"
 state_flag = "${base.state_flag}"

@@ -38,7 +38,7 @@ def main(
 
     # make logdir dir
     logdir.mkdir(exist_ok=True, parents=True)
-
+    datadir.mkdir(exist_ok=True, parents=True)
     # configure logging output file
     configure_logging(logdir / "generate_background.log", verbose)
 
