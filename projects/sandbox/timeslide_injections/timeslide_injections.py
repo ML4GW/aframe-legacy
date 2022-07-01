@@ -77,7 +77,8 @@ def circular_shift_segments(
 def main(
     start: int,
     stop: int,
-    outdir: Path,
+    logdir: Path,
+    datadir: Path,
     prior_file: str,
     spacing: float,
     buffer: float,
@@ -123,8 +124,9 @@ def main(
         state_flag: name of segments to query from segment database
     """
 
-    outdir.mkdir(parents=True, exist_ok=True)
-    configure_logging(outdir / "timeslide_injections.log")
+    logdir.mkdir(parents=True, exist_ok=True)
+    datadir.mkdir(parents=True, exist_ok=True)
+    configure_logging(logdir / "timeslide_injections.log")
 
     # query and read all necessary data up front
     logging.info(f"Querying data from {start} to {stop}")
@@ -183,7 +185,7 @@ def main(
 
         # TODO: might be overly complex naming,
         # but wanted to attempt to generalize to multi ifo
-        root = outdir / f"dt-{'-'.join(map(str,shifts))}"
+        root = datadir / f"dt-{'-'.join(map(str,shifts))}"
 
         # make root and timeslide directories
         root.mkdir(exist_ok=True, parents=True)
@@ -295,7 +297,7 @@ def main(
             buffer,
         )
 
-    return outdir
+    return datadir
 
 
 if __name__ == "__main__":

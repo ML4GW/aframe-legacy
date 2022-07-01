@@ -13,13 +13,8 @@ from bbhnet.trainer import trainify
 # (i.e. the training and possible validation data)
 # get passed as inputs to deepclean.trainer.trainer.train,
 # as well as to expose these arguments _as well_ as those
-# from deepclean.trainer.trainer.train to command line
+# from bbhnet.trainer.trainer.train to command line
 # execution and parsing
-
-# note that this function is trivial:
-# it simply just returns the data paths passed to it.
-# however, future projects may have more complicated
-# data discovery/generation processes.
 
 
 @trainify
