@@ -23,12 +23,13 @@ def stream_data(
     x: np.ndarray, stream_size: int, sequence_id: int, client: InferenceClient
 ):
 
+    # TODO: added this b/c there was a complaint
+    # should the required data types be an argument
+    # to the h5.write functions?
     x = x.astype(np.float32)
     num_streams = (x.shape[-1] - 1) // stream_size + 1
     for i in range(num_streams):
         stream = x[:, i * stream_size : (i + 1) * stream_size]
-        print(stream)
-        print(stream.shape)
         client.infer(
             stream,
             request_id=i,
