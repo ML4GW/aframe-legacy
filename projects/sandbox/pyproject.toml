@@ -13,8 +13,8 @@ steps = [
 outdir = "${OUT_DIR}"
 sample_rate = 2048
 ifos = ['H1', 'L1']
-start = 1262588390 
-stop = 1262698390 
+start = 1262607622
+stop = 1262620622 
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -110,10 +110,8 @@ verbose = true
 commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.timeslide_injections]
-#start = "${base.start}"  
-#stop = "${base.stop}" 
-start = 1262607622
-stop = 1262620622 
+start = "${base.start}"  
+stop = "${base.stop}" 
 outdir = "${base.outdir}/timeslide_injections/"
 prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
 spacing = 60
