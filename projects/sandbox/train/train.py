@@ -34,6 +34,7 @@ def main(
     batches_per_epoch: int,
     device: str,
     outdir: Path,
+    logdir: Path,
     fduration: Optional[float] = None,
     trigger_distance_size: float = 0,
     val_glitch_dataset: str = None,
@@ -76,9 +77,10 @@ def main(
     """
 
     # make out dir and configure logging file
-    outdir.mkdir(exist_ok=True)
+    outdir.mkdir(exist_ok=True, parents=True)
+    logdir.mkdir(exist_ok=True, parents=True)
 
-    configure_logging(outdir / "train.log", verbose)
+    configure_logging(logdir / "train.log", verbose)
 
     # TODO: definitely a cleaner way to set validation flag
     # if validation files are all passed, set validate bool to true

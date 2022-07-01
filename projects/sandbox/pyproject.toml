@@ -84,7 +84,7 @@ outdir = "${base.basedir}/training"
 fduration = 1
 trigger_distance_size = -0.5
 sample_rate = "${base.sample_rate}"
-waveform_frac = 0.5
+waveform_frac = 0.4
 glitch_frac = 0.3
 min_snr = 4
 max_snr = 1000
@@ -92,8 +92,8 @@ highpass = "${base.fmin}"
 kernel_length = "${base.kernel_length}" 
 batch_size = 64
 batches_per_epoch = 10
-max_epochs = 80
-lr = 5e-4
+max_epochs = 1
+lr = 8e-5
 weight_decay = 1e-5
 patience = 10
 factor = 0.2
@@ -102,10 +102,9 @@ device = "cuda"
 profile = false
 commands.resnet = "${base.resnet}"
 
-
 [tool.typeo.scripts.export-model]
 repository_directory = "${base.repository_directory}" 
-output_directory = "${base.logdir}"
+outdir = "${base.logdir}"
 num_ifos = 2 
 kernel_length = "${base.kernel_length}" 
 inference_sampling_rate = "${base.inference_sampling_rate}"
@@ -135,7 +134,7 @@ state_flag = "${base.state_flag}"
 
 [tool.typeo.scripts.infer]
 model_repo_dir = "${base.repository_directory}"
-model_name = "bbhnet"
+model_name = "bbhnet-stream"
 data_dir = "${base.basedir}/timeslide_injections/" 
 field = "injection"
 inference_sampling_rate = "${base.inference_sampling_rate}"

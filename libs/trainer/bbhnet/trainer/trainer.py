@@ -32,7 +32,8 @@ def train_for_one_epoch(
             predictions = torch.flatten(model(samples))
             targets = torch.flatten(targets)
             loss = criterion(predictions, targets)
-
+            logging.info(targets)
+            logging.info(predictions)
         train_loss += loss.item()
         samples_seen += len(samples)
 

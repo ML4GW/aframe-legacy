@@ -74,6 +74,8 @@ def export(
         verbose:
             If set, log at `DEBUG` verbosity, otherwise log at
             `INFO` verbosity.
+        **kwargs:
+            key word arguments specific to the export platform
     """
 
     # make relevant directories
@@ -135,12 +137,11 @@ def export(
     # weights), to this entry in the model repository
     input_shape = (1, num_ifos, int(kernel_length * sample_rate))
 
-    # TODO: make opset version a parameter?
     bbhnet.export_version(
         nn,
         input_shapes={"hoft": input_shape},
         output_names=["discriminator"],
-        opset_version=15,
+        opset_version=13,
     )
 
     # now try to create an ensemble that has a snapshotter

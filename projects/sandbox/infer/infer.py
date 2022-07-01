@@ -127,8 +127,6 @@ def main(
         # now build a client to connect to the inference service
         client = InferenceClient("localhost:8001", model_name, model_version)
 
-        print(client.inputs[0])
-        print(client.inputs[0].shape())
         # create a process pool that we'll use to perform
         # read/writes of timeseries in parallel
         executor = AsyncExecutor(num_workers, thread=False)
