@@ -316,10 +316,11 @@ def main(
 
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
+
     configure_logging(logdir / "generate_glitches.log", verbose)
 
     # output file
-    glitch_file = logdir / "glitches.h5"
+    glitch_file = datadir / "glitches.h5"
 
     if glitch_file.exists() and not force_generation:
         logging.info(

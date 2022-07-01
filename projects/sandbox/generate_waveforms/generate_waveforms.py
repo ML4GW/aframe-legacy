@@ -47,7 +47,7 @@ def main(
     configure_logging(logdir / "generate_waveforms.log", verbose)
 
     # check if signal file already exists
-    signal_file = logdir / "signals.h5"
+    signal_file = datadir / "signals.h5"
 
     if signal_file.exists() and not force_generation:
         logging.info(
