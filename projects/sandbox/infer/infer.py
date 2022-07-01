@@ -14,17 +14,21 @@ from hermes.typeo import typeo
 
 
 def load(segment: Segment):
-    hanford, t = segment.load("hanford")
-    livingston, _ = segment.load("livingston")
+    hanford, t = segment.load("H1")
+    livingston, _ = segment.load("L1")
     return np.stack([hanford, livingston]), t
 
 
 def stream_data(
     x: np.ndarray, stream_size: int, sequence_id: int, client: InferenceClient
 ):
+
+    x = x.astype(np.float32)
     num_streams = (x.shape[-1] - 1) // stream_size + 1
     for i in range(num_streams):
         stream = x[:, i * stream_size : (i + 1) * stream_size]
+        print(stream)
+        print(stream.shape)
         client.infer(
             stream,
             request_id=i,
@@ -102,7 +106,7 @@ def infer(
 
 @typeo
 def main(
-    model_repo_dir: Path,
+    model_repo_dir: str,
     model_name: str,
     data_dir: Path,
     field: str,

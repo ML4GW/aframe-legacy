@@ -23,6 +23,7 @@ repository_directory = "/home/ethan.marx/bbhnet/first_training_run/model_repo/"
 force_generation = false 
 kernel_length = 2
 inference_sampling_rate = 16
+fmin = 32
 
 [tool.typeo.scripts.generate-background]
 outdir = "${base.outdir}/data/"
@@ -46,7 +47,7 @@ channel = "${base.channel}"
 frame_type = "${base.frame_type}"
 state_flag = "${base.state_flag}"
 
-f_min = 32
+f_min = "${base.fmin}"
 q_min = 3.3166
 q_max = 108
 cluster_dt = 0.5
@@ -81,7 +82,7 @@ waveform_frac = 0.5
 glitch_frac = 0.3
 min_snr = 4
 max_snr = 1000
-highpass = 32
+highpass = "${base.fmin}"
 kernel_length = "${base.kernel_length}" 
 batch_size = 64
 batches_per_epoch = 5 
@@ -109,14 +110,15 @@ verbose = true
 commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.timeslide_injections]
-start = "${base.start}"  
-stop = "${base.stop}" 
-
+#start = "${base.start}"  
+#stop = "${base.stop}" 
+start = 1262607622
+stop = 1262620622 
 outdir = "${base.outdir}/timeslide_injections/"
 prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/timeslide_injections/priors/nonspin_BBH.prior"
 spacing = 60
 buffer = 10
-n_slides = 100
+n_slides = 3
 shifts = [0, 1]
 ifos = "${base.ifos}"
 file_length = 4096
@@ -133,7 +135,8 @@ data_dir = "${base.outdir}/timeslide_injections/"
 field = "injection"
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
-model_version = 1
+model_version = -1
 base_sequence_id = 1001
-log_file = "${base.outdir}/infer"
+log_file = "${base.outdir}/infer.log"
+num_workers = 1
 verbose = true

@@ -127,7 +127,7 @@ def main(
     configure_logging(outdir / "timeslide_injections.log")
 
     # query and read all necessary data up front
-
+    logging.info(f"Querying data from {start} to {stop}")
     data = TimeSeriesDict()
     for ifo in ifos:
 
@@ -149,6 +149,7 @@ def main(
     # a certificate is needed for this
     segments = SegmentListDict()
 
+    logging.info("Querying segments")
     if state_flag:
         # query science segments
         segments = DataQualityDict.query_dqsegdb(

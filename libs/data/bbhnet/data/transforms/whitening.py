@@ -53,7 +53,7 @@ class WhiteningTransform(Transform):
         self.ntaps = int(self.fduration * self.sample_rate)
 
         self.kernel_size = self.add_parameter(
-            int(self.kernel_length * self.sample_rate), dtype=torch.int
+            int(self.kernel_length * self.sample_rate), dtype=torch.long
         )
 
         # subtract one to make kernel_size odd since the last value
@@ -65,7 +65,7 @@ class WhiteningTransform(Transform):
         )
 
         self.pad = self.add_parameter(
-            int(self.time_domain_filter.size(-1) // 2), dtype=torch.int
+            int(self.time_domain_filter.size(-1) // 2), dtype=torch.long
         )
         self.window = torch.hann_window(self.ntaps)
 
