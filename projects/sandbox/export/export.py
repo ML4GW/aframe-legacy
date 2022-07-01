@@ -14,7 +14,7 @@ from bbhnet.logging import configure_logging
 def export(
     architecture: Callable,
     repository_directory: str,
-    output_directory: Path,
+    outdir: Path,
     num_ifos: int,
     kernel_length: float,
     inference_sampling_rate: float,
@@ -38,7 +38,7 @@ def export(
         repository_directory:
             Directory to which to save the models and their
             configs
-        output_directory:
+        outdir:
             Path to save logs. If `weights` is `None`, this
             directory is assumed to contain a file `"weights.pt"`.
         num_ifos:
@@ -78,17 +78,17 @@ def export(
 
     # make relevant directories
     logging.info(architecture)
-    output_directory.mkdir(exist_ok=True, parents=True)
+    outdir.mkdir(exist_ok=True, parents=True)
 
     # if we didn't specify a weights filename, assume
     # that a "weights.pt" lives in our output directory
     if weights is None or weights.is_dir():
-        weights_dir = output_directory if weights is None else weights
+        weights_dir = outdir if weights is None else weights
         weights = weights_dir / "weights.pt"
     if not weights.exists():
         raise FileNotFoundError(f"No weights file '{weights}'")
 
-    configure_logging(output_directory / "export.log", verbose)
+    configure_logging(outdir / "export.log", verbose)
 
     # instantiate the architecture and initialize
     # its weights with the trained values
