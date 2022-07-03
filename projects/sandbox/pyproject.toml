@@ -1,11 +1,11 @@
 [tool.pinto]
 steps = [
-    "generate_background:generate-background",
-    "generate_waveforms:generate-waveforms",
-    "generate_glitches:generate-glitches",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "timeslide_injections:timeslide_injections",
+    #"generate_background:generate-background",
+    #"generate_waveforms:generate-waveforms",
+    #"generate_glitches:generate-glitches",
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"timeslide_injections:timeslide_injections",
     "infer:infer"
 ]
 
@@ -110,7 +110,7 @@ kernel_length = "${base.kernel_length}"
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
 weights = "${base.basedir}/training/weights.pt"
-streams_per_gpu = 1
+streams_per_gpu = 3
 verbose = true
 commands.resnet = "${base.resnet}"
 

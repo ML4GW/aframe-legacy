@@ -74,7 +74,6 @@ def infer(
             if response is None:
                 continue
             y, _, sequence_id = response
-
             # update our running neural network outputs
             y = np.append(timeseries[sequence_id]["y"], y)
             timeseries[sequence_id]["y"] = y
