@@ -132,7 +132,7 @@ def test_infer(
             "",
             "",
             data_dir=data_dir,
-            field="raw",
+            fields=["raw"],
             sample_rate=sample_rate,
             inference_sampling_rate=inference_sampling_rate,
             num_workers=2,
@@ -140,7 +140,7 @@ def test_infer(
 
     step_size = int(sample_rate // inference_sampling_rate)
     for dt in ["0.0", "0.5", "1.0"]:
-        out_dir = data_dir / f"dt-{dt}" / "out"
+        out_dir = data_dir / f"dt-{dt}" / "raw-out"
         assert out_dir.exists()
 
         for i, fname in enumerate(out_dir.iterdir()):

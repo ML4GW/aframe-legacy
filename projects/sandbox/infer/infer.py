@@ -42,7 +42,8 @@ def infer(
     base_sequence_id: int,
 ):
     for timeslide in timeslides:
-        write_dir = timeslide.root / "out"
+
+        write_dir = timeslide.root / f"{timeslide.field}-out"
         write_dir.mkdir(parents=True, exist_ok=True)
         timeseries = {}
 
@@ -105,7 +106,7 @@ def main(
     model_repo_dir: Path,
     model_name: str,
     data_dir: Path,
-    field: str,
+    fields: Iterable[str],
     sample_rate: float,
     inference_sampling_rate: float,
     num_workers: int,
@@ -126,20 +127,23 @@ def main(
         # read/writes of timeseries in parallel
         executor = AsyncExecutor(num_workers, thread=False)
 
-        # initialize all the `TimeSlide`s which will organize
-        # their corresponding files into segments
-        timeslides = [TimeSlide(i, field) for i in data_dir.iterdir()]
+        for field in fields:
+            # initialize all the `TimeSlide`s which will organize
+            # their corresponding files into segments
+            timeslides = [TimeSlide(i, field) for i in data_dir.iterdir()]
 
-        # now enter a context which will:
-        # - for the client, start a streaming connection with
-        #       with the inference service and launch a separate
-        #       process for inference
-        # - for the executor, launch the process pool
-        with client, executor:
-            # now actually do inference in a separate function since
-            # we're already 2 contexts deep and we'll need to do
-            # some nested looping on top of this
-            infer(client, executor, timeslides, stream_size, base_sequence_id)
+            # now enter a context which will:
+            # - for the client, start a streaming connection with
+            #       with the inference service and launch a separate
+            #       process for inference
+            # - for the executor, launch the process pool
+            with client, executor:
+                # now actually do inference in a separate function since
+                # we're already 2 contexts deep and we'll need to do
+                # some nested looping on top of this
+                infer(
+                    client, executor, timeslides, stream_size, base_sequence_id
+                )
 
 
 if __name__ == "__main__":
