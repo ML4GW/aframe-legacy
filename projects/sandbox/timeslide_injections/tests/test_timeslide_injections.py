@@ -76,6 +76,7 @@ def state_flag(request):
 
 
 def test_timeslide_injections_no_segments(
+    logdir,
     outdir,
     prior_file,
     spacing,
@@ -105,6 +106,7 @@ def test_timeslide_injections_no_segments(
         outdir = main(
             start,
             stop,
+            logdir,
             outdir,
             prior_file,
             spacing,
@@ -134,6 +136,7 @@ def test_timeslide_injections_no_segments(
 
 
 def test_timeslide_injections_with_segments(
+    logdir,
     outdir,
     prior_file,
     spacing,
@@ -177,6 +180,7 @@ def test_timeslide_injections_with_segments(
         outdir = main(
             start,
             stop,
+            logdir,
             outdir,
             prior_file,
             spacing,
