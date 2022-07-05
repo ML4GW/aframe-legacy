@@ -20,60 +20,6 @@ from bbhnet.parallelize import AsyncExecutor
 from hermes.typeo import typeo
 
 
-def circular_shift_segments(
-    segments: SegmentList,
-    shift: float,
-    start: float,
-    stop: float,
-):
-    """Takes a gwpy SegmentList object and performs a circular time shift.
-    The convention we adopt is that a positive timeshift corresponds to
-    moving the data forward in time.
-    """
-
-    if shift < 0:
-        raise NotImplementedError(
-            "circularly shifting segments is not"
-            " yet implemented for negative shifts"
-        )
-
-    # shift segments by specified amount
-    shifted_segments = segments.shift(shift)
-
-    # create output of circularly shifted segments
-    circular_shifted_segments = SegmentList([])
-
-    # create full segment from start to stop
-    # to use for deciding if part of a segment
-    # needs to wrap around to the front
-    full_segment = Segment([start, stop])
-
-    for segment in shifted_segments:
-        seg_start, seg_stop = segment
-
-        # if segment is entirely between
-        # start and stop just append
-        if segment in full_segment:
-            circular_shifted_segments.append(segment)
-
-        # the entire segment got shifted
-        # past the stop, so loop the segment around
-        elif seg_start > stop:
-
-            segment = segment.shift(start - stop)
-            circular_shifted_segments.append(segment)
-
-        # only a portion of the segment got shifted to front
-        # so need to split up the segment
-        elif seg_stop > stop:
-            first_segment = Segment([seg_start, stop])
-            second_segment = Segment([start, seg_stop - stop])
-            circular_shifted_segments.extend([first_segment, second_segment])
-
-    circular_shifted_segments = circular_shifted_segments.coalesce()
-    return circular_shifted_segments
-
-
 @typeo
 def main(
     start: int,
@@ -99,6 +45,9 @@ def main(
     state_flag: Optional[str] = None,
 ):
     """Generates timeslides of background and background + injections.
+    Timeslides are generated on a per segment basis: First, science segments
+    are queried for each ifo and coincidence is performed.
+    To create a timeslide, each continuous segment is circularly shifted.
 
     Args:
         start: starting GPS time of time period to analyze
@@ -117,7 +66,6 @@ def main(
         sample_rate: sample rate
         frame_type: frame type for data discovery
         channel: strain channel to analyze
-        circular: flag for performing circular time shifts
         waveform_duration: length of injected waveforms
         reference_frequency: reference frequency for generating waveforms
         waveform_approximant: waveform model to inject
@@ -165,13 +113,13 @@ def main(
             {key: segments[key].active for key in segments.keys()}
         )
 
+        # intersect segments
+        intersection = segments.intersection(segments.keys())
+
     else:
-        # make segment from start to stop
-        segments = SegmentListDict()
-        for ifo in ifos:
-            segments[f"{ifo}:{state_flag}"] = SegmentList(
-                [Segment(start, stop)]
-            )
+        # not considering segments so
+        # make intersection from start to stop
+        intersection = SegmentList([Segment(start, stop)])
 
     # create list of timeslides
     # for each ifo
@@ -201,77 +149,37 @@ def main(
         # if they don't exist
         raw_ts = TimeSlide.create(root=root, field="background")
 
-        # initiate segment intersection as full
-        # segment from start, stop
-        intersection = SegmentList([[start, stop]])
-
-        # shift data
-        # shift segments to 'mirror' data
-        shifted_data = TimeSeriesDict()
-        for shift, ifo in zip(shifts, ifos):
-            # make a copy of segments
-            # as some operations are done
-            # in place
-            segments_copy = segments.copy()
-
-            # if circular timeshift
-            if circular:
-                shifted_segments = circular_shift_segments(
-                    segments_copy[f"{ifo}:{state_flag}"],
-                    shift,
-                    start,
-                    stop,
-                )
-
-                shifted = np.roll(data[ifo].value, int(shift * sample_rate))
-                shifted_data[ifo] = TimeSeries(
-                    shifted, dt=1 / sample_rate, t0=start
-                )
-
-            # global shift
-            else:
-                shifted_segments = segments_copy[f"{ifo}:{state_flag}"].shift(
-                    shift
-                )
-
-                # perform time shift by manually shifting times;
-                # subtracting the shift corresponds to moving
-                # data forward in time
-                shifted_times = data[ifo].times.value - shift
-                shifted_data[ifo] = TimeSeries(
-                    data[ifo].value, times=shifted_times
-                )
-
-            # calculate intersection of shifted segments
-            intersection &= shifted_segments
-
-        if len(intersection) == 0:
-            logging.info(
-                f"No intersecting segments found for {ifos}"
-                " after time shifting by {shifts}"
-            )
-            continue
-
         for segment in intersection:
             segment_start, segment_stop = segment
             segment_start, segment_stop = float(segment_start), float(
                 segment_stop
             )
 
-            # write timeseries
-            for t0 in np.arange(segment_start, segment_stop, file_length):
-
-                tf = min(t0 + file_length, segment_stop, stop)
-                raw_datasets = {}
-
-                for ifo in ifos:
-                    raw_datasets[ifo] = data[ifo].crop(t0, tf).value
-
-                times = np.arange(t0, tf, 1 / sample_rate)
-
-                h5.write_timeseries(
-                    raw_ts.path, prefix="raw", t=times, **raw_datasets
+            segment_length = segment_start - segment_stop
+            if segment_length < (n_slides * max(shifts)):
+                logging.warning(
+                    "Performing a circular timeshift on a segment shorter in"
+                    " length then the longest timeshift: some timeslides will"
+                    " be duplicates"
                 )
+
+            shifted_data = {}
+            for shift, ifo in enumerate(ifos):
+                # get data for this segment
+                segment_data = (
+                    data[ifo].crop(segment_start, segment_stop).value
+                )
+                times = data[ifo].crop(segment_start, segment_stop).times.value
+
+                # roll timeseries by timeshift for ifo
+                shifted_data[ifo] = np.roll(
+                    segment_data, int(np.round(shift * sample_rate))
+                )
+
+            # write timeseries
+            h5.write_timeseries(
+                raw_ts.path, prefix="raw", t=times, **shifted_data
+            )
 
         # update segments in TimeSlide
 
