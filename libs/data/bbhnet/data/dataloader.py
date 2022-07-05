@@ -279,8 +279,6 @@ class RandomWaveformDataset:
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitch_sampler is not None:
-            # coincident glitch insertion
-
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
                 self.num_glitches,
                 self.kernel_size,
