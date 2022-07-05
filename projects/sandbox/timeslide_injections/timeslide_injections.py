@@ -37,7 +37,6 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
-    circular: bool = False,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
