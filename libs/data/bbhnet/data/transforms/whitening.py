@@ -52,7 +52,6 @@ class WhiteningTransform(Transform):
         self.crop_samples = int((self.fduration / 2) * self.sample_rate)
         self.crop_samples = torch.tensor(self.crop_samples, dtype=torch.long)
 
-        # initialize the parameter with 0s, then fill it out later
         self.ntaps = int(self.fduration * self.sample_rate)
 
         self.kernel_size = self.add_parameter(
@@ -63,10 +62,13 @@ class WhiteningTransform(Transform):
         # of the filter will be 0. anyway. TODO: should we check
         # to confirm kernel_size is even first? Does that 0. still
         # get appended in the odd case?
+
+        # initialize the parameter with 0s, then fill it out later
         self.time_domain_filter = self.add_parameter(
             torch.zeros((num_ifos, 1, self.ntaps - 1)),
         )
 
+        # TODO: does this need to be a parameter?
         self.pad = self.add_parameter(
             int(self.time_domain_filter.size(-1) // 2), dtype=torch.long
         )
