@@ -117,7 +117,7 @@ def trainify(f):
         else:
             # otherwise just return the train and valid datasets, equivalent
             # to running `f` without any wrapper functionality
-            result = train_dataset, valid_dataset
+            result = train_dataset, valid_dataset, preprocessor
 
         return result
 
