@@ -93,16 +93,16 @@ def data_dir(tmpdir, sample_rate, fields):
                 write_timeseries(
                     write_dir,
                     prefix=field,
-                    hanford=x + i * 1024,
-                    livingston=-x,
+                    H1=x + i * 1024,
+                    L1=-x,
                     t=t + i * 1024,
                 )
             for i in range(2):
                 write_timeseries(
                     write_dir,
                     prefix=field,
-                    hanford=x + i * 1024,
-                    livingston=-x,
+                    H1=x + i * 1024,
+                    L1=-x,
                     t=t + (i + 4) * 1024,
                 )
     return data_dir
@@ -139,6 +139,7 @@ def test_infer(
             "",
             "",
             data_dir=data_dir,
+            write_dir=data_dir,
             fields=fields,
             sample_rate=sample_rate,
             inference_sampling_rate=inference_sampling_rate,

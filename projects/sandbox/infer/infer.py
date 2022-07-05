@@ -43,13 +43,15 @@ def infer(
     client: InferenceClient,
     executor: AsyncExecutor,
     timeslides: Iterable[TimeSlide],
+    write_dir: Path,
     stream_size: int,
     base_sequence_id: int,
 ):
     for timeslide in timeslides:
 
-        write_dir = timeslide.root / f"{timeslide.field}-out"
-        write_dir.mkdir(parents=True, exist_ok=True)
+        ts_write_dir = write_dir / timeslide.shift / f"{timeslide.field}-out"
+        ts_write_dir.mkdir(parents=True, exist_ok=True)
+        print(ts_write_dir)
         timeseries = {}
 
         data_it = executor.imap(load, timeslide.segments)
@@ -96,7 +98,7 @@ def infer(
 
                 # submit a write job to the process pool
                 future = executor.submit(
-                    write_timeseries, write_dir, "out", t=t, y=y
+                    write_timeseries, ts_write_dir, "out", t=t, y=y
                 )
                 futures.append(future)
 
@@ -110,6 +112,7 @@ def main(
     model_repo_dir: str,
     model_name: str,
     data_dir: Path,
+    write_dir: Path,
     fields: Iterable[str],
     sample_rate: float,
     inference_sampling_rate: float,
@@ -146,7 +149,12 @@ def main(
                 # we're already 2 contexts deep and we'll need to do
                 # some nested looping on top of this
                 infer(
-                    client, executor, timeslides, stream_size, base_sequence_id
+                    client,
+                    executor,
+                    timeslides,
+                    write_dir,
+                    stream_size,
+                    base_sequence_id,
                 )
 
 
