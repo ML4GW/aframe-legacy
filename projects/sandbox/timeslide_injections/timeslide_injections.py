@@ -16,6 +16,7 @@ from bbhnet.injection import inject_signals_into_timeslide
 from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
+from bbhnet.parallelize import AsyncExecutor
 from hermes.typeo import typeo
 
 
@@ -208,7 +209,6 @@ def main(
         # shift segments to 'mirror' data
         shifted_data = TimeSeriesDict()
         for shift, ifo in zip(shifts, ifos):
-
             # make a copy of segments
             # as some operations are done
             # in place
@@ -223,11 +223,9 @@ def main(
                     stop,
                 )
 
-                shifted_data = np.roll(
-                    data[ifo].value, int(shift * sample_rate)
-                )
+                shifted = np.roll(data[ifo].value, int(shift * sample_rate))
                 shifted_data[ifo] = TimeSeries(
-                    shifted_data, dt=1 / sample_rate, t0=start
+                    shifted, dt=1 / sample_rate, t0=start
                 )
 
             # global shift
@@ -279,23 +277,30 @@ def main(
 
         raw_ts.update()
 
+        # create process and thread pools
+        thread_ex = AsyncExecutor(4, thread=True)
+        process_ex = AsyncExecutor(4, thread=False)
+
         # now inject signals into raw files;
         # this function automatically writes h5 files to TimeSlide
         # for injected data
-        inject_signals_into_timeslide(
-            raw_ts,
-            injection_ts,
-            ifos,
-            prior_file,
-            spacing,
-            sample_rate,
-            file_length,
-            fmin,
-            waveform_duration,
-            reference_frequency,
-            waveform_approximant,
-            buffer,
-        )
+        with process_ex, thread_ex:
+            inject_signals_into_timeslide(
+                process_ex,
+                thread_ex,
+                raw_ts,
+                injection_ts,
+                ifos,
+                prior_file,
+                spacing,
+                sample_rate,
+                file_length,
+                fmin,
+                waveform_duration,
+                reference_frequency,
+                waveform_approximant,
+                buffer,
+            )
 
     return datadir
 
