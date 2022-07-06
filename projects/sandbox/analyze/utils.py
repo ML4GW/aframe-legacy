@@ -4,6 +4,7 @@ from concurrent.futures import FIRST_EXCEPTION, wait
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Union
 
+import h5py
 import numpy as np
 from rich.progress import Progress
 
@@ -332,6 +333,7 @@ def analyze_injections(
     thread_ex: AsyncExecutor,
     data_dir: Path,
     write_dir: Path,
+    results_dir: Path,
     backgrounds: Dict[str, "Distribution"],
     event_times: Iterable[float],
     injection_segments: Iterable[Segment],
@@ -350,6 +352,7 @@ def analyze_injections(
     # in backgrounds dictionary
     # create normalizer
     for norm, background in backgrounds.items():
+        master_fars, master_latencies, master_event_times = [], [], []
         if norm is not None:
             normalizer = GaussianNormalizer(norm)
         else:
@@ -420,8 +423,15 @@ def analyze_injections(
                     metric="far",
                 )
 
-            master_fars = np.append(fars)
-            master_latencies = np.append(latencies)
-            master_event_times = np.append(segment_event_times)
+                master_fars = np.append(fars)
+                master_latencies = np.append(latencies)
+                master_event_times = np.append(segment_event_times)
 
-    return master_fars, master_latencies, master_event_times
+        master_fars = np.vstack(master_fars)
+        master_latencies = np.vstack(master_latencies)
+        master_event_times = np.vstack(master_event_times)
+
+    with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
+        f.create_dataset("fars", data=master_fars)
+        f.create_dataset("latencies", data=master_latencies)
+        f.create_dataset("event_times", data=master_event_times)
