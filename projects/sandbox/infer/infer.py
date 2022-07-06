@@ -134,17 +134,17 @@ def main(
         # read/writes of timeseries in parallel
         executor = AsyncExecutor(num_workers, thread=False)
 
-        for field in fields:
-            # initialize all the `TimeSlide`s which will organize
-            # their corresponding files into segments
-            timeslides = [TimeSlide(i, field) for i in data_dir.iterdir()]
+        # now enter a context which will:
+        # - for the client, start a streaming connection with
+        #       with the inference service and launch a separate
+        #       process for inference
+        # - for the executor, launch the process pool
+        with client, executor:
+            for field in fields:
+                # initialize all the `TimeSlide`s which will organize
+                # their corresponding files into segments
+                timeslides = [TimeSlide(i, field) for i in data_dir.iterdir()]
 
-            # now enter a context which will:
-            # - for the client, start a streaming connection with
-            #       with the inference service and launch a separate
-            #       process for inference
-            # - for the executor, launch the process pool
-            with client, executor:
                 # now actually do inference in a separate function since
                 # we're already 2 contexts deep and we'll need to do
                 # some nested looping on top of this
