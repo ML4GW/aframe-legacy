@@ -88,44 +88,49 @@ def main(
 
     # organize background and injection timeslides into segments
     background_segments = TimeSlide(
-        data_dir / "dt-0.0-0.0", field="background"
+        data_dir / "dt-0.0-0.0", field="background-out"
     ).segments
     injection_segments = TimeSlide(
-        data_dir / "dt-0.0-0.0", field="injection"
+        data_dir / "dt-0.0-0.0", field="injection-out"
     ).segments
 
     # get event times from injection timeslide
-    event_params_file = data_dir / "dt-0.0-0.0" / "injection" / "params.h5"
+    # since these event times refer to the
+    # unshifted interferometer, they will be the same
+    # across timeslides
+    event_params_file = data_dir / "dt-0.0-0.0" / "injection-out" / "params.h5"
     with h5py.File(event_params_file) as f:
-        event_times = f["geocent_time"][()]
+        event_times = f["geocent_time"][()] + 1
 
-    # build background distributions
-    # for all timeslides for various
-    # normalization lengths
-    with Progress() as pbar:
-        backgrounds = build_background(
-            thread_ex,
+    with thread_ex, process_ex:
+        # build background distributions
+        # for all timeslides for various
+        # normalization lengths
+        with Progress() as pbar:
+            backgrounds = build_background(
+                thread_ex,
+                process_ex,
+                pbar,
+                background_segments,
+                data_dir,
+                write_dir,
+                max_tb,
+                window_length,
+                norm_seconds,
+                num_bins,
+            )
+
+        # analyze all injection events
+        analyze_injections(
             process_ex,
-            pbar,
-            background_segments,
+            thread_ex,
             data_dir,
             write_dir,
-            max_tb,
-            window_length,
-            norm_seconds,
-            num_bins,
+            results_dir,
+            backgrounds,
+            event_times,
+            injection_segments,
         )
-
-    # analyze all injection events
-    analyze_injections(
-        process_ex,
-        thread_ex,
-        data_dir,
-        write_dir,
-        backgrounds,
-        event_times,
-        injection_segments,
-    )
 
 
 if __name__ == "__main__":

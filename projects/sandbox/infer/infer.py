@@ -119,14 +119,16 @@ def main(
     num_workers: int,
     model_version: int = -1,
     base_sequence_id: int = 1001,
-    log_file: Optional[str] = None,
+    log_file: Optional[Path] = None,
     verbose: bool = False,
 ):
     configure_logging(log_file, verbose)
     stream_size = int(sample_rate // inference_sampling_rate)
 
+    server_log_file = log_file.parent / "server.log"
+
     # spin up a triton server and don't move on until it's ready
-    with serve(model_repo_dir, wait=True):
+    with serve(model_repo_dir, wait=True, log_file=server_log_file):
         # now build a client to connect to the inference service
         client = InferenceClient("localhost:8001", model_name, model_version)
 

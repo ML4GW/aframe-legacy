@@ -6,8 +6,8 @@ steps = [
     #"train:train:resnet",
     #"export:export-model:resnet",
     #"timeslide_injections:timeslide_injections",
-    "infer:infer",
-    #"analyze:analyze"
+    #"infer:infer",
+    "analyze:analyze"
 ]
 
 [tool.typeo.base]
@@ -145,4 +145,16 @@ model_version = -1
 base_sequence_id = 1001
 log_file = "${base.logdir}/infer.log"
 num_workers = 1
+verbose = true
+
+[tool.typeo.scripts.analyze]
+data_dir = "${base.basedir}/timeslide_injections/"
+write_dir = "${base.basedir}/timeslide_injections"
+results_dir = "${base.basedir}/results" 
+window_length = 1.0
+norm_seconds = [10, 100, 1000]
+max_tb = 20000
+num_bins = 10000
+force = false
+log_file = "${base.basedir}/log/analyze.log"
 verbose = true

@@ -2,17 +2,21 @@ import logging
 from collections import defaultdict
 from concurrent.futures import FIRST_EXCEPTION, wait
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Optional, Union
 
+import h5py
 import numpy as np
 from rich.progress import Progress
 
 from bbhnet.analysis.analysis import integrate
-from bbhnet.analysis.distributions import DiscreteDistribution, Distribution
+from bbhnet.analysis.distributions import DiscreteDistribution
 from bbhnet.analysis.normalizers import GaussianNormalizer
 from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment
 from bbhnet.parallelize import AsyncExecutor, as_completed
+
+if TYPE_CHECKING:
+    from bbhnet.analysis.distributions.distribution import Distribution
 
 
 # TODO: move these functions to library?
@@ -27,7 +31,10 @@ def load_segment(segment: Segment):
 
 
 def get_write_dir(
-    write_dir: Path, norm: Optional[float], shift: Union[str, Segment]
+    write_dir: Path,
+    norm: Optional[float],
+    shift: Union[str, Segment],
+    label: str,
 ) -> Path:
     """
     Quick utility function for getting the name of the directory
@@ -38,7 +45,7 @@ def get_write_dir(
     if isinstance(shift, Segment):
         shift = shift.shift
 
-    write_dir = write_dir / shift / f"norm-seconds.{norm}"
+    write_dir = write_dir / shift / f"{label}-norm-seconds.{norm}"
     write_dir.mkdir(parents=True, exist_ok=True)
     return write_dir
 
@@ -251,7 +258,7 @@ def build_background(
             # submit the writing job to our thread pool and
             # use a callback to keep track of all the filenames
             # for a given normalization window
-            shift_dir = get_write_dir(write_dir, norm, shift)
+            shift_dir = get_write_dir(write_dir, norm, shift, "background")
             future = thread_ex.submit(
                 write_timeseries,
                 shift_dir,
@@ -332,6 +339,7 @@ def analyze_injections(
     thread_ex: AsyncExecutor,
     data_dir: Path,
     write_dir: Path,
+    results_dir: Path,
     backgrounds: Dict[str, "Distribution"],
     event_times: Iterable[float],
     injection_segments: Iterable[Segment],
@@ -350,6 +358,7 @@ def analyze_injections(
     # in backgrounds dictionary
     # create normalizer
     for norm, background in backgrounds.items():
+        master_fars, master_latencies, master_event_times = [], [], []
         if norm is not None:
             normalizer = GaussianNormalizer(norm)
         else:
@@ -358,10 +367,13 @@ def analyze_injections(
         # loop over injection segments
         for segment in injection_segments:
 
-            # restrict even times of interest
-            # to those within this segment
+            # restrict event times of interest
+            # to those that are in this segment and
+            # norm seconds away from start
             segment_event_times = [
-                time for time in event_times if time in segment
+                time
+                for time in event_times
+                if time < segment.tf and (time - norm) > segment.t0
             ]
 
             # integrate this injection segment
@@ -391,10 +403,10 @@ def analyze_injections(
             # as the integration jobs come back
             # submit write jobs
             write_futures = []
-            for shift, t, y, integrated in as_completed(integrate_futures):
+            for shift, (t, y, integrated) in as_completed(integrate_futures):
                 future = thread_ex.submit(
                     write_timeseries,
-                    get_write_dir(write_dir, norm, shift),
+                    get_write_dir(write_dir, norm, shift, "injection"),
                     t=t,
                     y=y,
                     integrated=integrated,
@@ -420,8 +432,17 @@ def analyze_injections(
                     metric="far",
                 )
 
-            master_fars = np.append(fars)
-            master_latencies = np.append(latencies)
-            master_event_times = np.append(segment_event_times)
+                master_fars.append(fars)
+                master_latencies.append(latencies)
+                master_event_times.append(segment_event_times)
 
-    return master_fars, master_latencies, master_event_times
+        logging.info(np.shape(master_fars))
+        master_fars = np.stack(master_fars)
+        master_latencies = np.stack(master_latencies)
+        master_event_times = np.stack(master_event_times)
+
+        with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
+            f.create_dataset("fars", data=master_fars)
+
+            f.create_dataset("latencies", data=master_latencies)
+            f.create_dataset("event_times", data=master_event_times)
