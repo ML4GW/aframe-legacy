@@ -98,16 +98,16 @@ def main(
     # since these event times refer to the
     # unshifted interferometer, they will be the same
     # across timeslides
-    event_params_file = data_dir / "dt-0.0-0.0" / "injection-out" / "params.h5"
+    event_params_file = data_dir / "dt-0.0-0.0" / "injection" / "params.h5"
     with h5py.File(event_params_file) as f:
-        event_times = f["geocent_time"][()] + 1
+        event_times = f["geocent_time"][()] + 2
 
     with thread_ex, process_ex:
         # build background distributions
         # for all timeslides for various
         # normalization lengths
         with Progress() as pbar:
-            backgrounds = build_background(
+            backgrounds, sample_rate = build_background(
                 thread_ex,
                 process_ex,
                 pbar,
@@ -130,6 +130,8 @@ def main(
             backgrounds,
             event_times,
             injection_segments,
+            sample_rate,
+            4,
         )
 
 

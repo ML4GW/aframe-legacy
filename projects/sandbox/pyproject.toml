@@ -27,7 +27,7 @@ force_generation = false
 kernel_length = 2
 inference_sampling_rate = 16
 fmin = 32
-prior_file = "/home/ethan.marx/forks/BBHnet/projects/sandbox/generate_waveforms/priors/nonspin_BBH.prior"
+prior_file = "/home/ethan.marx/forks/BBHNet/projects/sandbox/generate_waveforms/priors/nonspin_BBH.prior"
 
 [tool.typeo.scripts.generate-background]
 datadir = "${base.datadir}"
@@ -47,11 +47,9 @@ snr_thresh = 5
 window = 2
 start = "${base.start}"
 stop = "${base.stop}"
-
 channel = "${base.channel}"
 frame_type = "${base.frame_type}"
 state_flag = "${base.state_flag}"
-
 f_min = "${base.fmin}"
 q_min = 3.3166
 q_max = 108
@@ -61,7 +59,6 @@ segment_duration = 64
 overlap = 4 
 mismatch_max = 0.2
 force_generation = "${base.force_generation}"
-
 ifos = "${base.ifos}"
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
@@ -93,8 +90,8 @@ max_snr = 10000
 highpass = "${base.fmin}"
 kernel_length = "${base.kernel_length}" 
 batch_size = 64
-batches_per_epoch = 100
-max_epochs = 50
+batches_per_epoch = 50
+max_epochs = 100
 lr = 1e-5
 weight_decay = 1e-5
 patience = 10
@@ -139,7 +136,7 @@ model_repo_dir = "${base.repository_directory}"
 model_name = "bbhnet-stream"
 data_dir = "${base.basedir}/timeslide_injections/" 
 write_dir = "${base.basedir}/timeslide_injections/"
-fields = ["background"]
+fields = ["injection"]
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
 model_version = -1

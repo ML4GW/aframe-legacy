@@ -331,7 +331,7 @@ def build_background(
         background.fit(segment, warm_start=warm_start)
         pbar.update(fit_task_ids[norm], advance=1)
 
-    return backgrounds
+    return backgrounds, sample_rate
 
 
 def analyze_injections(
@@ -343,6 +343,7 @@ def analyze_injections(
     backgrounds: Dict[str, "Distribution"],
     event_times: Iterable[float],
     injection_segments: Iterable[Segment],
+    sample_rate: float,
     window_length: float = 1.0,
 ):
     """Analyzes a set of events injected on top of timeslides
@@ -360,7 +361,7 @@ def analyze_injections(
     for norm, background in backgrounds.items():
         master_fars, master_latencies, master_event_times = [], [], []
         if norm is not None:
-            normalizer = GaussianNormalizer(norm)
+            normalizer = GaussianNormalizer(norm * sample_rate)
         else:
             normalizer = None
 

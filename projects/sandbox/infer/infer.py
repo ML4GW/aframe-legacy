@@ -51,7 +51,6 @@ def infer(
 
         ts_write_dir = write_dir / timeslide.shift / f"{timeslide.field}-out"
         ts_write_dir.mkdir(parents=True, exist_ok=True)
-        print(ts_write_dir)
         timeseries = {}
 
         data_it = executor.imap(load, timeslide.segments)
