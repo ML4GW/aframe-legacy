@@ -162,11 +162,15 @@ def analyze(
     background_segments = TimeSlide(
         data_dir / "dt-0.0-0.0", field="background"
     ).segments
+
     injection_segments = TimeSlide(
         data_dir / "dt-0.0-0.0", field="injection"
     ).segments
 
     # get event times from injection timeslide
+    # these event times refer to the unshifted interferometer;
+    # therefore, they should be the same across segments
+    # from different time shifts
     event_params_file = data_dir / "dt-0.0-0.0" / "injection" / "params.h5"
     with h5py.File(event_params_file) as f:
         event_times = f["geocent_time"][()]
@@ -197,6 +201,7 @@ def analyze(
         backgrounds,
         event_times,
         injection_segments,
+        background_segments,
     )
 
 
