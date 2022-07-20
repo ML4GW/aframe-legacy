@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
-    #"generate_background:generate-background",
-    #"generate_waveforms:generate-waveforms",
-    #"generate_glitches:generate-glitches",
-    #"train:train:resnet",
-    #"export:export-model:resnet",
-    #"timeslide_injections:timeslide_injections",
-    #"infer:infer",
+    "generate_background:generate-background",
+    "generate_waveforms:generate-waveforms",
+    "generate_glitches:generate-glitches",
+    "train:train:resnet",
+    "export:export-model:resnet",
+    "timeslide_injections:timeslide_injections",
+    "infer:infer",
     "analyze:analyze"
 ]
 
@@ -22,7 +22,7 @@ channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 resnet = {layers = [3, 3, 3]}
-repository_directory = "/home/ethan.marx/bbhnet/first_training_run/model_repo/"
+repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
 kernel_length = 2
 inference_sampling_rate = 16

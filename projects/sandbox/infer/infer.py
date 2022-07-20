@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -37,6 +38,7 @@ def stream_data(
             sequence_start=i == 0,
             sequence_end=(i + 1) == num_streams,
         )
+        time.sleep(1e-3)
 
 
 def infer(
