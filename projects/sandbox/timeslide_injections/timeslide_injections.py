@@ -153,7 +153,7 @@ def main(
                 segment_stop
             )
 
-            segment_length = segment_start - segment_stop
+            segment_length = segment_stop - segment_start
             if segment_length < (n_slides * max(shifts)):
                 logging.warning(
                     "Performing a circular timeshift on a segment shorter in"
