@@ -319,7 +319,7 @@ class DeterministicWaveformDataset:
 
             # sample waveforms up front
             waveforms = waveform_sampler.sample(-1, self.kernel_size, offset)
-            waveforms = torch.Tensor(waveforms)
+            self.waveforms = torch.Tensor(waveforms)
 
         # load in any glitches if we specified them
         if glitch_sampler is not None:
@@ -328,7 +328,8 @@ class DeterministicWaveformDataset:
                     glitch_sampler, deterministic=True
                 )
             glitches = glitch_sampler.sample(-1, self.kernel_size, offset)
-            glitches = torch.Tensor(glitches)
+            glitches = np.stack(glitches).transpose(1, 0, 2)
+            self.glitches = torch.Tensor(glitches)
 
         # initialize some attributes for iteration
         self.background = torch.stack(
@@ -390,10 +391,43 @@ class DeterministicWaveformDataset:
             kernel_size=(1, num_kernels), dilation=(1, self.stride_size)
         )
         X = unfold(X)
+        y = torch.zeros((len(X),))
 
         self._idx += length
-        if self._status == "background":
-            # nothing to inject or insert, return the data
-            return X
-        elif self._status == "glitch":
-            pass
+        if self._status == "glitch":
+            if self._secondary_idx >= len(self.glitches):
+                self._status = "signal"
+                self._secondary_idx = 0
+            else:
+                # grab at most half the batch size, since
+                # we'll insert glitches into the ifos independently
+                stop = self._secondary_idx + self.batch_size // 2
+                glitches = self._glitches[self._secondary_idx : stop]
+
+                # slough off any excess background that won't have
+                # glitches inserted into it
+                X = X[: len(glitches) * 2]
+
+                # insert the glitches into each ifo channel
+                X[: len(glitches), 0] = glitches[:, 0]
+                X[len(glitches) :, 1] = glitches[:, 1]
+
+                # update our index and return the inserted tensor
+                self._secondary_idx = stop
+
+        # check this in a separate if clause in case we
+        # exhausted our glitches in the one above
+        if self._status == "waveforms":
+            if self._secondary_idx >= len(self.waveforms):
+                # we've exhausted all our waveforms, so we're done here
+                self._idx = self._status = self._secondary_idx = None
+                raise StopIteration
+
+            stop = self._secondary_idx + self.batch_size
+            waveforms = self._waveforms[self._secondary_idx : stop]
+            X = X[: len(waveforms)] + waveforms
+            y += 1
+
+        # crop y in case we had to crop X to match the
+        # number of waveforms or glitches
+        return X, y[: len(X)]
