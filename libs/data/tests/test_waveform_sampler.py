@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from gwpy.frequencyseries import FrequencySeries
+from gwpy.timeseries import TimeSeries
 
 from bbhnet.data.waveform_sampler import WaveformSampler
 from bbhnet.injection.injection import calc_snr
@@ -18,7 +18,13 @@ def max_snr(request):
     return request.param
 
 
+@pytest.fixture(params=[True, False])
+def deterministic(request):
+    return request.param
+
+
 def test_waveform_sampler(
+    deterministic,
     sine_waveforms,
     glitch_length,
     data_length,
@@ -32,7 +38,13 @@ def test_waveform_sampler(
             WaveformSampler(sine_waveforms, sample_rate, min_snr, max_snr)
         return
 
-    sampler = WaveformSampler(sine_waveforms, sample_rate, min_snr, max_snr)
+    sampler = WaveformSampler(
+        sine_waveforms,
+        sample_rate,
+        min_snr,
+        max_snr,
+        deterministic=deterministic,
+    )
     assert sampler.waveforms.shape == (10, 2, glitch_length * sample_rate)
 
     # we haven't fit to a background yet, so trying to sample
@@ -40,22 +52,15 @@ def test_waveform_sampler(
     with pytest.raises(RuntimeError):
         sampler.sample(8, data_length)
 
-    # build "backgroud" asds of all 1s for
-    # each ifo for the sake of simplicity
-    asds = []
-    for ifo in ifos:
-        fs = FrequencySeries(
-            np.ones((sample_rate // 2,)),
-            df=2 / sample_rate + 1,
-            channel=ifo + ":STRAIN",
-        )
-        asds.append(fs)
-
     # fit the sampler to these backgrounds and make sure
     # that the saved attributes are correct
-    sampler.fit(1234567890, 1234567990, *asds)
+    # TODO: how can we make waveforms that have a known
+    # ASD that won't have 0s? Should we patch here?
+    background = np.random.randn(sample_rate * 100)
+    args = {ifo: background for ifo in ifos}
+    sampler.fit(**args)
     assert sampler.ifos == ifos
-    assert (sampler.background_asd == 1).all()
+    assert sampler.background_asd.shape[-1] == (sample_rate * 100 // 2 + 1)
 
     # create an array with a dummy 1st dimension to
     # replicate a waveform projected onto multiple ifos
@@ -63,6 +68,9 @@ def test_waveform_sampler(
     multichannel = np.concatenate(
         [waveforms * 0.5**i for i in range(len(ifos))], axis=1
     )
+
+    ts = TimeSeries(background, dt=1 / 4096)
+    fs = ts.asd(fftlength=2, window="hanning", method="median")
 
     # use this to verify that the array-wise computed
     # snrs match the values from calc_snr
@@ -80,6 +88,9 @@ def test_waveform_sampler(
     with patch("numpy.random.uniform", return_value=target_snrs):
         reweighted = sampler.reweight_snrs(multichannel)
 
+    if deterministic:
+        target_snrs = np.ones((10,)) * (min_snr * max_snr) ** 0.5
+
     for target, sample in zip(target_snrs, reweighted):
         calcd = 0
         for ifo in sample:
@@ -93,6 +104,7 @@ def test_waveform_sampler(
     # "trigger" is in there. Should we apply some sort
     # of gaussian to the waves so that there's a unique
     # max value we can check for?
+    # TODO: check to make "trigger" is in middle for deterministic case
     results = sampler.sample(4, data_length, 100)
     assert len(results) == 4
     assert all([i.shape == (len(ifos), data_length) for i in results])
@@ -106,20 +118,14 @@ def test_waveform_sampler(
         calcd = 0
         for ifo in sample:
             calcd += calc_snr(ifo, fs, sample_rate) ** 2
-        assert min_snr < calcd**0.5 < max_snr
+
+        if deterministic:
+            assert np.isclose(calcd, (min_snr * max_snr) ** 0.5, rtol=1e-9)
+        else:
+            assert min_snr < calcd**0.5 < max_snr
 
     # build "backgroud" asds of all 0s
     # to test that exception is raised
-    asds = []
-    for ifo in ifos:
-        fs = FrequencySeries(
-            np.zeros((sample_rate // 2,)),
-            df=2 / sample_rate + 1,
-            channel=ifo + ":STRAIN",
-        )
-        asds.append(fs)
-
-    # make sure ValueError is raised
-    # when asds are passed with zeros
+    args = {ifo: np.zeros((sample_rate * 100,)) for ifo in ifos}
     with pytest.raises(ValueError):
-        sampler.fit(1234567890, 1234567990, *asds)
+        sampler.fit(**args)

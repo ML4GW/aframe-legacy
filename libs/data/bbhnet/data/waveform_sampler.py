@@ -131,7 +131,7 @@ class WaveformSampler:
             # in the deterministic case, map everything to
             # the geometric mean of the max and min snrs
             target_snrs = np.ones((len(signals),))
-            target_snrs *= (self.max_snr / self.min_snr) ** 2
+            target_snrs *= (self.max_snr * self.min_snr) ** 0.5
         else:
             # otherwise uniformly sample target snr values
             target_snrs = np.random.uniform(
