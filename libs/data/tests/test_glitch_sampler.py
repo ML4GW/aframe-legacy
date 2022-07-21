@@ -56,7 +56,7 @@ def test_glitch_sampler(
                 # TODO: easy place to check offset behavior
                 step = glitch_length * sample_rate
                 expected = j * step + step // 2 - data_length // 2
-                assert row[0] == expected
+                assert row[0] == power * expected
             else:
                 # make sure that the "trigger" of each glitch aka
                 # the center value is in each sample
