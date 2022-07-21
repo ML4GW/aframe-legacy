@@ -1,26 +1,20 @@
-from collections import OrderedDict
 from pathlib import Path
 from typing import Optional, Union
 
 import h5py
 import numpy as np
 import torch
-from gwpy.timeseries import TimeSeries
 
 from bbhnet.data.glitch_sampler import GlitchSampler
-from bbhnet.data.transforms.whitening import DEFAULT_FFTLENGTH
 from bbhnet.data.utils import sample_kernels
 from bbhnet.data.waveform_sampler import WaveformSampler
 
 
-def _load_background(fname: str):
+def _load_background(fname: str) -> torch.Tensor:
     # TODO: maybe these are gwf and we resample?
     with h5py.File(fname, "r") as f:
         background = f["hoft"][:]
-
-        # grab the timestamps from the dataset for geocent sampling
-        t0 = f["t0"][()]
-    return background, t0
+    return torch.Tensor(background, dtype=torch.float64)
 
 
 class RandomWaveformDataset:
@@ -119,44 +113,42 @@ class RandomWaveformDataset:
         """
 
         # default behavior is set trigger_distance to half
-        # kernel length
-        # with this setting t0 can lie anywhere in the kernel
-        self.trigger_distance = trigger_distance
-
-        self.trigger_distance_size = self.trigger_distance * sample_rate
+        # kernel length. With this setting t0 can lie anywhere
+        # in the kernel
+        self.trigger_distance_size = trigger_distance * sample_rate
 
         # sanity check our fractions
         assert 0 <= waveform_frac <= 1
         assert 0 <= glitch_frac <= 1
 
+        # initialize our device to be cpu so that we
+        # have to be explicit about forcing the background
+        # tensors to the device at lower precision
+        self.device = "cpu"
         self.sample_rate = sample_rate
         self.kernel_size = int(kernel_length * sample_rate)
         self.batch_size = batch_size
         self.batches_per_epoch = batches_per_epoch
 
         # load in the background data
-        hanford_background, t0 = _load_background(hanford_background)
-        livingston_background, _ = _load_background(livingston_background)
+        self.hanford_background = _load_background(hanford_background)
+        self.livingston_background = _load_background(livingston_background)
         assert len(hanford_background) == len(livingston_background)
 
-        self.hanford_background = torch.tensor(
-            hanford_background, dtype=torch.float64
-        )
-        self.livingston_background = torch.tensor(
-            livingston_background, dtype=torch.float64
-        )
-
-        # if we specified a waveform sampler, fit its snr
-        # computation to the given background asd
         if waveform_sampler is not None:
             assert waveform_frac > 0
-            self.fit_waveform_sampler(waveform_sampler, t0)
 
-            # assign our attributes
+            # if the waveform sampler hasn't already been fit to
+            # any data, fit it to this background for the snr
+            # reweighting computation
+            if waveform_sampler.background_asd is None:
+                waveform_sampler.fit(
+                    H1=self.hanford_background, L1=self.livingston_background
+                )
             self.waveform_sampler = waveform_sampler
             self.num_waveforms = max(1, int(waveform_frac * batch_size))
         else:
-            # likewise, ensure that we didn't indicate that
+            # ensure that we didn't indicate that
             # we expected any waveforms in the batch
             assert waveform_frac == 0
             self.num_waveforms = 0
@@ -179,33 +171,9 @@ class RandomWaveformDataset:
             self.num_glitches = 0
             self.glitch_sampler = None
 
-        # initialize our device to be cpu so that we
-        # have to be explicit about forcing the background
-        # tensors to the device at lower precision
-        self.device = "cpu"
-
         # make sure that we have at least _some_
         # pure background in each batch
         assert (self.num_waveforms + self.num_glitches) < batch_size
-
-    def fit_waveform_sampler(
-        self, waveform_sampler: WaveformSampler, t0: float
-    ) -> None:
-        backgrounds = OrderedDict(
-            H1=self.hanford_background, L1=self.livingston_background
-        )
-        asds = []
-        for channel, background in backgrounds.items():
-            background = background.cpu().numpy()
-            ts = TimeSeries(background, dt=1 / self.sample_rate)
-            asd = ts.asd(
-                fftlength=DEFAULT_FFTLENGTH, window="hanning", method="median"
-            )
-            asd.channel = channel + ":STRAIN"
-            asds.append(asd)
-
-        tf = t0 + len(background) / self.sample_rate
-        waveform_sampler.fit(t0, tf, *asds)
 
     def sample_from_background(self):  # , independent: bool = True):
         """Sample a batch of kernels from the background data
@@ -312,3 +280,120 @@ class RandomWaveformDataset:
 
         self._batch_idx += 1
         return X, y
+
+
+class DeterministicWaveformDataset:
+    def __init__(
+        self,
+        hanford_background: str,
+        livingston_background: str,
+        kernel_length: float,
+        stride: float,
+        sample_rate: float,
+        batch_size: int,
+        waveform_sampler: Optional[WaveformSampler] = None,
+        glitch_sampler: Union[GlitchSampler, str, None] = None,
+        offset: float = 0,
+    ) -> None:
+        # initialize our device to be cpu so that we
+        # have to be explicit about forcing the background
+        # tensors to the device at lower precision
+        self.device = "cpu"
+        self.sample_rate = sample_rate
+        self.kernel_size = int(kernel_length * sample_rate)
+        self.stride_size = int(stride * sample_rate)
+        self.batch_size = batch_size
+
+        # load in the background data
+        hanford_background = _load_background(hanford_background)
+        livingston_background = _load_background(livingston_background)
+        assert len(hanford_background) == len(livingston_background)
+
+        offset = offset * sample_rate
+        self.waveforms = self.glitches = None
+        if waveform_sampler is not None:
+            if waveform_sampler.background_asd is None:
+                waveform_sampler.fit(
+                    H1=hanford_background, L1=livingston_background
+                )
+
+            # sample waveforms up front
+            waveforms = waveform_sampler.sample(-1, self.kernel_size, offset)
+            waveforms = torch.Tensor(waveforms)
+
+        # load in any glitches if we specified them
+        if glitch_sampler is not None:
+            if isinstance(glitch_sampler, (str, Path)):
+                glitch_sampler = GlitchSampler(
+                    glitch_sampler, deterministic=True
+                )
+            glitches = glitch_sampler.sample(-1, self.kernel_size, offset)
+            glitches = torch.Tensor(glitches)
+
+        # initialize some attributes for iteration
+        self.background = torch.stack(
+            [hanford_background, livingston_background]
+        )
+        self._idx = self._status = self._secondary_idx = None
+
+    def to(self, device: str):
+        """
+        Map the background tensors to the indicated device
+        and downcast to float32. Implement the downcasting
+        here because the assumption is that if you're moving
+        to the device, you're ready for training, and you
+        (in general) don't want to train at double precision
+        """
+        self.background = self.background.to(device).type(torch.float32)
+        if self.waveforms is not None:
+            self.waveforms = self.waveforms.to(device)
+        if self.glitches is not None:
+            self.glitches = self.glitches.to(device)
+        self.device = device
+
+    def __iter__(self):
+        self._idx = 0
+        self._status == "background"
+        return self
+
+    def __next__(self):
+        if self._idx >= (self.background.shape[-1] - self.kernel_size):
+            # we've exhausted our current run of the background
+            # dataset, so restart the index
+            self._idx = 0
+
+            # if we were iterating through background,
+            # move on to the glitches
+            if self._status == "background":
+                self._status = "glitch"
+                self._secondary_idx = 0
+
+        # slice out the next stretch of background data
+        length = self.batch_size * self.stride_size + self.kernel_size
+        stop = self._idx + length
+        if stop > self.background.shape[-1]:
+            # if we won't be able to grab an entire batch
+            # worth of data, make sure that we grab the
+            # right amount to be able to evenly unroll
+            stop = len(self.background.shape[-1])
+            step_length = stop - self.kernel_size - self._idx
+            num_kernels, leftover = divmod(step_length, self.stride_size)
+            stop -= leftover
+        else:
+            num_kernels = self.batch_size
+
+        X = self.background[:, self._idx : stop]
+
+        # TODO: give the option of unrolling X upfront?
+        # Possibly even creating injections and insertions upfront too?
+        unfold = torch.nn.Unfold(
+            kernel_size=(1, num_kernels), dilation=(1, self.stride_size)
+        )
+        X = unfold(X)
+
+        self._idx += length
+        if self._status == "background":
+            # nothing to inject or insert, return the data
+            return X
+        elif self._status == "glitch":
+            pass

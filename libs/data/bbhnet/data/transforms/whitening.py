@@ -22,14 +22,13 @@ class WhiteningTransform(Transform):
         highpass: Optional[float] = None,
         fduration: Optional[float] = None,
     ) -> None:
-
         """Torch module for performing whitening. The first and last
         (fduration / 2) seconds of data are corrupted by the whitening
         and will be cropped. Thus, the output length
         that is ultimately passed to the network will be
         (kernel_length - fduration)
-
         """
+
         super().__init__()
         self.num_ifos = num_ifos
         self.sample_rate = sample_rate
