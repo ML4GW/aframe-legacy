@@ -1,14 +1,22 @@
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 from bbhnet.data.glitch_sampler import GlitchSampler
 
 
+# TODO: test offset behavior
+@pytest.mark.parametrize("deterministic", [True, False])
 def test_glitch_sampler(
-    arange_glitches, glitch_length, sample_rate, data_length, device
+    deterministic,
+    arange_glitches,
+    glitch_length,
+    sample_rate,
+    data_length,
+    device,
 ):
-    sampler = GlitchSampler(arange_glitches)
+    sampler = GlitchSampler(arange_glitches, deterministic)
     sampler.to(device)
     assert sampler.hanford.device.type == device
     assert sampler.livingston.device.type == device
@@ -21,8 +29,10 @@ def test_glitch_sampler(
     # that they come out correctly
     with patch("numpy.random.randint", return_value=4):
         hanford, livingston = sampler.sample(8, data_length)
-    assert hanford.shape == (4, data_length)
-    assert livingston.shape == (4, data_length)
+
+    expected_batch = 8 if deterministic else 4
+    assert hanford.shape == (expected_batch, data_length)
+    assert livingston.shape == (expected_batch, data_length)
 
     # resample these since setting randint to equal
     # 4 actually throws off sample_kernels when it
@@ -41,15 +51,24 @@ def test_glitch_sampler(
         power = (-1) ** i
 
         # make sure each sampled glitch matches our expectations
-        for row in value:
-            # make sure that the "trigger" of each glitch aka
-            # the center value is in each sample
-            assert glitch_size // 2 in row % glitch_size
+        for j, row in enumerate(value):
+            if deterministic:
+                # TODO: easy place to check offset behavior
+                step = glitch_length * sample_rate
+                expected = j * step + step // 2 - data_length // 2
+                assert row[0] == expected
+            else:
+                # make sure that the "trigger" of each glitch aka
+                # the center value is in each sample
+                assert glitch_size // 2 in row % glitch_size
 
             # make sure that the sampled glitch is a
             # contiguous chunk of ints
             j = row[0]
             assert (row == np.arange(j, j + power * data_length, power)).all()
+
+    if deterministic:
+        return
 
     # now make sure that Nones get returned when
     # all the glitches are one or the other
