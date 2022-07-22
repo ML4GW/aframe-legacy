@@ -173,7 +173,7 @@ def analyze(
     # from different time shifts
     event_params_file = data_dir / "dt-0.0-0.0" / "injection" / "params.h5"
     with h5py.File(event_params_file) as f:
-        event_times = f["geocent_time"][()] + 2
+        event_times = f["geocent_time"][()] + 1.5
 
     with thread_ex, process_ex:
         # build background distributions
@@ -197,14 +197,14 @@ def analyze(
         analyze_injections(
             process_ex,
             thread_ex,
+            background_segments,
+            injection_segments,
             data_dir,
             write_dir,
             results_dir,
             backgrounds,
             event_times,
-            injection_segments,
             sample_rate,
-            4,
         )
 
 
@@ -238,9 +238,8 @@ def main(
     header = Div(
         text="""
         <h1>BBHnet Sandbox Experiment Results</h1>
-    """
+        """
     )
-
     # TODO: create time dependent ROC curves
     train_curves = get_training_curves(output_dir)
     metadata = row(train_curves)

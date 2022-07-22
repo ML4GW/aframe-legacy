@@ -9,7 +9,7 @@ import numpy as np
 from rich.progress import Progress
 
 from bbhnet.analysis.analysis import integrate
-from bbhnet.analysis.distributions.distribution import DiscreteDistribution
+from bbhnet.analysis.distributions import DiscreteDistribution
 from bbhnet.analysis.normalizers import GaussianNormalizer
 from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment
@@ -398,9 +398,14 @@ def analyze_injections(
         ):
 
             # restrict event times of interest
-            # to those within this segment
+            # to those within this segment, taking
+            # into account normalization
+
+            window = (injection_seg.t0 + norm, injection_seg.tf)
             segment_event_times = [
-                time for time in event_times if time in injection_seg
+                time
+                for time in event_times
+                if time < window[1] and time > window[0]
             ]
 
             # integrate this injection segment
@@ -465,8 +470,10 @@ def analyze_injections(
                 # create a segment and add the existing data to
                 # its cache so that we don't try to load it again
                 segment = Segment(fname)
-                segment._cache = {"t": t, "integrated": integrated}
 
+                logging.info(segment_event_times)
+                logging.info(segment.t0)
+                logging.info(segment.tf)
                 # characterize all of the events in this segment
                 fars, latencies = background.characterize_events(
                     segment,
