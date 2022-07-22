@@ -17,6 +17,7 @@ python = ">=3.9,<3.11"
 "bbhnet.parallelize" = {path = "../../../libs/parallelize/", develop = true}
 "bbhnet.analysis" = {path = "../../../libs/analysis/", develop = true}
 rich = "^12.4.4"
+bokeh = "^2.4.3"
 
 
 [build-system]

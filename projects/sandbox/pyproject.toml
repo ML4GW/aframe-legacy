@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
-    "generate_background:generate-background",
-    "generate_waveforms:generate-waveforms",
-    "generate_glitches:generate-glitches",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "timeslide_injections:timeslide_injections",
-    "infer:infer",
+    #"generate_background:generate-background",
+    #"generate_waveforms:generate-waveforms",
+    #"generate_glitches:generate-glitches",
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"timeslide_injections:timeslide_injections",
+    #"infer:infer",
     "analyze:analyze"
 ]
 
@@ -121,7 +121,7 @@ logdir = "${base.logdir}"
 prior_file = "${base.prior_file}"
 spacing = 60
 buffer = 10
-n_slides = 2
+n_slides = 10
 shifts = [0, 1]
 ifos = "${base.ifos}"
 file_length = 4096
@@ -136,7 +136,7 @@ model_repo_dir = "${base.repository_directory}"
 model_name = "bbhnet-stream"
 data_dir = "${base.basedir}/timeslide_injections/" 
 write_dir = "${base.basedir}/timeslide_injections/"
-fields = ["injection"]
+fields = ["background"]
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
 model_version = -1
@@ -148,6 +148,7 @@ verbose = true
 [tool.typeo.scripts.analyze]
 data_dir = "${base.basedir}/timeslide_injections/"
 write_dir = "${base.basedir}/timeslide_injections/"
+output_dir = "${base.basedir}/results/"
 results_dir = "${base.basedir}/results" 
 window_length = 1.0
 norm_seconds = [10, 100, 1000]

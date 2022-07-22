@@ -8,8 +8,8 @@ import h5py
 import numpy as np
 from rich.progress import Progress
 
-from bbhnet.analysis.analysis import integrate
-from bbhnet.analysis.distributions import DiscreteDistribution
+from bbhnet.analysis.distributions.distribution import DiscreteDistribution
+from bbhnet.analysis.integrators import boxcar_filter
 from bbhnet.analysis.normalizers import GaussianNormalizer
 from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment
@@ -17,6 +17,8 @@ from bbhnet.parallelize import AsyncExecutor, as_completed
 
 if TYPE_CHECKING:
     from bbhnet.analysis.distributions.distribution import Distribution
+    from bbhnet.analysis.integrators import Integrator
+    from bbhnet.analysis.normalizers import Normalizer
 
 
 # TODO: move these functions to library?
@@ -334,25 +336,137 @@ def build_background(
     return backgrounds, sample_rate
 
 
+def integrate(
+    analysis_segment: Segment,
+    kernel_length: float,
+    window_length: Optional[float] = None,
+    integrator: "Integrator" = boxcar_filter,
+    normalizer: Optional["Normalizer"] = None,
+    norm_segment: Optional[Segment] = None,
+):
+    """Analyze a segment of time-contiguous BBHNet outputs
+    Compute matched filter outputs on a stretch
+    of frame files that are assumed to be contiguous
+    and ordered in time. Matched filters are computed
+    as the average over the the last `window_length`
+    seconds of data. Optionally, the outputs can be
+    normalized by the mean and standard deviation of
+    the previous `norm_seconds` seconds worth of data. If
+    a `norm_segment` is passed, this segment will be used to
+    normalize the `analysis_segment`. Otherwise, the `analysis_segment`
+    itself will be used.
+
+    Args:
+        analysis_segment:
+            Segment of contiguous HDF5 files to analyze
+        kernel_length:
+            The length of time, in seconds, of the input kernel
+            to BBHNet used to produce the outputs being analyzed
+        window_length:
+            The length of time, in seconds, over which previous
+            network outputs should be averaged to produce
+            "matched filter" outputs. If left as `None`, it will
+            default to the same length as the kernel length.
+        integrator:
+            Callable which maps from an array of raw neural network
+            and a integer window size to an array of integrated
+            outputs. Default `boxcar_filter` just performs simple
+            uniform integration
+        normalizer:
+            Callable with a `.fit` method to fit a background of
+            raw neural network outputs for normalizing integrated
+            outputs
+        norm_segment:
+            Segment of contiguous HDF5 files to use for normalizing
+            the analysis segment
+    Returns:
+        Array of timestamps corresponding to the
+            _end_ of the input kernel that would produce
+            the corresponding network output and matched
+            filter output
+        Array of raw neural network outputs for each timestamp
+        Array of matched filter outputs for each timestamp
+    """
+
+    if norm_segment is not None and normalizer is None:
+        raise ValueError(
+            "Must pass a normalizer along with the normalizer segment"
+        )
+
+    # TODO: should we make the dataset name an argument?
+
+    # read in the analysis segmnets
+    # neural network output
+    analysis_y, t = analysis_segment.load("out")
+
+    # infer sample rate
+    # and convert lengths to sizes
+    sample_rate = 1 / (t[1] - t[0])
+    window_length = window_length or kernel_length
+    window_size = int(window_length * sample_rate)
+
+    # integrate the neural network outputs of the analysis
+    # segment over a sliding window
+    integrated = integrator(analysis_y, window_size)
+
+    if normalizer is not None:
+        # if we passed a normalizer
+
+        if norm_segment is not None:
+            # read in the normalization segments
+            # neural network outputs
+
+            # TODO: should we make some check
+            # that the time arrays are the same?
+            norm_y, _ = norm_segment.load("out")
+
+        else:
+            # normalize by the analysis segment
+            # itself
+            norm_y = analysis_y
+
+        normalizer.fit(norm_y)
+        integrated = normalizer(integrated, window_size)
+        analysis_y = analysis_y[-len(integrated) :]
+        t = t[-len(integrated) :]
+
+    # offset timesteps by kernel size so that they
+    # refer to the time at the front of the kernel
+    # rather than the back for comparison to trigger times
+    return t + kernel_length, analysis_y, integrated
+
+
 def analyze_injections(
     process_ex: AsyncExecutor,
     thread_ex: AsyncExecutor,
+    injection_segments: Iterable[Segment],
+    background_segments: Iterable[Segment],
     data_dir: Path,
     write_dir: Path,
     results_dir: Path,
     backgrounds: Dict[str, "Distribution"],
     event_times: Iterable[float],
-    injection_segments: Iterable[Segment],
     sample_rate: float,
     window_length: float = 1.0,
 ):
     """Analyzes a set of events injected on top of timeslides
 
     data_dir:
-            Directory containing timeslide root directories,
-            which will be mined for time-shifts of each `Segment`
-            in `background_segments`. If a time-shift doesn't exist
-            for a given `Segment`, the time-shift is ignored.
+        Directory containing timeslide root directories,
+        which will be mined for time-shifts of each `Segment`
+        in `background_segments`. If a time-shift doesn't exist
+        for a given `Segment`, the time-shift is ignored.
+
+    injection_segments:
+        List of segments with injections to analyze
+    background_segments:
+        List of segments to use for normalization. Expected that
+        the background segment corresponds to the data used to
+        create the injection segment
+
+    event_times:
+        List of times (of the non-shifted IFO) where injections were
+        made
     """
 
     # for each normalization window
@@ -366,15 +480,18 @@ def analyze_injections(
             normalizer = None
 
         # loop over injection segments
-        for segment in injection_segments:
+        # and the corresponding background segment
+        # the injections were added into;
+        # use this background segment to normalize
+        # the injection segments
+        for norm_seg, injection_seg in zip(
+            background_segments, injection_segments
+        ):
 
             # restrict event times of interest
-            # to those that are in this segment and
-            # norm seconds away from start
+            # to those within this segment
             segment_event_times = [
-                time
-                for time in event_times
-                if time < segment.tf and (time - norm) > segment.t0
+                time for time in event_times if time in injection_seg
             ]
 
             # integrate this injection segment
@@ -384,7 +501,8 @@ def analyze_injections(
             integrate_futures = {}
             for shift in data_dir.iterdir():
                 try:
-                    shifted = segment.make_shift(shift.name)
+                    norm_shifted = norm_seg.make_shift(shift.name)
+                    injection_shifted = injection_seg.make_shift(shift.name)
                 except ValueError:
                     # this segment doesn't have a shift
                     # at this value, so just move on
@@ -393,10 +511,11 @@ def analyze_injections(
                 # submit integration job
                 future = process_ex.submit(
                     integrate,
-                    shifted,
+                    injection_shifted,
                     kernel_length=1,
                     window_length=window_length,
                     normalizer=normalizer,
+                    norm_segment=norm_shifted,
                 )
 
                 integrate_futures[shift.name] = [future]
@@ -437,13 +556,11 @@ def analyze_injections(
                 master_latencies.append(latencies)
                 master_event_times.append(segment_event_times)
 
-        logging.info(np.shape(master_fars))
         master_fars = np.stack(master_fars)
         master_latencies = np.stack(master_latencies)
         master_event_times = np.stack(master_event_times)
 
         with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
             f.create_dataset("fars", data=master_fars)
-
             f.create_dataset("latencies", data=master_latencies)
             f.create_dataset("event_times", data=master_event_times)

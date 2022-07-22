@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock, Mock
-
 import numpy as np
 import pytest
 
@@ -56,11 +54,8 @@ def test_integrate(
 ):
     assert len(y) == len(t)
 
-    segment = Mock()
-    segment.load = MagicMock(return_value=(y, t))
-
     t_, y_, integrated = integrate(
-        segment, kernel_length, window_length, boxcar_filter, normalizer
+        y, t, kernel_length, window_length, boxcar_filter, normalizer
     )
 
     window_length = window_length or kernel_length
