@@ -79,7 +79,7 @@ def test_waveform_sampler(
     for row, sample in zip(snrs, multichannel):
         for snr, x, background in zip(row, sample, sampler.background_asd):
             background = FrequencySeries(background, df=sampler.df)
-            expected = calc_snr(x, background, sample_rate)
+            expected = calc_snr(x, background**2, sample_rate)
             assert np.isclose(snr, expected, rtol=1e-9)
 
     # patch numpy.random.uniform so that we know which
@@ -99,9 +99,9 @@ def test_waveform_sampler(
 
     for target, sample in zip(target_snrs, reweighted):
         actual = 0
-        for ifo, asd in zip(sample, sampler.background_asd):
-            asd = FrequencySeries(asd, df=sampler.df)
-            actual += calc_snr(ifo, asd, sample_rate) ** 2
+        for ifo, background in zip(sample, sampler.background_asd):
+            background = FrequencySeries(background, df=sampler.df)
+            actual += calc_snr(ifo, background**2, sample_rate) ** 2
         actual **= 0.5
         assert np.isclose(actual, target, rtol=1e-9)
 
@@ -126,7 +126,7 @@ def test_waveform_sampler(
         actual = 0
         for x, background in zip(sample, sampler.background_asd):
             background = FrequencySeries(background, df=sampler.df)
-            actual += calc_snr(x, background, sample_rate) ** 2
+            actual += calc_snr(x, background**2, sample_rate) ** 2
         actual **= 0.5
 
         if deterministic:
