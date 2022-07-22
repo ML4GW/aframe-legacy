@@ -3,14 +3,14 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import numpy as np
+from hermes.aeriel.client import InferenceClient
+from hermes.aeriel.serve import serve
+from hermes.typeo import typeo
 
 from bbhnet.io.h5 import write_timeseries
 from bbhnet.io.timeslides import Segment, TimeSlide
 from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor, as_completed
-from hermes.aeriel.client import InferenceClient
-from hermes.aeriel.serve import serve
-from hermes.typeo import typeo
 
 
 def load(segment: Segment):
