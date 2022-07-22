@@ -32,9 +32,9 @@ def load_segment(segment: Segment):
 
 def get_write_dir(
     write_dir: Path,
-    norm: Optional[float],
     shift: Union[str, Segment],
     label: str,
+    norm: Optional[float] = None,
 ) -> Path:
     """
     Quick utility function for getting the name of the directory
@@ -45,7 +45,10 @@ def get_write_dir(
     if isinstance(shift, Segment):
         shift = shift.shift
 
-    write_dir = write_dir / shift / f"{label}-norm-seconds.{norm}"
+    if norm is not None:
+        write_dir = write_dir / shift / f"{label}-norm-seconds.{norm}"
+    else:
+        write_dir = write_dir / shift / f"{label}"
     write_dir.mkdir(parents=True, exist_ok=True)
     return write_dir
 
@@ -213,22 +216,22 @@ def build_background(
                 t = seg._cache["t"]
                 sample_rate = 1 / (t[1] - t[0])
 
+            # 'load' the network output
+            # and times for this segment;
+            # as they are already cached,
+            # this should just return them
+            y, t = seg.load("out")
+
             for norm in norm_seconds:
                 # build a normalizer for the given normalization window length
                 if norm is not None:
                     normalizer = GaussianNormalizer(norm * sample_rate)
+                    # fit the normalizer to the
+                    # background segment
+                    normalizer.fit(y)
+
                 else:
                     normalizer = None
-
-                # 'load' the network output
-                # and times for this segment;
-                # as they are already cached,
-                # this should just return them
-                y, t = segment.load("out")
-
-                # fit the normalizer to the
-                # background segment
-                normalizer.fit(y)
 
                 # submit the integration job and have it update the
                 # corresponding progress bar task once it completes
@@ -269,7 +272,9 @@ def build_background(
             # submit the writing job to our thread pool and
             # use a callback to keep track of all the filenames
             # for a given normalization window
-            shift_dir = get_write_dir(write_dir, norm, shift, "background")
+            shift_dir = get_write_dir(
+                write_dir, shift, "background-integrated", norm
+            )
             future = thread_ex.submit(
                 write_timeseries,
                 shift_dir,
@@ -385,6 +390,7 @@ def analyze_injections(
         master_fars, master_latencies, master_event_times = [], [], []
         if norm is not None:
             normalizer = GaussianNormalizer(norm * sample_rate)
+
         else:
             normalizer = None
 
@@ -393,19 +399,27 @@ def analyze_injections(
         # the injections were added into;
         # use this background segment to normalize
         # the injection segments
+
         for back_seg, injection_seg in zip(
             background_segments, injection_segments
         ):
 
+            if norm is not None:
+                # window where events can lie;
+                # can't analyze events that don't have norm seconds
+                # of data before them
+                event_window = (injection_seg.t0 + norm, injection_seg.tf)
+
+            else:
+                event_window = (injection_seg.t0, injection_seg.tf)
             # restrict event times of interest
             # to those within this segment, taking
             # into account normalization
 
-            window = (injection_seg.t0 + norm, injection_seg.tf)
             segment_event_times = [
                 time
                 for time in event_times
-                if time < window[1] and time > window[0]
+                if time < event_window[1] and time > event_window[0]
             ]
 
             # integrate this injection segment
@@ -429,9 +443,10 @@ def analyze_injections(
                 # a bottlneck?)
 
                 # load the background and fit
-                # the normalizer
+                # the normalizer if passed
                 back_y, t = back_shifted.load("out")
-                normalizer.fit(back_y)
+                if normalizer is not None:
+                    normalizer.fit(back_y)
 
                 # load the injection segment
                 injection_y, _ = injection_shifted.load("out")
@@ -454,7 +469,9 @@ def analyze_injections(
             for shift, (t, y, integrated) in as_completed(integrate_futures):
                 future = thread_ex.submit(
                     write_timeseries,
-                    get_write_dir(write_dir, norm, shift, "injection"),
+                    get_write_dir(
+                        write_dir, shift, "injection-integrated", norm
+                    ),
                     t=t,
                     y=y,
                     integrated=integrated,

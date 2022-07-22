@@ -197,8 +197,8 @@ def analyze(
         analyze_injections(
             process_ex,
             thread_ex,
-            background_segments,
             injection_segments,
+            background_segments,
             data_dir,
             write_dir,
             results_dir,
