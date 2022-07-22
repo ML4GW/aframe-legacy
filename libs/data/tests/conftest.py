@@ -73,5 +73,12 @@ def sine_waveforms(
     waveforms = waveforms[:, None]
     waveforms = [waveforms, waveforms * 0.5]
     waveforms = np.concatenate(waveforms, axis=1)
-    write_timeseries("sine_waveforms.h5", signals=waveforms)
+    write_timeseries(
+        "sine_waveforms.h5",
+        signals=waveforms,
+        ra=np.zeros((10,)),
+        dec=np.zeros((10,)),
+        psi=np.zeros((10,)),
+        geocent_time=np.ones((10,)) * 1234567890
+    )
     return data_dir / "sine_waveforms.h5"

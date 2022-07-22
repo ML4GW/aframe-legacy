@@ -112,10 +112,11 @@ class WaveformSampler:
             if (asd == 0).any():
                 raise ValueError(f"Found 0 values in asd for IFO {ifo}")
 
-            asds.append(asd.value)
+            asds.append(asd)
             ifos.append(ifo)
 
         self.background_asd = np.stack(asds)
+        self.ifos = ifos
 
     def compute_snrs(self, signals: np.ndarray) -> np.ndarray:
         ffts = np.fft.rfft(signals, axis=-1) / self.sample_rate
