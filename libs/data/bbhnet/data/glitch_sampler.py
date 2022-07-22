@@ -28,7 +28,6 @@ class GlitchSampler:
 
         else:
             num_hanford = np.random.randint(N)
-            # long commmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmebt
 
         if num_hanford == 0:
             num_livingston = N
