@@ -60,5 +60,5 @@ def test_glitch_sampler(
 
     with patch("numpy.random.randint", return_value=8):
         hanford, livingston = sampler.sample(8, data_length)
-    assert livingston is None
+    assert livingston.shape == (8, data_length)
     assert hanford.shape == (8, data_length)
