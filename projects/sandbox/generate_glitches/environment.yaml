@@ -1,4 +1,4 @@
-name: bbhnet-generate_glitches_omicron_2.4.2_2
+name: bbhnet-generate_glitches
 channels:
   - conda-forge
 dependencies:
@@ -9,4 +9,4 @@ dependencies:
   - python-nds2-client
   - python-ligo-lw
   - pyomicron
-  - omicron=2.4.2
+  - omicron
