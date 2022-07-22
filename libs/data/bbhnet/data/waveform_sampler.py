@@ -120,8 +120,8 @@ class WaveformSampler:
 
     def compute_snrs(self, signals: np.ndarray) -> np.ndarray:
         ffts = np.fft.rfft(signals, axis=-1) / self.sample_rate
-        snrs = 2 * np.abs(ffts) / self.background_asd
-        snrs = self.df * self.mask * snrs**2
+        snrs = 4 * np.abs(ffts)**2 / self.background_asd
+        snrs = self.df * snrs * self.mask
         return snrs.sum(axis=-1) ** 0.5
 
     def reweight_snrs(self, signals: np.ndarray) -> np.ndarray:
@@ -156,7 +156,7 @@ class WaveformSampler:
             idx = np.arange(N)
 
             sample_params = {}
-            for param, values in self.priors:
+            for param, values in self.priors.items():
                 sample_params[param] = values[:N]
 
         else:

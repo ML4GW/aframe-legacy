@@ -77,27 +77,33 @@ def test_waveform_sampler(
     snrs = sampler.compute_snrs(multichannel)
     assert snrs.shape == (10, len(ifos))
     for row, sample in zip(snrs, multichannel):
-        for snr, ifo, asd in zip(row, sample, sampler.background_asd):
-            asd = FrequencySeries(asd, df=sampler.df)
-            assert np.isclose(snr, calc_snr(ifo, asd, sample_rate), rtol=1e-9)
+        for snr, x, background in zip(row, sample, sampler.background_asd):
+            background = FrequencySeries(background, df=sampler.df)
+            expected = calc_snr(x, background, sample_rate)
+            assert np.isclose(snr, expected, rtol=1e-9)
 
     # patch numpy.random.uniform so that we know which
     # reweighted snr values these waveforms will be
     # mapped to after reweighting, use it to verify the
     # functionality of reweight_snrs
     target_snrs = np.arange(1, 11)
-    with patch("numpy.random.uniform", return_value=target_snrs):
+    with patch("numpy.random.uniform", return_value=target_snrs) as mock:
         reweighted = sampler.reweight_snrs(multichannel)
 
+    # in the deterministic case, the remapped snrs will
+    # just be the geometric mean of the max and min
+    # (ie the patch above won't actually get called)
     if deterministic:
+        mock.assert_not_called()
         target_snrs = np.ones((10,)) * (min_snr * max_snr) ** 0.5
 
     for target, sample in zip(target_snrs, reweighted):
-        calcd = 0
+        actual = 0
         for ifo, asd in zip(sample, sampler.background_asd):
-            asd = FrequencySeries(asd.numpy(), df=sampler.df)
-            calcd += calc_snr(ifo, asd, sample_rate) ** 2
-        assert np.isclose(calcd**0.5, target, rtol=1e-9)
+            asd = FrequencySeries(asd, df=sampler.df)
+            actual += calc_snr(ifo, asd, sample_rate) ** 2
+        actual **= 0.5
+        assert np.isclose(actual, target, rtol=1e-9)
 
     # TODO: do this again with project_raw_gw patched
     # to just return the waveform as-is and verify the
@@ -107,7 +113,7 @@ def test_waveform_sampler(
     # of gaussian to the waves so that there's a unique
     # max value we can check for?
     # TODO: check to make "trigger" is in middle for deterministic case
-    results = sampler.sample(4, data_length, 100)
+    results = sampler.sample(4, data_length, 0)
     assert len(results) == 4
     assert all([i.shape == (len(ifos), data_length) for i in results])
 
@@ -115,20 +121,21 @@ def test_waveform_sampler(
     # the SNR ranges. There's definitely a better,
     # more explicit check to do here with patching
     # but this will work for now.
-    results = sampler.sample(4, sampler.waveforms.shape[-1], 100)
+    results = sampler.sample(4, sampler.waveforms.shape[-1], 0)
     for sample in results:
-        calcd = 0
-        for ifo, asd in zip(sample, sampler.background_asd):
-            asd = FrequencySeries(asd, df=sampler.df)
-            calcd += calc_snr(ifo, asd, sample_rate) ** 2
+        actual = 0
+        for x, background in zip(sample, sampler.background_asd):
+            background = FrequencySeries(background, df=sampler.df)
+            actual += calc_snr(x, background, sample_rate) ** 2
+        actual **= 0.5
 
         if deterministic:
-            assert np.isclose(calcd, (min_snr * max_snr) ** 0.5, rtol=1e-9)
+            assert np.isclose(actual, target_snrs[0], rtol=1e-9)
         else:
-            assert min_snr < calcd**0.5 < max_snr
+            assert min_snr < actual < max_snr
 
     # build "backgroud" asds of all 0s
     # to test that exception is raised
-    args = {ifo: np.zeros((sample_rate * 100,)) for ifo in ifos}
+    args = {ifo: torch.zeros((sample_rate * 100,)) for ifo in ifos}
     with pytest.raises(ValueError):
         sampler.fit(**args)
