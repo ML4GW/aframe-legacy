@@ -148,12 +148,11 @@ verbose = true
 [tool.typeo.scripts.analyze]
 data_dir = "${base.basedir}/timeslide_injections/"
 write_dir = "${base.basedir}/timeslide_injections/"
-output_dir = "${base.basedir}/results/"
-results_dir = "${base.basedir}/results" 
+results_dir = "${base.basedir}/results/" 
 window_length = 1.0
 #norm_seconds = [10, 100, 1000]
+t_clust = 5
 max_tb = 20000
-num_bins = 10000
 force = false
 log_file = "${base.basedir}/log/analyze.log"
 verbose = true
