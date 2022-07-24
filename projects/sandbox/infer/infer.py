@@ -126,7 +126,10 @@ def main(
     configure_logging(log_file, verbose)
     stream_size = int(sample_rate // inference_sampling_rate)
 
-    server_log_file = log_file.parent / "server.log"
+    if log_file is not None:
+        server_log_file = log_file.parent / "server.log"
+    else:
+        server_log_file = None
 
     # spin up a triton server and don't move on until it's ready
     with serve(model_repo_dir, wait=True, log_file=server_log_file):
