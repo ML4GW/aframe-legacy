@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
-    #"generate_background:generate-background",
-    #"generate_waveforms:generate-waveforms",
-    #"generate_glitches:generate-glitches",
-    #"train:train:resnet",
-    #"export:export-model:resnet",
-    #"timeslide_injections:timeslide_injections",
-    #"infer:infer",
+    "generate_background:generate-background",
+    "generate_waveforms:generate-waveforms",
+    "generate_glitches:generate-glitches",
+    "train:train:resnet",
+    "export:export-model:resnet",
+    "timeslide_injections:timeslide_injections",
+    "infer:infer",
     "analyze:analyze"
 ]
 
@@ -91,7 +91,7 @@ highpass = "${base.fmin}"
 kernel_length = "${base.kernel_length}" 
 batch_size = 64
 batches_per_epoch = 50
-max_epochs = 100
+max_epochs = 200
 lr = 1e-5
 weight_decay = 1e-5
 patience = 10
@@ -150,7 +150,7 @@ data_dir = "${base.basedir}/timeslide_injections/"
 write_dir = "${base.basedir}/timeslide_injections/"
 results_dir = "${base.basedir}/results/" 
 window_length = 1.0
-#norm_seconds = [10, 100, 1000]
+norm_seconds = [10, 100, 1000]
 t_clust = 5
 max_tb = 20000
 force = false

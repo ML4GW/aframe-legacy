@@ -54,6 +54,9 @@ def test_integrate(
 ):
     assert len(y) == len(t)
 
+    if normalizer is not None:
+        normalizer.fit(y)
+
     t_, y_, integrated = integrate(
         y, t, kernel_length, window_length, boxcar_filter, normalizer
     )
