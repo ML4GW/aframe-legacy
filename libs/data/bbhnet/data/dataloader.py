@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
@@ -14,7 +15,7 @@ def _load_background(fname: str) -> torch.Tensor:
     # TODO: maybe these are gwf and we resample?
     with h5py.File(fname, "r") as f:
         background = f["hoft"][:]
-    return torch.Tensor(background, dtype=torch.float64)
+    return torch.tensor(background, dtype=torch.float64)
 
 
 class RandomWaveformDataset:
@@ -282,6 +283,14 @@ class RandomWaveformDataset:
         return X, y
 
 
+class Status(Enum):
+    """Utility enum for keeping track of which type of data to load"""
+
+    BACKGROUND = 0
+    GLITCH = 1
+    SIGNAL = 2
+
+
 class DeterministicWaveformDataset:
     def __init__(
         self,
@@ -354,7 +363,7 @@ class DeterministicWaveformDataset:
 
     def __iter__(self):
         self._idx = 0
-        self._status == "background"
+        self._status = Status.BACKGROUND
         return self
 
     def __next__(self):
@@ -365,25 +374,35 @@ class DeterministicWaveformDataset:
 
             # if we were iterating through background,
             # move on to the glitches
-            if self._status == "background":
-                self._status = "glitch"
+            if self._status is Status.BACKGROUND:
+                if self.glitches is None and self.waveforms is None:
+                    self._status = self._idx = None
+                    raise StopIteration
+                elif self.glitches is None:
+                    self._status = Status.SIGNAL
+                else:
+                    self._status = Status.GLITCH
+
                 self._secondary_idx = 0
 
         # slice out the next stretch of background data
-        length = self.batch_size * self.stride_size + self.kernel_size
+        length = (self.batch_size - 1) * self.stride_size + self.kernel_size
         stop = self._idx + length
         if stop > self.background.shape[-1]:
             # if we won't be able to grab an entire batch
             # worth of data, make sure that we grab the
             # right amount to be able to evenly unroll
-            stop = len(self.background.shape[-1])
+            stop = self.background.shape[-1]
             step_length = stop - self.kernel_size - self._idx
             num_kernels, leftover = divmod(step_length, self.stride_size)
+            num_kernels += 1
             stop -= leftover
         else:
             num_kernels = self.batch_size
 
-        X = self.background[:, self._idx : stop]
+        # give dummy batch and extra spatial dimension
+        # since unfold expects a 4D tensor (multichannel image)
+        X = self.background[None, :, None, self._idx : stop]
 
         # TODO: give the option of unrolling X upfront?
         # Possibly even creating injections and insertions upfront too?
@@ -391,13 +410,18 @@ class DeterministicWaveformDataset:
             kernel_size=(1, num_kernels), dilation=(1, self.stride_size)
         )
         X = unfold(X)
+        X = X.reshape(2, num_kernels, -1).transpose(1, 0)
         y = torch.zeros((len(X),))
 
-        self._idx += length
-        if self._status == "glitch":
+        self._idx += num_kernels * self.stride_size
+        if self._status is Status.GLITCH:
             if self._secondary_idx >= len(self.glitches):
-                self._status = "signal"
-                self._secondary_idx = 0
+                if self.waveforms is None:
+                    self._idx = self._secondary_idx = self._status = None
+                    raise StopIteration
+                else:
+                    self._status = Status.SIGNAL
+                    self._secondary_idx = 0
             else:
                 # grab at most half the batch size, since
                 # we'll insert glitches into the ifos independently
@@ -417,7 +441,7 @@ class DeterministicWaveformDataset:
 
         # check this in a separate if clause in case we
         # exhausted our glitches in the one above
-        if self._status == "waveforms":
+        if self._status is Status.SIGNAL:
             if self._secondary_idx >= len(self.waveforms):
                 # we've exhausted all our waveforms, so we're done here
                 self._idx = self._status = self._secondary_idx = None

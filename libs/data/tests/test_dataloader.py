@@ -168,7 +168,7 @@ def test_deterministic_waveform_dataset(
 ):
     batch_size = 32
     kernel_length = 1
-    dataset = dataloader.RandomWaveformDataset(
+    dataset = dataloader.DeterministicWaveformDataset(
         sequential_hanford_background,
         sequential_livingston_background,
         kernel_length=kernel_length,
@@ -189,15 +189,13 @@ def test_deterministic_waveform_dataset(
     stride_size = int(stride * sample_rate)
     kernel_size = int(kernel_length * sample_rate)
 
-    num_kernels = (data_size - kernel_size - 1) // stride_size + 1
-    num_batches = (num_kernels - 1) // batch_size + 1
-    leftover = num_kernels - (num_batches * batch_size)
-
+    num_kernels = (data_size - kernel_size) // stride_size + 1
+    num_batches, leftover = divmod(num_kernels, batch_size)
     for i, (X, y) in enumerate(dataset):
         assert (y.cpu().numpy() == 0).all()
 
         X = X.cpu().numpy()
-        if i == (num_batches - 1) and leftover > 0:
+        if i == num_batches and leftover > 0:
             expected_batch = leftover
         else:
             expected_batch = batch_size
@@ -210,8 +208,9 @@ def test_deterministic_waveform_dataset(
 
             for k, ifo in enumerate(x):
                 power = (-1) ** k
-                assert (x == power * expected).all()
-    assert (i + 1) == num_batches
+                assert (ifo == power * expected).all()
+
+    assert i == (num_batches if leftover > 0 else num_batches - 1)
 
 
 def validate_speed(dataset, N, limit):
