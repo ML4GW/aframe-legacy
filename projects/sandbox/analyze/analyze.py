@@ -243,19 +243,15 @@ def build_background(
         wait(segment_futures, return_when=FIRST_EXCEPTION)
         pbar.update(main_task_id, advance=len(load_futures) * segment.length)
 
-    # now that we've analyzed enough background data,
-    # we'll initialize background distributions using
-    # the min and max bounds we found during analysis
-    # and then load everything back in to bin them
-    # within these bounds
     Tb = pbar.tasks[main_task_id].completed
     logging.info(f"Accumulated {Tb}s of background matched filter outputs.")
 
     # submit a bunch of jobs for loading these integrated
-    # segments back in for discretization
+    # segments back in.
+    # TODO: don't need to reload in segments
     load_futures = defaultdict(list)
     for norm, fname in as_completed(fname_futures):
-        future = process_ex.submit(load_segments, Segment(fname), "out")
+        future = process_ex.submit(load_segments, Segment(fname), "integrated")
         load_futures[norm].append(future)
 
     # create a task for each one of the normalization windows
