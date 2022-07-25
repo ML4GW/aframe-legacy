@@ -198,7 +198,7 @@ class WaveformSampler:
             # just place them in the center of the kernel
             # plus some indicated offset
             center = signals.shape[-1] // 2
-            left = center - offset - size // 2
+            left = center + offset - size // 2
             right = left + size
             return signals[:, :, left:right]
         else:

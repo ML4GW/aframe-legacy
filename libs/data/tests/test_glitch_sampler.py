@@ -1,19 +1,17 @@
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 from bbhnet.data.glitch_sampler import GlitchSampler
 
 
-# TODO: test offset behavior
-@pytest.mark.parametrize("deterministic", [True, False])
 def test_glitch_sampler(
     deterministic,
     arange_glitches,
     glitch_length,
     sample_rate,
     data_length,
+    offset,
     device,
 ):
     sampler = GlitchSampler(arange_glitches, deterministic)
@@ -28,7 +26,7 @@ def test_glitch_sampler(
     # know what size arrays to expect and verify
     # that they come out correctly
     with patch("numpy.random.randint", return_value=4):
-        hanford, livingston = sampler.sample(8, data_length)
+        hanford, livingston = sampler.sample(8, data_length, offset)
 
     expected_batch = 8 if deterministic else 4
     assert hanford.shape == (expected_batch, data_length)
@@ -41,7 +39,7 @@ def test_glitch_sampler(
     # interferometers to verify
     hanford = livingston = None
     while hanford is None or livingston is None:
-        hanford, livingston = sampler.sample(8, data_length)
+        hanford, livingston = sampler.sample(8, data_length, offset)
 
     glitch_size = glitch_length * sample_rate
     for i, tensor in enumerate([hanford, livingston]):
@@ -53,9 +51,8 @@ def test_glitch_sampler(
         # make sure each sampled glitch matches our expectations
         for j, row in enumerate(value):
             if deterministic:
-                # TODO: easy place to check offset behavior
                 step = glitch_length * sample_rate
-                expected = j * step + step // 2 - data_length // 2
+                expected = j * step + step // 2 - data_length // 2 + offset
                 assert row[0] == power * expected
             else:
                 # make sure that the "trigger" of each glitch aka

@@ -114,6 +114,7 @@ def test_random_waveform_dataset(
     sequential_hanford_background,
     sequential_livingston_background,
     sample_rate,
+    data_size,
     device,
 ):
     batch_size = 32
@@ -154,6 +155,63 @@ def test_random_waveform_dataset(
         assert not y.cpu().numpy().any()
 
     assert i == 9
+
+
+@pytest.mark.parametrize("stride", [0.1, 0.5, 1])
+def test_deterministic_waveform_dataset(
+    sequential_hanford_background,
+    sequential_livingston_background,
+    data_size,
+    stride,
+    sample_rate,
+    device,
+):
+    batch_size = 32
+    kernel_length = 1
+    dataset = dataloader.RandomWaveformDataset(
+        sequential_hanford_background,
+        sequential_livingston_background,
+        kernel_length=kernel_length,
+        stride=stride,
+        sample_rate=sample_rate,
+        batch_size=batch_size,
+    )
+
+    assert dataset.waveforms is None
+    assert dataset.glitches is None
+    assert dataset.background.device.type == "cpu"
+    assert dataset.background.dtype == torch.float64
+
+    dataset.to(device)
+    assert dataset.background.device.type == device
+    assert dataset.background.dtype == torch.float32
+
+    stride_size = int(stride * sample_rate)
+    kernel_size = int(kernel_length * sample_rate)
+
+    num_kernels = (data_size - kernel_size - 1) // stride_size + 1
+    num_batches = (num_kernels - 1) // batch_size + 1
+    leftover = num_kernels - (num_batches * batch_size)
+
+    for i, (X, y) in enumerate(dataset):
+        assert (y.cpu().numpy() == 0).all()
+
+        X = X.cpu().numpy()
+        if i == (num_batches - 1) and leftover > 0:
+            expected_batch = leftover
+        else:
+            expected_batch = batch_size
+        assert X.shape == (expected_batch, 2, sample_rate)
+
+        for j, x in enumerate(X):
+            start = stride_size * (i * batch_size + j)
+            stop = start + kernel_size
+            expected = np.arange(start, stop)
+
+            for k, ifo in enumerate(x):
+                power = (-1) ** k
+                assert (x == power * expected).all()
+    assert (i + 1) == num_batches
 
 
 def validate_speed(dataset, N, limit):

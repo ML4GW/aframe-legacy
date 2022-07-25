@@ -46,7 +46,7 @@ class GlitchSampler:
                 N = len(self.hanford)
 
             center = self.hanford.shape[-1] // 2
-            left = center - offset - size // 2
+            left = center + offset - size // 2
             right = left + size
 
             hanford = self.hanford[:N, left:right]

@@ -19,11 +19,6 @@ def max_snr(request):
     return request.param
 
 
-@pytest.fixture(params=[True, False])
-def deterministic(request):
-    return request.param
-
-
 def test_waveform_sampler(
     deterministic,
     sine_waveforms,
@@ -33,6 +28,7 @@ def test_waveform_sampler(
     min_snr,
     max_snr,
     ifos,
+    offset,
 ):
     if max_snr <= min_snr:
         with pytest.raises(ValueError):
@@ -113,7 +109,7 @@ def test_waveform_sampler(
     # of gaussian to the waves so that there's a unique
     # max value we can check for?
     # TODO: check to make "trigger" is in middle for deterministic case
-    results = sampler.sample(4, data_length, 0)
+    results = sampler.sample(4, data_length, offset)
     assert len(results) == 4
     assert all([i.shape == (len(ifos), data_length) for i in results])
 
@@ -121,7 +117,7 @@ def test_waveform_sampler(
     # the SNR ranges. There's definitely a better,
     # more explicit check to do here with patching
     # but this will work for now.
-    results = sampler.sample(4, sampler.waveforms.shape[-1], 0)
+    results = sampler.sample(4, sampler.waveforms.shape[-1], offset)
     for sample in results:
         actual = 0
         for x, background in zip(sample, sampler.background_asd):

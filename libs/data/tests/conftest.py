@@ -12,6 +12,17 @@ def data_length():
     return 128
 
 
+@pytest.fixture(params=[True, False])
+def deterministic(request):
+    return request.param
+
+
+@pytest.fixture
+def offset():
+    # TODO: explore more values
+    return 0
+
+
 @pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])
 def device(request):
     return request.param
@@ -79,6 +90,6 @@ def sine_waveforms(
         ra=np.zeros((10,)),
         dec=np.zeros((10,)),
         psi=np.zeros((10,)),
-        geocent_time=np.ones((10,)) * 1234567890
+        geocent_time=np.ones((10,)) * 1234567890,
     )
     return data_dir / "sine_waveforms.h5"
