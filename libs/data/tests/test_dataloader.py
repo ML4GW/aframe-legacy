@@ -110,6 +110,43 @@ def validate_sequential(X):
             assert (np.diff(x_ifo) == diff).all()
 
 
+def validate_speed(dataset, N, limit):
+    dataset.batches_per_epoch = N
+    start_time = time.time()
+    for _ in dataset:
+        continue
+    delta = time.time() - start_time
+    assert delta / N < limit
+
+
+def validate_dataset(dataset, cutoff_idx, target):
+    # TODO: include "test_sample: Callable" argument
+    # for testing each individual X, y sample that
+    # isn't background. Check that the center is in
+    # and for sines check that the wave has a valid freq
+    for X, y in dataset:
+        X = X.cpu().numpy()
+        y = y.cpu().numpy()
+        for i, x in enumerate(X):
+            # check to make sure ifo is not all 0s
+            is_background = (x == 1).all()
+
+            if target:
+                # y == 1 targets should come at the end
+                not_background = i >= cutoff_idx
+                assert y[i] == int(not is_background)
+            else:
+                # y == 0 targets that _aren't_ background
+                # should come at the start
+                not_background = i < cutoff_idx
+
+            # make sure you're either in the position
+            # expected for a non-background of the
+            # indicated target type, or you're background
+            assert not_background ^ is_background, (i, x)
+
+
+# Test the training dataset class first
 def test_random_waveform_dataset(
     sequential_hanford_background,
     sequential_livingston_background,
@@ -157,7 +194,94 @@ def test_random_waveform_dataset(
     assert i == 9
 
 
-@pytest.mark.parametrize("stride", [0.1, 0.5, 1])
+def test_random_waveform_dataset_with_glitch_sampling(
+    ones_hanford_background,
+    ones_livingston_background,
+    glitch_sampler,
+    glitch_frac,
+    sample_rate,
+    data_length,
+    device,
+):
+    batch_size = 32
+    dataset = dataloader.RandomWaveformDataset(
+        ones_hanford_background,
+        ones_livingston_background,
+        kernel_length=1,
+        sample_rate=sample_rate,
+        batch_size=batch_size,
+        glitch_frac=glitch_frac,
+        glitch_sampler=glitch_sampler,
+        batches_per_epoch=10,
+    )
+    dataset.to(device)
+    assert dataset.glitch_sampler.hanford.device.type == device
+    assert dataset.glitch_sampler.livingston.device.type == device
+
+    expected_num = max(1, int(glitch_frac * batch_size))
+    assert dataset.num_glitches == expected_num
+    validate_dataset(dataset, dataset.num_glitches, 0)
+
+    if device == "cpu":
+        return
+    validate_speed(dataset, N=100, limit=0.05)
+
+
+def test_random_waveform_dataset_with_waveform_sampling(
+    ones_hanford_background,
+    ones_livingston_background,
+    sine_waveforms,
+    waveform_frac,
+    sample_rate,
+    data_length,
+    device,
+):
+    waveform_sampler = WaveformSampler(
+        sine_waveforms, sample_rate, min_snr=20, max_snr=40
+    )
+
+    batch_size = 32
+    with patch(
+        "gwpy.timeseries.TimeSeries.asd",
+        return_value=mock_asd(data_length, sample_rate),
+    ) as mock:
+        dataset = dataloader.RandomWaveformDataset(
+            ones_hanford_background,
+            ones_livingston_background,
+            kernel_length=1,
+            sample_rate=sample_rate,
+            batch_size=batch_size,
+            waveform_sampler=waveform_sampler,
+            waveform_frac=waveform_frac,
+            batches_per_epoch=10,
+        )
+        dataset.to(device)
+
+    # TODO: test that we don't need to be fit
+    # if the waveform sampler has already been fit
+    mock.assert_called()
+    expected_num = max(1, int(waveform_frac * batch_size))
+    assert dataset.num_waveforms == expected_num
+
+    # if the dataset is going to request more waveforms
+    # than we have, a ValueError should get raised
+    if dataset.num_waveforms > 10:
+        with pytest.raises(ValueError):
+            next(iter(dataset))
+        return
+    validate_dataset(dataset, batch_size - dataset.num_waveforms, 1)
+
+    if device == "cpu":
+        return
+    validate_speed(dataset, N=100, limit=0.05)
+
+
+# now run the same tests for the deterministic validation sampler
+@pytest.fixture(params=[0.1, 0.5, 1])
+def stride(request):
+    return request.param
+
+
 def test_deterministic_waveform_dataset(
     sequential_hanford_background,
     sequential_livingston_background,
@@ -191,6 +315,7 @@ def test_deterministic_waveform_dataset(
 
     num_kernels = (data_size - kernel_size) // stride_size + 1
     num_batches, leftover = divmod(num_kernels, batch_size)
+
     for i, (X, y) in enumerate(dataset):
         assert (y.cpu().numpy() == 0).all()
 
@@ -213,119 +338,71 @@ def test_deterministic_waveform_dataset(
     assert i == (num_batches if leftover > 0 else num_batches - 1)
 
 
-def validate_speed(dataset, N, limit):
-    dataset.batches_per_epoch = N
-    start_time = time.time()
-    for _ in dataset:
-        continue
-    delta = time.time() - start_time
-    assert delta / N < limit
-
-
-def validate_dataset(dataset, cutoff_idx, target):
-    # TODO: include "test_sample: Callable" argument
-    # for testing each individual X, y sample that
-    # isn't background. Check that the center is in
-    # and for sines check that the wave has a valid freq
-    for X, y in dataset:
-        X = X.cpu().numpy()
-        y = y.cpu().numpy()
-        for i, x in enumerate(X):
-            # check to make sure ifo is not all 0s
-            is_background = (x == 1).all()
-
-            if target:
-                # y == 1 targets should come at the end
-                not_background = i >= cutoff_idx
-                assert y[i] == int(not is_background)
-            else:
-                # y == 0 targets that _aren't_ background
-                # should come at the start
-                not_background = i < cutoff_idx
-
-            # make sure you're either in the position
-            # expected for a non-background of the
-            # indicated target type, or you're background
-            assert not_background ^ is_background, (i, x)
-
-
-def test_glitch_sampling(
+def test_deterministic_waveform_dataset_with_glitch_sampling(
     ones_hanford_background,
     ones_livingston_background,
     glitch_sampler,
-    glitch_frac,
+    glitch_length,
     sample_rate,
     data_length,
+    stride,
     device,
 ):
-    batch_size = 32
-    with patch(
-        "gwpy.timeseries.TimeSeries.asd",
-        return_value=mock_asd(data_length, sample_rate),
-    ):
-        dataset = dataloader.RandomWaveformDataset(
-            ones_hanford_background,
-            ones_livingston_background,
-            kernel_length=1,
-            sample_rate=sample_rate,
-            batch_size=batch_size,
-            glitch_frac=glitch_frac,
-            glitch_sampler=glitch_sampler,
-            batches_per_epoch=10,
-        )
-        dataset.to(device)
-        assert dataset.glitch_sampler.hanford.device.type == device
-        assert dataset.glitch_sampler.livingston.device.type == device
+    batch_size = 8
+    kernel_length = 1
+    kernel_size = int(kernel_length * sample_rate)
+    glitch_size = int(glitch_length * sample_rate)
+    stride_size = int(stride * sample_rate)
 
-    expected_num = max(1, int(glitch_frac * batch_size))
-    assert dataset.num_glitches == expected_num
-    validate_dataset(dataset, dataset.num_glitches, 0)
-
-    if device == "cpu":
-        return
-    validate_speed(dataset, N=100, limit=0.05)
-
-
-def test_waveform_sampling(
-    ones_hanford_background,
-    ones_livingston_background,
-    sine_waveforms,
-    waveform_frac,
-    sample_rate,
-    data_length,
-    device,
-):
-    waveform_sampler = WaveformSampler(
-        sine_waveforms, sample_rate, min_snr=20, max_snr=40
+    dataset = dataloader.DeterministicWaveformDataset(
+        ones_hanford_background,
+        ones_livingston_background,
+        kernel_length=kernel_length,
+        stride=stride,
+        sample_rate=sample_rate,
+        batch_size=batch_size,
+        glitch_sampler=glitch_sampler,
     )
+    assert dataset.glitches is not None
+    assert dataset.glitches.shape == (10, 2, kernel_size)
+    assert dataset.glitches.device.type == "cpu"
 
-    batch_size = 32
-    with patch(
-        "gwpy.timeseries.TimeSeries.asd",
-        return_value=mock_asd(data_length, sample_rate),
-    ):
-        dataset = dataloader.RandomWaveformDataset(
-            ones_hanford_background,
-            ones_livingston_background,
-            kernel_length=1,
-            sample_rate=sample_rate,
-            batch_size=batch_size,
-            waveform_sampler=waveform_sampler,
-            waveform_frac=waveform_frac,
-            batches_per_epoch=10,
-        )
-        dataset.to(device)
-    expected_num = max(1, int(waveform_frac * batch_size))
-    assert dataset.num_waveforms == expected_num
+    for i, glitch in enumerate(dataset.glitches.numpy()):
+        for j, ifo in glitch:
+            start = glitch_size * i + glitch_size // 2 - kernel_size // 2
+            stop = start + kernel_size
+            power = (-1) ** j
 
-    # if the dataset is going to request more waveforms
-    # than we have, a ValueError should get raised
-    if dataset.num_waveforms > 10:
-        with pytest.raises(ValueError):
-            next(iter(dataset))
-        return
-    validate_dataset(dataset, batch_size - dataset.num_waveforms, 1)
+            assert (ifo == power * np.arange(start, stop)).all()
 
-    if device == "cpu":
-        return
-    validate_speed(dataset, N=100, limit=0.05)
+    dataset.to(device)
+    assert dataset.glitches.device.type == device
+
+    num_kernels = (data_size - kernel_size) // stride_size + 1
+    num_batches, leftover = divmod(num_kernels, batch_size)
+    batches_per_iteration = num_batches if leftover > 0 else (num_batches + 1)
+
+    num_glitches = len(dataset.glitches)
+    num_glitch_batches, glitch_leftover = divmod(num_glitches, batch_size / 2)
+
+    for i, (X, y) in enumerate(dataset):
+        iteration, idx = divmod(i, batches_per_iteration)
+        assert (y.cpu().numpy() == 0).all()
+
+        X = X.cpu().numpy()
+        expected_batch = batch_size
+        if iteration > 0 and idx == (num_glitch_batches - 1):
+            expected_batch = glitch_leftover * 2
+        elif iteration == 0 and idx == num_batches and leftover > 0:
+            expected_batch = leftover
+        assert X.shape == (expected_batch, 2, sample_rate)
+
+        if iteration == 0:
+            assert (X == 1).all()
+            continue
+
+        for j, x in enumerate(X):
+            ifo, glitch_idx = divmod(j, expected_batch / 2)
+            glitch = dataset.glitches[glitch_idx, ifo].cpu().numpy()
+            assert (x[ifo] == glitch).all()
+            assert (x[1 - ifo] == 1).all()
