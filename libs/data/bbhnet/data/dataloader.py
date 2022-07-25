@@ -426,7 +426,7 @@ class DeterministicWaveformDataset:
                 # grab at most half the batch size, since
                 # we'll insert glitches into the ifos independently
                 stop = self._secondary_idx + self.batch_size // 2
-                glitches = self._glitches[self._secondary_idx : stop]
+                glitches = self.glitches[self._secondary_idx : stop]
 
                 # slough off any excess background that won't have
                 # glitches inserted into it
@@ -448,7 +448,7 @@ class DeterministicWaveformDataset:
                 raise StopIteration
 
             stop = self._secondary_idx + self.batch_size
-            waveforms = self._waveforms[self._secondary_idx : stop]
+            waveforms = self.waveforms[self._secondary_idx : stop]
             X = X[: len(waveforms)] + waveforms
             y += 1
 

@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -350,9 +351,13 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
 ):
     batch_size = 8
     kernel_length = 1
+    data_size = int(data_length * sample_rate)
     kernel_size = int(kernel_length * sample_rate)
     glitch_size = int(glitch_length * sample_rate)
     stride_size = int(stride * sample_rate)
+
+    if not isinstance(glitch_sampler, (str, Path)):
+        glitch_sampler.deterministic = True
 
     dataset = dataloader.DeterministicWaveformDataset(
         ones_hanford_background,
@@ -368,7 +373,7 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
     assert dataset.glitches.device.type == "cpu"
 
     for i, glitch in enumerate(dataset.glitches.numpy()):
-        for j, ifo in glitch:
+        for j, ifo in enumerate(glitch):
             start = glitch_size * i + glitch_size // 2 - kernel_size // 2
             stop = start + kernel_size
             power = (-1) ** j
@@ -380,10 +385,12 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
 
     num_kernels = (data_size - kernel_size) // stride_size + 1
     num_batches, leftover = divmod(num_kernels, batch_size)
-    batches_per_iteration = num_batches if leftover > 0 else (num_batches + 1)
+    batches_per_iteration = num_batches if leftover == 0 else (num_batches + 1)
 
     num_glitches = len(dataset.glitches)
-    num_glitch_batches, glitch_leftover = divmod(num_glitches, batch_size / 2)
+    num_glitch_batches, glitch_leftover = divmod(num_glitches, batch_size // 2)
+    if glitch_leftover > 0:
+        num_glitch_batches += 1
 
     for i, (X, y) in enumerate(dataset):
         iteration, idx = divmod(i, batches_per_iteration)
@@ -395,6 +402,7 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
             expected_batch = glitch_leftover * 2
         elif iteration == 0 and idx == num_batches and leftover > 0:
             expected_batch = leftover
+
         assert X.shape == (expected_batch, 2, sample_rate)
 
         if iteration == 0:
@@ -402,7 +410,12 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
             continue
 
         for j, x in enumerate(X):
-            ifo, glitch_idx = divmod(j, expected_batch / 2)
+            ifo, glitch_idx = divmod(j, expected_batch // 2)
+            glitch_idx += idx * batch_size // 2
+
             glitch = dataset.glitches[glitch_idx, ifo].cpu().numpy()
             assert (x[ifo] == glitch).all()
             assert (x[1 - ifo] == 1).all()
+
+    assert iteration == 1
+    assert idx == (num_glitch_batches - 1)
