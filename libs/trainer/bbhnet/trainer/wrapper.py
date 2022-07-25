@@ -1,9 +1,10 @@
 import inspect
 
-from bbhnet.architectures import get_arch_fns
-from bbhnet.trainer.trainer import train
 from hermes.typeo import typeo
 from hermes.typeo.typeo import _parse_doc, _parse_help
+
+from bbhnet.architectures import get_arch_fns
+from bbhnet.trainer.trainer import train
 
 
 def _configure_wrapper(f, wrapper):
