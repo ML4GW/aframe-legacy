@@ -280,17 +280,20 @@ class RandomWaveformDataset:
         # we have glitch data to use
         if self.glitch_sampler is not None:
             hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
-                self.num_glitches, self.kernel_size, self.trigger_distance_size
+                self.num_glitches,
+                self.kernel_size,
+                self.trigger_distance_size,
             )
 
             if hanford_glitches is not None:
-                X[: len(hanford_glitches), 0] = hanford_glitches
-                idx = len(hanford_glitches)
-            else:
-                idx = 0
+                num_hanford = len(hanford_glitches)
+                X[:num_hanford, 0] = hanford_glitches
 
             if livingston_glitches is not None:
-                slc = slice(idx, idx + len(livingston_glitches))
+                num_livingston = len(livingston_glitches)
+                slc = slice(
+                    self.num_glitches - num_livingston, self.num_glitches
+                )
                 X[slc, 1] = livingston_glitches
 
         # inject waveforms into the background if we have
