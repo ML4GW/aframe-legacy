@@ -1,6 +1,5 @@
 import time
-from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -26,6 +25,11 @@ def mock_asd(data_length, sample_rate):
 @pytest.fixture
 def data_length():
     return 128
+
+
+@pytest.fixture
+def kernel_length():
+    return 1
 
 
 @pytest.fixture(params=[0.01, 0.1, 0.5, 0.9])
@@ -339,26 +343,87 @@ def test_deterministic_waveform_dataset(
     assert i == (num_batches if leftover > 0 else num_batches - 1)
 
 
+@pytest.fixture
+def validate_deterministic_dataset(
+    data_size, kernel_length, sample_rate, stride, batch_size
+):
+    kernel_size = int(kernel_length * sample_rate)
+    stride_size = int(kernel_length * sample_rate)
+    num_kernels = (data_size - kernel_size) // stride_size + 1
+
+    def func(dataset, num_non_background, batch_size, target):
+        num_batches = (num_kernels - 1) // batch_size + 1
+        last_batch = num_kernels % batch_size or batch_size
+
+        num_nb_batches = (num_non_background - 1) // batch_size + 1
+        nb_last_batch = num_non_background % batch_size
+
+        for i, (X, y) in enumerate(dataset):
+            iteration, idx = divmod(i, num_batches)
+            y_exp = 0 if iteration == 0 else target
+
+            assert (y.cpu().numpy() == y_exp).all()
+            X = X.cpu().numpy()
+
+            # make sure that our batch_size is as expected
+            if iteration == 0 and idx == (num_batches - 1):
+                expected_batch = last_batch
+            elif iteration > 0 and idx == (num_nb_batches - 1):
+                expected_batch = nb_last_batch
+                if target == 0:
+                    # these are glitches, so the last batch should
+                    # actually be twice this long
+                    expected_batch *= 2
+            elif target == 0:
+                # for glitches we'll report the smaller batch
+                # size for simplicity, so double it here
+                expected_batch = batch_size * 2
+            else:
+                expected_batch = batch_size
+            assert X.shape == (expected_batch, 2, sample_rate)
+
+            if iteration == 0:
+                assert (X == 1).all()
+            elif target == 1:
+                # we're dealing with waveforms
+                assert (X == 2).all()
+            elif target == 0:
+                # these are glitches, make sure they got
+                # inserted non-coincidentally
+                assert (X[: expected_batch // 2, 0] == 2).all()
+                assert (X[: expected_batch // 2, 1] == 1).all()
+
+                assert (X[expected_batch // 2 :, 1] == 2).all()
+                assert (X[expected_batch // 2 :, 0] == 1).all()
+
+        # the plus two is to account for the fact that
+        # we'll have one iteration for the background.
+        # We could just add one and save ourselves the
+        # subtraction in the next line, but this makes
+        # the expected behavior very explicit
+        expected_its = (num_nb_batches - 1) // num_kernels + 2
+        assert iteration == (expected_its - 1)
+
+    return func
+
+
 def test_deterministic_waveform_dataset_with_glitch_sampling(
     ones_hanford_background,
     ones_livingston_background,
-    glitch_sampler,
-    glitch_length,
     sample_rate,
     data_length,
+    kernel_length,
     stride,
     device,
 ):
     batch_size = 8
-    kernel_length = 1
-    data_size = int(data_length * sample_rate)
+    num_glitches = 500
     kernel_size = int(kernel_length * sample_rate)
-    glitch_size = int(glitch_length * sample_rate)
-    stride_size = int(stride * sample_rate)
 
-    if not isinstance(glitch_sampler, (str, Path)):
-        glitch_sampler.deterministic = True
-
+    glitch_sampler = MagicMock()
+    glitch_sampler.sample = MagicMock(
+        return_value=np.ones((num_glitches, 2, kernel_size))
+    )
     dataset = dataloader.DeterministicWaveformDataset(
         ones_hanford_background,
         ones_livingston_background,
@@ -369,53 +434,50 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
         glitch_sampler=glitch_sampler,
     )
     assert dataset.glitches is not None
-    assert dataset.glitches.shape == (10, 2, kernel_size)
+    assert dataset.glitches.shape == (num_glitches, 2, kernel_size)
     assert dataset.glitches.device.type == "cpu"
-
-    for i, glitch in enumerate(dataset.glitches.numpy()):
-        for j, ifo in enumerate(glitch):
-            start = glitch_size * i + glitch_size // 2 - kernel_size // 2
-            stop = start + kernel_size
-            power = (-1) ** j
-
-            assert (ifo == power * np.arange(start, stop)).all()
 
     dataset.to(device)
     assert dataset.glitches.device.type == device
 
-    num_kernels = (data_size - kernel_size) // stride_size + 1
-    num_batches, leftover = divmod(num_kernels, batch_size)
-    batches_per_iteration = num_batches if leftover == 0 else (num_batches + 1)
+    validate_deterministic_dataset(
+        dataset, num_glitches, batch_size // 2, target=0
+    )
 
-    num_glitches = len(dataset.glitches)
-    num_glitch_batches, glitch_leftover = divmod(num_glitches, batch_size // 2)
-    if glitch_leftover > 0:
-        num_glitch_batches += 1
 
-    for i, (X, y) in enumerate(dataset):
-        iteration, idx = divmod(i, batches_per_iteration)
-        assert (y.cpu().numpy() == 0).all()
+def test_deterministic_waveform_dataset_with_waveform_sampling(
+    ones_hanford_background,
+    ones_livingston_background,
+    sample_rate,
+    stride,
+    device,
+    validate_deterministic_dataset,
+):
+    num_waveforms = 500
+    batch_size = 8
+    kernel_size = int(kernel_length * sample_rate)
 
-        X = X.cpu().numpy()
-        expected_batch = batch_size
-        if iteration > 0 and idx == (num_glitch_batches - 1):
-            expected_batch = glitch_leftover * 2
-        elif iteration == 0 and idx == num_batches and leftover > 0:
-            expected_batch = leftover
+    waveform_sampler = MagicMock()
+    waveform_sampler.sample = MagicMock(
+        return_value=np.ones((num_waveforms, 2, kernel_size))
+    )
+    dataset = dataloader.DeterministicWaveformDataset(
+        ones_hanford_background,
+        ones_livingston_background,
+        kernel_length=kernel_length,
+        stride=stride,
+        sample_rate=sample_rate,
+        batch_size=batch_size,
+        waveform_sampler=waveform_sampler,
+    )
 
-        assert X.shape == (expected_batch, 2, sample_rate)
+    assert dataset.waveforms is not None
+    assert dataset.waveforms.shape == (num_waveforms, 2, kernel_size)
+    assert dataset.waveforms.device.type == "cpu"
 
-        if iteration == 0:
-            assert (X == 1).all()
-            continue
+    dataset.to(device)
+    assert dataset.waveforms.device.type == device
 
-        for j, x in enumerate(X):
-            ifo, glitch_idx = divmod(j, expected_batch // 2)
-            glitch_idx += idx * batch_size // 2
-
-            glitch = dataset.glitches[glitch_idx, ifo].cpu().numpy()
-            assert (x[ifo] == glitch).all()
-            assert (x[1 - ifo] == 1).all()
-
-    assert iteration == 1
-    assert idx == (num_glitch_batches - 1)
+    validate_deterministic_dataset(
+        dataset, num_waveforms, batch_size, target=1
+    )
