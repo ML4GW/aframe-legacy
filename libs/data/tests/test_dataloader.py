@@ -32,6 +32,11 @@ def kernel_length():
     return 1
 
 
+@pytest.fixture(params=[8, 32])
+def batch_size(request):
+    return request.param
+
+
 @pytest.fixture(params=[0.01, 0.1, 0.5, 0.9])
 def glitch_frac(request):
     return request.param
@@ -345,18 +350,19 @@ def test_deterministic_waveform_dataset(
 
 @pytest.fixture
 def validate_deterministic_dataset(
-    data_size, kernel_length, sample_rate, stride, batch_size
+    data_size, kernel_length, sample_rate, stride
 ):
     kernel_size = int(kernel_length * sample_rate)
-    stride_size = int(kernel_length * sample_rate)
+    stride_size = int(stride * sample_rate)
     num_kernels = (data_size - kernel_size) // stride_size + 1
 
     def func(dataset, num_non_background, batch_size, target):
         num_batches = (num_kernels - 1) // batch_size + 1
         last_batch = num_kernels % batch_size or batch_size
 
-        num_nb_batches = (num_non_background - 1) // batch_size + 1
-        nb_last_batch = num_non_background % batch_size
+        nb_batch = batch_size if target else batch_size // 2
+        num_nb_batches = (num_non_background - 1) // nb_batch + 1
+        nb_last_batch = num_non_background % nb_batch or nb_batch
 
         for i, (X, y) in enumerate(dataset):
             iteration, idx = divmod(i, num_batches)
@@ -366,42 +372,52 @@ def validate_deterministic_dataset(
             X = X.cpu().numpy()
 
             # make sure that our batch_size is as expected
-            if iteration == 0 and idx == (num_batches - 1):
+            expected_batch = batch_size
+            end_of_background = idx == (num_batches - 1)
+            end_of_nb = (i - num_batches) == (num_nb_batches - 1)
+            if end_of_background:
                 expected_batch = last_batch
-            elif iteration > 0 and idx == (num_nb_batches - 1):
+
+                if (
+                    iteration > 0 and
+                    (not end_of_nb or last_batch < nb_last_batch)
+                ):
+                    end_of_nb = False
+                    nb_last_batch += nb_batch - last_batch
+                    if nb_last_batch >= nb_batch:
+                        num_nb_batches += 1
+                        nb_last_batch -= nb_batch
+
+            if iteration > 0 and end_of_nb:
                 expected_batch = nb_last_batch
                 if target == 0:
                     # these are glitches, so the last batch should
                     # actually be twice this long
                     expected_batch *= 2
-            elif target == 0:
-                # for glitches we'll report the smaller batch
-                # size for simplicity, so double it here
-                expected_batch = batch_size * 2
-            else:
-                expected_batch = batch_size
-            assert X.shape == (expected_batch, 2, sample_rate)
+
+            msg = f"{i}, {iteration}, {idx}, {num_batches}, {num_nb_batches}"
+            assert X.shape == (expected_batch, 2, sample_rate), msg
 
             if iteration == 0:
-                assert (X == 1).all()
+                assert (X == 1).all(), msg
             elif target == 1:
                 # we're dealing with waveforms
-                assert (X == 2).all()
+                assert (X == 2).all(), msg
             elif target == 0:
                 # these are glitches, make sure they got
                 # inserted non-coincidentally
-                assert (X[: expected_batch // 2, 0] == 2).all()
-                assert (X[: expected_batch // 2, 1] == 1).all()
+                assert (X[: expected_batch // 2, 0] == 2).all(), msg
+                assert (X[: expected_batch // 2, 1] == 1).all(), msg
 
-                assert (X[expected_batch // 2 :, 1] == 2).all()
-                assert (X[expected_batch // 2 :, 0] == 1).all()
+                assert (X[expected_batch // 2 :, 1] == 2).all(), msg
+                assert (X[expected_batch // 2 :, 0] == 1).all(), msg
 
         # the plus two is to account for the fact that
         # we'll have one iteration for the background.
         # We could just add one and save ourselves the
         # subtraction in the next line, but this makes
         # the expected behavior very explicit
-        expected_its = (num_nb_batches - 1) // num_kernels + 2
+        expected_its = (num_non_background - 1) // num_kernels + 2
         assert iteration == (expected_its - 1)
 
     return func
@@ -410,19 +426,20 @@ def validate_deterministic_dataset(
 def test_deterministic_waveform_dataset_with_glitch_sampling(
     ones_hanford_background,
     ones_livingston_background,
+    batch_size,
     sample_rate,
     data_length,
     kernel_length,
     stride,
     device,
+    validate_deterministic_dataset
 ):
-    batch_size = 8
     num_glitches = 500
     kernel_size = int(kernel_length * sample_rate)
 
     glitch_sampler = MagicMock()
     glitch_sampler.sample = MagicMock(
-        return_value=np.ones((num_glitches, 2, kernel_size))
+        return_value=[np.ones((num_glitches, kernel_size))] * 2
     )
     dataset = dataloader.DeterministicWaveformDataset(
         ones_hanford_background,
@@ -440,21 +457,20 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
     dataset.to(device)
     assert dataset.glitches.device.type == device
 
-    validate_deterministic_dataset(
-        dataset, num_glitches, batch_size // 2, target=0
-    )
+    validate_deterministic_dataset(dataset, num_glitches, batch_size, target=0)
 
 
 def test_deterministic_waveform_dataset_with_waveform_sampling(
     ones_hanford_background,
     ones_livingston_background,
+    batch_size,
     sample_rate,
+    kernel_length,
     stride,
     device,
     validate_deterministic_dataset,
 ):
     num_waveforms = 500
-    batch_size = 8
     kernel_size = int(kernel_length * sample_rate)
 
     waveform_sampler = MagicMock()

@@ -447,10 +447,12 @@ class DeterministicWaveformDataset:
                 self._idx = self._status = self._secondary_idx = None
                 raise StopIteration
 
-            stop = self._secondary_idx + self.batch_size
+            stop = self._secondary_idx + num_kernels
             waveforms = self.waveforms[self._secondary_idx : stop]
-            X = X[: len(waveforms)] + waveforms
+            X = X[: waveforms.shape[0]]
+            X += waveforms
             y += 1
+            self._secondary_idx = stop
 
         # crop y in case we had to crop X to match the
         # number of waveforms or glitches
