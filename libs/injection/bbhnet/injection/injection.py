@@ -150,7 +150,7 @@ def inject_into_segment(
     priors: bilby.gw.prior.BBHPriorDict,
     sample_rate: float,
     fftlength: float = 2,
-    *ifos
+    *ifos,
 ):
     """Helper function to inject_into_timeslide
     to assist in parallelization
@@ -206,6 +206,9 @@ def inject_into_segment(
             get_snr=True,
             noise_psd=psd,
         )
+
+        # store snr
+        segment_parameters[f"{ifo}_snr"] = snr
 
         # loop over signals, injecting them into the
         # raw strain

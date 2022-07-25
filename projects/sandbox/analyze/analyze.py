@@ -543,8 +543,6 @@ def analyze_injections(
                 master_latencies.append(latencies)
                 master_event_times.append(times)
 
-            wait(write_futures, return_when=FIRST_EXCEPTION)
-
             master_fars = np.vstack(master_fars)
             master_latencies = np.vstack(master_latencies)
             master_event_times = np.vstack(master_event_times)
