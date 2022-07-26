@@ -29,6 +29,7 @@ def test_waveform_sampler(
     max_snr,
     ifos,
     offset,
+    frac,
 ):
     if max_snr <= min_snr:
         with pytest.raises(ValueError):
@@ -41,8 +42,14 @@ def test_waveform_sampler(
         min_snr,
         max_snr,
         deterministic=deterministic,
+        frac=frac,
     )
-    assert sampler.waveforms.shape == (10, 2, glitch_length * sample_rate)
+    if frac is None:
+        expected_num = 100
+    else:
+        expected_num = abs(frac) * 100
+    expected_length = glitch_length * sample_rate
+    assert sampler.waveforms.shape == (expected_num, 2, expected_length)
 
     # we haven't fit to a background yet, so trying to sample
     # should raise an error because we can't do snr refitting

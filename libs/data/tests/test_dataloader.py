@@ -163,6 +163,7 @@ def test_random_waveform_dataset(
     sample_rate,
     data_size,
     device,
+    frac,
 ):
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
@@ -172,12 +173,17 @@ def test_random_waveform_dataset(
         sample_rate=sample_rate,
         batch_size=batch_size,
         batches_per_epoch=10,
+        frac=frac,
     )
+
+    if frac is not None:
+        data_size = abs(frac) * data_size
 
     for ifo in ["hanford", "livingston"]:
         background = getattr(dataset, f"{ifo}_background")
         assert background.device.type == "cpu"
         assert background.dtype == torch.float64
+        assert len(background) == data_size
 
     dataset.to(device)
     for ifo in ["hanford", "livingston"]:
@@ -299,6 +305,7 @@ def test_deterministic_waveform_dataset(
     stride,
     sample_rate,
     device,
+    frac,
 ):
     batch_size = 32
     kernel_length = 1
@@ -309,12 +316,18 @@ def test_deterministic_waveform_dataset(
         stride=stride,
         sample_rate=sample_rate,
         batch_size=batch_size,
+        frac=frac,
     )
 
     assert dataset.waveforms is None
     assert dataset.glitches is None
     assert dataset.background.device.type == "cpu"
     assert dataset.background.dtype == torch.float64
+
+    if frac is not None:
+        data_size = abs(frac) * data_size
+    assert dataset.background.shape[-1] == data_size
+    first_idx = dataset.background[0, 0]
 
     dataset.to(device)
     assert dataset.background.device.type == device
@@ -337,7 +350,7 @@ def test_deterministic_waveform_dataset(
         assert X.shape == (expected_batch, 2, sample_rate)
 
         for j, x in enumerate(X):
-            start = stride_size * (i * batch_size + j)
+            start = first_idx + stride_size * (i * batch_size + j)
             stop = start + kernel_size
             expected = np.arange(start, stop)
 
@@ -355,8 +368,11 @@ def num_non_background():
 
 @pytest.fixture
 def validate_deterministic_dataset(
-    data_size, kernel_length, sample_rate, stride, num_non_background
+    data_size, kernel_length, sample_rate, stride, num_non_background, frac
 ):
+    if frac is not None:
+        data_size = abs(frac) * data_size
+
     kernel_size = int(kernel_length * sample_rate)
     stride_size = int(stride * sample_rate)
     num_kernels = (data_size - kernel_size) // stride_size + 1
@@ -384,9 +400,8 @@ def validate_deterministic_dataset(
             if end_of_background:
                 expected_batch = last_batch
 
-                if (
-                    iteration > 0 and
-                    (not end_of_nb or last_batch < nb_last_batch)
+                if iteration > 0 and (
+                    not end_of_nb or last_batch < nb_last_batch
                 ):
                     if target == 0 and last_batch % 2 != 0:
                         expected_batch -= 1
@@ -459,9 +474,8 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
     stride,
     device,
     events,
-    validate_deterministic_dataset
+    validate_deterministic_dataset,
 ):
-    kernel_size = int(kernel_length * sample_rate)
     sampler = MagicMock()
     sampler.sample = MagicMock(return_value=events)
     dataset = dataloader.DeterministicWaveformDataset(

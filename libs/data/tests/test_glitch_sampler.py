@@ -13,14 +13,21 @@ def test_glitch_sampler(
     data_length,
     offset,
     device,
+    frac,
 ):
-    sampler = GlitchSampler(arange_glitches, deterministic)
+    sampler = GlitchSampler(arange_glitches, deterministic, frac=frac)
     sampler.to(device)
     assert sampler.hanford.device.type == device
     assert sampler.livingston.device.type == device
 
-    assert sampler.hanford.shape == (10, glitch_length * sample_rate)
-    assert sampler.livingston.shape == (10, glitch_length * sample_rate)
+    if frac is None:
+        expected_num = 100
+    else:
+        expected_num = abs(frac) * 100
+    expected_length = glitch_length * sample_rate
+
+    assert sampler.hanford.shape == (expected_num, expected_length)
+    assert sampler.livingston.shape == (expected_num, expected_length)
 
     # take over randint to return 4 so that we
     # know what size arrays to expect and verify
