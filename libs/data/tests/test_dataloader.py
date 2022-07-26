@@ -506,7 +506,7 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
         sample_rate=sample_rate,
         batch_size=batch_size,
         glitch_sampler=sampler,
-        frac=frac
+        frac=frac,
     )
     assert dataset.glitches is not None
     assert dataset.glitches.device.type == "cpu"
@@ -540,7 +540,7 @@ def test_deterministic_waveform_dataset_with_waveform_sampling(
         sample_rate=sample_rate,
         batch_size=batch_size,
         waveform_sampler=sampler,
-        frac=frac
+        frac=frac,
     )
 
     assert dataset.waveforms is not None
