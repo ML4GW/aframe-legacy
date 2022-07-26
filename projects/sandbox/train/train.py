@@ -18,13 +18,8 @@ from bbhnet.trainer import trainify
 # (i.e. the training and possible validation data)
 # get passed as inputs to deepclean.trainer.trainer.train,
 # as well as to expose these arguments _as well_ as those
-# from deepclean.trainer.trainer.train to command line
+# from bbhnet.trainer.trainer.train to command line
 # execution and parsing
-
-# note that this function is trivial:
-# it simply just returns the data paths passed to it.
-# however, future projects may have more complicated
-# data discovery/generation processes.
 
 
 @trainify
@@ -44,6 +39,7 @@ def main(
     batches_per_epoch: int,
     device: str,
     outdir: Path,
+    logdir: Path,
     fduration: Optional[float] = None,
     trigger_distance_size: float = 0,
     valid_frac: Optional[float] = None,
@@ -84,8 +80,10 @@ def main(
     """
 
     # make out dir and configure logging file
-    outdir.mkdir(exist_ok=True)
-    configure_logging(outdir / "train.log", verbose)
+    outdir.mkdir(exist_ok=True, parents=True)
+    logdir.mkdir(exist_ok=True, parents=True)
+
+    configure_logging(logdir / "train.log", verbose)
 
     # TODO: maybe package up hanford and livingston
     # (or any arbitrary set of ifos) background files into one
@@ -95,6 +93,7 @@ def main(
         frac = 1 - valid_frac
     else:
         frac = None
+
     # initiate training glitch sampler
     train_glitch_sampler = GlitchSampler(glitch_dataset, frac=frac)
 
