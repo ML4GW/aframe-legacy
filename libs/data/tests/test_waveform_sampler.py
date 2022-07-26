@@ -47,7 +47,7 @@ def test_waveform_sampler(
     if frac is None:
         expected_num = 100
     else:
-        expected_num = abs(frac) * 100
+        expected_num = int(abs(frac) * 100)
     expected_length = glitch_length * sample_rate
     assert sampler.waveforms.shape == (expected_num, 2, expected_length)
 
@@ -78,7 +78,7 @@ def test_waveform_sampler(
     # use this to verify that the array-wise computed
     # snrs match the values from calc_snr
     snrs = sampler.compute_snrs(multichannel)
-    assert snrs.shape == (10, len(ifos))
+    assert snrs.shape == (expected_num, len(ifos))
     for row, sample in zip(snrs, multichannel):
         for snr, x, background in zip(row, sample, sampler.background_asd):
             background = FrequencySeries(background, df=sampler.df)
@@ -89,7 +89,7 @@ def test_waveform_sampler(
     # reweighted snr values these waveforms will be
     # mapped to after reweighting, use it to verify the
     # functionality of reweight_snrs
-    target_snrs = np.arange(1, 11)
+    target_snrs = np.arange(1, expected_num + 1)
     with patch("numpy.random.uniform", return_value=target_snrs) as mock:
         reweighted = sampler.reweight_snrs(multichannel)
 
@@ -98,7 +98,7 @@ def test_waveform_sampler(
     # (ie the patch above won't actually get called)
     if deterministic:
         mock.assert_not_called()
-        target_snrs = np.ones((10,)) * (min_snr * max_snr) ** 0.5
+        target_snrs = np.ones((expected_num,)) * (min_snr * max_snr) ** 0.5
 
     for target, sample in zip(target_snrs, reweighted):
         actual = 0

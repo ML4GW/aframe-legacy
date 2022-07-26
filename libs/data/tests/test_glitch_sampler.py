@@ -20,11 +20,14 @@ def test_glitch_sampler(
     assert sampler.hanford.device.type == device
     assert sampler.livingston.device.type == device
 
+    expected_length = glitch_length * sample_rate
+    init_idx = 0
     if frac is None:
         expected_num = 100
     else:
         expected_num = abs(frac) * 100
-    expected_length = glitch_length * sample_rate
+        if frac < 0:
+            init_idx = (100 - expected_num) * expected_length
 
     assert sampler.hanford.shape == (expected_num, expected_length)
     assert sampler.livingston.shape == (expected_num, expected_length)
@@ -60,6 +63,7 @@ def test_glitch_sampler(
             if deterministic:
                 step = glitch_length * sample_rate
                 expected = j * step + step // 2 - data_length // 2 + offset
+                expected += init_idx
                 assert row[0] == power * expected
             else:
                 # make sure that the "trigger" of each glitch aka
