@@ -349,18 +349,24 @@ def test_deterministic_waveform_dataset(
 
 
 @pytest.fixture
+def num_non_background():
+    return 500
+
+
+@pytest.fixture
 def validate_deterministic_dataset(
-    data_size, kernel_length, sample_rate, stride
+    data_size, kernel_length, sample_rate, stride, num_non_background
 ):
     kernel_size = int(kernel_length * sample_rate)
     stride_size = int(stride * sample_rate)
     num_kernels = (data_size - kernel_size) // stride_size + 1
 
-    def func(dataset, num_non_background, batch_size, target):
+    def func(dataset, batch_size, target):
         num_batches = (num_kernels - 1) // batch_size + 1
         last_batch = num_kernels % batch_size or batch_size
 
-        nb_batch = batch_size if target else batch_size // 2
+        factor = 2 - target
+        nb_batch = batch_size // factor
         num_nb_batches = (num_non_background - 1) // nb_batch + 1
         nb_last_batch = num_non_background % nb_batch or nb_batch
 
@@ -382,18 +388,23 @@ def validate_deterministic_dataset(
                     iteration > 0 and
                     (not end_of_nb or last_batch < nb_last_batch)
                 ):
+                    if target == 0 and last_batch % 2 != 0:
+                        expected_batch -= 1
+
+                    # we ran out of background data before we got
+                    # through all of our "events." So if the corresponding
+                    # batch is too short, it will tack more events on to
+                    # the last batch, so record that here
                     end_of_nb = False
-                    nb_last_batch += nb_batch - last_batch
+                    nb_last_batch += nb_batch - last_batch // factor
                     if nb_last_batch >= nb_batch:
+                        # if we added enough to add a whole new batch,
+                        # increment our expected number of batches
                         num_nb_batches += 1
                         nb_last_batch -= nb_batch
 
             if iteration > 0 and end_of_nb:
-                expected_batch = nb_last_batch
-                if target == 0:
-                    # these are glitches, so the last batch should
-                    # actually be twice this long
-                    expected_batch *= 2
+                expected_batch = nb_last_batch * factor
 
             msg = f"{i}, {iteration}, {idx}, {num_batches}, {num_nb_batches}"
             assert X.shape == (expected_batch, 2, sample_rate), msg
@@ -402,25 +413,40 @@ def validate_deterministic_dataset(
                 assert (X == 1).all(), msg
             elif target == 1:
                 # we're dealing with waveforms
-                assert (X == 2).all(), msg
+                expected = np.arange(X[0, 0, 0], X[-1, 0, 0] + 1) - 1
+                assert (X[:, 0, 0] == (1 + expected)).all(), msg
+                assert (X[:, 0, -1] == (1 + expected)).all()
+                assert (X[:, 1, 0] == (1 - expected)).all()
             elif target == 0:
                 # these are glitches, make sure they got
                 # inserted non-coincidentally
-                assert (X[: expected_batch // 2, 0] == 2).all(), msg
-                assert (X[: expected_batch // 2, 1] == 1).all(), msg
+                expected = np.arange(
+                    X[0, 0, 0], X[expected_batch // 2 - 1, 0, 0] + 1
+                )
+                assert (X[: expected_batch // 2, 0, 0] == expected).all(), msg
+                assert (X[: expected_batch // 2, 1, 0] == 1).all(), msg
 
-                assert (X[expected_batch // 2 :, 1] == 2).all(), msg
-                assert (X[expected_batch // 2 :, 0] == 1).all(), msg
+                assert (X[expected_batch // 2 :, 1, 0] == -expected).all(), msg
+                assert (X[expected_batch // 2 :, 0, 0] == 1).all(), msg
 
         # the plus two is to account for the fact that
         # we'll have one iteration for the background.
         # We could just add one and save ourselves the
         # subtraction in the next line, but this makes
         # the expected behavior very explicit
-        expected_its = (num_non_background - 1) // num_kernels + 2
+        expected_its = (num_non_background * factor - 1) // num_kernels + 2
         assert iteration == (expected_its - 1)
 
     return func
+
+
+@pytest.fixture
+def events(kernel_length, sample_rate, num_non_background):
+    kernel_size = int(sample_rate * kernel_length)
+    waveforms = np.ones((kernel_size, num_non_background))
+    waveforms += np.arange(num_non_background)
+    events = waveforms.T
+    return [events, -events]
 
 
 def test_deterministic_waveform_dataset_with_glitch_sampling(
@@ -432,15 +458,12 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
     kernel_length,
     stride,
     device,
+    events,
     validate_deterministic_dataset
 ):
-    num_glitches = 500
     kernel_size = int(kernel_length * sample_rate)
-
-    glitch_sampler = MagicMock()
-    glitch_sampler.sample = MagicMock(
-        return_value=[np.ones((num_glitches, kernel_size))] * 2
-    )
+    sampler = MagicMock()
+    sampler.sample = MagicMock(return_value=events)
     dataset = dataloader.DeterministicWaveformDataset(
         ones_hanford_background,
         ones_livingston_background,
@@ -448,16 +471,15 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
         stride=stride,
         sample_rate=sample_rate,
         batch_size=batch_size,
-        glitch_sampler=glitch_sampler,
+        glitch_sampler=sampler,
     )
     assert dataset.glitches is not None
-    assert dataset.glitches.shape == (num_glitches, 2, kernel_size)
     assert dataset.glitches.device.type == "cpu"
 
     dataset.to(device)
     assert dataset.glitches.device.type == device
 
-    validate_deterministic_dataset(dataset, num_glitches, batch_size, target=0)
+    validate_deterministic_dataset(dataset, batch_size, target=0)
 
 
 def test_deterministic_waveform_dataset_with_waveform_sampling(
@@ -468,15 +490,12 @@ def test_deterministic_waveform_dataset_with_waveform_sampling(
     kernel_length,
     stride,
     device,
+    events,
     validate_deterministic_dataset,
 ):
-    num_waveforms = 500
-    kernel_size = int(kernel_length * sample_rate)
-
-    waveform_sampler = MagicMock()
-    waveform_sampler.sample = MagicMock(
-        return_value=np.ones((num_waveforms, 2, kernel_size))
-    )
+    waveforms = np.stack(events).transpose(1, 0, 2)
+    sampler = MagicMock()
+    sampler.sample = MagicMock(return_value=waveforms)
     dataset = dataloader.DeterministicWaveformDataset(
         ones_hanford_background,
         ones_livingston_background,
@@ -484,16 +503,13 @@ def test_deterministic_waveform_dataset_with_waveform_sampling(
         stride=stride,
         sample_rate=sample_rate,
         batch_size=batch_size,
-        waveform_sampler=waveform_sampler,
+        waveform_sampler=sampler,
     )
 
     assert dataset.waveforms is not None
-    assert dataset.waveforms.shape == (num_waveforms, 2, kernel_size)
     assert dataset.waveforms.device.type == "cpu"
 
     dataset.to(device)
     assert dataset.waveforms.device.type == device
 
-    validate_deterministic_dataset(
-        dataset, num_waveforms, batch_size, target=1
-    )
+    validate_deterministic_dataset(dataset, batch_size, target=1)
