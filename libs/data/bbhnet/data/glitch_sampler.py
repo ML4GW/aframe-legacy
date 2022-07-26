@@ -23,11 +23,8 @@ class GlitchSampler:
     def sample(
         self, N: int, size: int, trigger_distance_size: int = 0
     ) -> np.ndarray:
-        if N == 0:
-            num_hanford = 0
 
-        else:
-            num_hanford = np.random.randint(N)
+        num_hanford = np.random.randint(N)
 
         if num_hanford == 0:
             num_livingston = N
