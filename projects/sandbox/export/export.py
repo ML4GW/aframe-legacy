@@ -4,11 +4,10 @@ from typing import Callable, Optional
 
 import torch
 
+import hermes.quiver as qv
 from bbhnet.architectures import architecturize
 from bbhnet.data.transforms import WhiteningTransform
-
 from bbhnet.logging import configure_logging
-import hermes.quiver as qv
 
 
 @architecturize

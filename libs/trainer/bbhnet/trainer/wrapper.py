@@ -5,6 +5,7 @@ from bbhnet.trainer.trainer import train
 from hermes.typeo import typeo
 from hermes.typeo.typeo import _parse_doc, _parse_help
 
+
 def _configure_wrapper(f, wrapper):
 
     f_sig = inspect.signature(f)
