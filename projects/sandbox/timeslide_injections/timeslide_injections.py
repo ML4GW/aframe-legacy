@@ -19,7 +19,6 @@ from bbhnet.logging import configure_logging
 from hermes.typeo import typeo
 
 
-
 def circular_shift_segments(
     segments: SegmentList,
     shift: float,
