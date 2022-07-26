@@ -144,7 +144,7 @@ class RandomWaveformDataset:
         self.livingston_background = _load_background(
             livingston_background, frac
         )
-        assert len(hanford_background) == len(livingston_background)
+        assert len(self.hanford_background) == len(self.livingston_background)
 
         if waveform_sampler is not None:
             assert waveform_frac > 0
@@ -378,7 +378,13 @@ class DeterministicWaveformDataset:
         return self
 
     def __next__(self):
-        if self._idx >= (self.background.shape[-1] - self.kernel_size):
+        cutoff = self.background.shape[-1] - self.kernel_size
+        if self._status is Status.GLITCH:
+            # since we always insert one glitch for each
+            # IFO, we need at least 2 kernels
+            cutoff -= self.stride_size
+
+        if self._idx >= cutoff:
             # we've exhausted our current run of the background
             # dataset, so restart the index
             self._idx = 0
