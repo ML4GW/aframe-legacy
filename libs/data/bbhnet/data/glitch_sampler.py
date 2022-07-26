@@ -1,3 +1,5 @@
+from typing import Optional
+
 import h5py
 import numpy as np
 import torch
@@ -8,12 +10,29 @@ from bbhnet.data.utils import sample_kernels
 # TODO: generalize to arbitrary ifos
 class GlitchSampler:
     def __init__(
-        self, glitch_dataset: str, deterministic: bool = False
+        self,
+        glitch_dataset: str,
+        deterministic: bool = False,
+        frac: Optional[float] = None,
     ) -> None:
         # TODO: will these need to be resampled?
         with h5py.File(glitch_dataset, "r") as f:
             hanford_glitches = f["H1_glitches"][:]
             livingston_glitches = f["L1_glitches"][:]
+
+        if frac is not None:
+            num_hanford_glitches = int(frac * len(hanford_glitches))
+            num_livingston_glitches = int(frac * len(livingston_glitches))
+            if frac < 0:
+                hanford_glitches = hanford_glitches[num_hanford_glitches:]
+                livingston_glitches = livingston_glitches[
+                    num_livingston_glitches:
+                ]
+            else:
+                hanford_glitches = hanford_glitches[:num_hanford_glitches]
+                livingston_glitches = livingston_glitches[
+                    :num_livingston_glitches
+                ]
 
         self.hanford = torch.Tensor(hanford_glitches)
         self.livingston = torch.Tensor(livingston_glitches)

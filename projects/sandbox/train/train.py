@@ -46,10 +46,8 @@ def main(
     outdir: Path,
     fduration: Optional[float] = None,
     trigger_distance_size: float = 0,
-    val_glitch_dataset: str = None,
-    val_signal_dataset: str = None,
-    val_hanford_background: str = None,
-    val_livingston_background: str = None,
+    valid_frac: Optional[float] = None,
+    valid_stride: Optional[float] = None,
     verbose: bool = False,
     **kwargs
 ):
@@ -87,25 +85,18 @@ def main(
 
     # make out dir and configure logging file
     outdir.mkdir(exist_ok=True)
-
     configure_logging(outdir / "train.log", verbose)
-
-    # TODO: definitely a cleaner way to set validation flag
-    # if validation files are all passed, set validate bool to true
-    validation_files = (
-        val_glitch_dataset,
-        val_signal_dataset,
-        val_hanford_background,
-        val_livingston_background,
-    )
-    validate = all([f is not None for f in validation_files])
 
     # TODO: maybe package up hanford and livingston
     # (or any arbitrary set of ifos) background files into one
     # for simplicity
 
+    if valid_frac is not None:
+        frac = 1 - valid_frac
+    else:
+        frac = None
     # initiate training glitch sampler
-    train_glitch_sampler = GlitchSampler(glitch_dataset)
+    train_glitch_sampler = GlitchSampler(glitch_dataset, frac=frac)
 
     # initiate training waveform sampler
     train_waveform_sampler = WaveformSampler(
@@ -114,6 +105,7 @@ def main(
         min_snr=min_snr,
         max_snr=max_snr,
         highpass=highpass,
+        frac=frac,
     )
 
     # create full training dataloader
@@ -129,12 +121,12 @@ def main(
         glitch_sampler=train_glitch_sampler,
         glitch_frac=glitch_frac,
         trigger_distance=trigger_distance_size,
+        frac=frac,
     )
 
     # TODO: hard-coding num_ifos into preprocessor. Should
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
-
     preprocessor = WhiteningTransform(
         2, sample_rate, kernel_length, highpass=highpass, fduration=fduration
     )
@@ -146,18 +138,25 @@ def main(
     preprocessor.fit(background)
 
     # deterministic validation glitch sampler
-    if validate:
+    if valid_frac is not None:
+        if valid_stride is None:
+            raise ValueError(
+                "Must specify a validation stride if "
+                "specifying a validation fraction"
+            )
+
         val_glitch_sampler = GlitchSampler(
-            val_glitch_dataset, deterministic=True
+            glitch_dataset, deterministic=True, frac=-valid_frac
         )
 
         # deterministic validation waveform sampler
         val_waveform_sampler = WaveformSampler(
-            val_signal_dataset,
+            signal_dataset,
             sample_rate,
             min_snr=min_snr,
             max_snr=max_snr,
             highpass=highpass,
+            frac=-valid_frac,
         )
         val_waveform_sampler.fit(
             H1=train_dataset.hanford_background,
@@ -166,15 +165,16 @@ def main(
 
         # create full validation dataloader
         valid_dataset = DeterministicWaveformDataset(
-            val_hanford_background,
-            val_livingston_background,
+            hanford_background,
+            livingston_background,
             kernel_length=kernel_length,
             sample_rate=sample_rate,
-            stride=None,  # TODO: add arg for this
+            stride=valid_stride,
             batch_size=4 * batch_size,
             waveform_sampler=val_waveform_sampler,
             glitch_sampler=val_glitch_sampler,
             offset=0,
+            frac=-valid_frac,
         )
     else:
         valid_dataset = None

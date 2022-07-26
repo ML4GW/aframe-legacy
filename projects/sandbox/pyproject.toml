@@ -71,6 +71,8 @@ hanford_background = "${base.outdir}/data/H1_background.h5"
 livingston_background = "${base.outdir}/data/L1_background.h5"
 glitch_dataset = "${base.outdir}/data/glitches.h5"
 signal_dataset = "${base.outdir}/data/signals.h5"
+valid_frac = 0.0625
+
 outdir = "${base.outdir}/training"
 fduration = 1
 trigger_distance_size = -0.5

@@ -37,6 +37,7 @@ class WaveformSampler:
         duration: float = 31536000,
         highpass: Optional[float] = 20,
         deterministic: bool = False,
+        frac: Optional[float] = None,
     ):
         if max_snr <= min_snr:
             raise ValueError(
@@ -48,6 +49,13 @@ class WaveformSampler:
         with h5py.File(dataset, "r") as f:
             # TODO: enforce that the sample rates match? Or resample?
             self.waveforms = f["signals"][:]
+
+            if frac is not None:
+                num_waveforms = int(frac * len(self.waveforms))
+                if frac < 0:
+                    self.waveforms = self.waveforms[num_waveforms:]
+                else:
+                    self.waveforms = self.waveforms[:num_waveforms]
 
             if deterministic:
                 # load any sampled extrinsic parameters
@@ -62,6 +70,11 @@ class WaveformSampler:
                             "but waveform file {} is missing values for "
                             "extrinsic parameter {}".format(dataset, param)
                         )
+
+                    if frac is not None and frac < 0:
+                        value = value[num_waveforms:]
+                    elif frac is not None:
+                        value = value[:num_waveforms]
                     self.priors[param] = value
 
         if not deterministic:

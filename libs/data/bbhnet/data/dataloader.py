@@ -11,10 +11,17 @@ from bbhnet.data.utils import sample_kernels
 from bbhnet.data.waveform_sampler import WaveformSampler
 
 
-def _load_background(fname: str) -> torch.Tensor:
+def _load_background(fname: str, frac: Optional[float] = None) -> torch.Tensor:
     # TODO: maybe these are gwf and we resample?
     with h5py.File(fname, "r") as f:
         background = f["hoft"][:]
+
+    if frac is not None:
+        N = int(frac * len(background))
+        if frac < 0:
+            background = background[N:]
+        else:
+            background = background[:N]
     return torch.tensor(background, dtype=torch.float64)
 
 
@@ -32,6 +39,7 @@ class RandomWaveformDataset:
         glitch_sampler: Union[GlitchSampler, str, None] = None,
         glitch_frac: float = 0,
         trigger_distance: float = 0,
+        frac: Optional[float] = None,
     ) -> None:
         """Iterable dataset which can sample and inject auxiliary data
 
@@ -132,8 +140,10 @@ class RandomWaveformDataset:
         self.batches_per_epoch = batches_per_epoch
 
         # load in the background data
-        self.hanford_background = _load_background(hanford_background)
-        self.livingston_background = _load_background(livingston_background)
+        self.hanford_background = _load_background(hanford_background, frac)
+        self.livingston_background = _load_background(
+            livingston_background, frac
+        )
         assert len(hanford_background) == len(livingston_background)
 
         if waveform_sampler is not None:
@@ -163,7 +173,7 @@ class RandomWaveformDataset:
             self.num_glitches = max(1, int(glitch_frac * batch_size))
 
             if isinstance(glitch_sampler, (str, Path)):
-                glitch_sampler = GlitchSampler(glitch_sampler)
+                glitch_sampler = GlitchSampler(glitch_sampler, frac=frac)
             self.glitch_sampler = glitch_sampler
         else:
             # likewise, ensure that we didn't indicate that
@@ -303,6 +313,7 @@ class DeterministicWaveformDataset:
         waveform_sampler: Optional[WaveformSampler] = None,
         glitch_sampler: Union[GlitchSampler, str, None] = None,
         offset: float = 0,
+        frac: Optional[float] = None,
     ) -> None:
         # initialize our device to be cpu so that we
         # have to be explicit about forcing the background
@@ -314,8 +325,8 @@ class DeterministicWaveformDataset:
         self.batch_size = batch_size
 
         # load in the background data
-        hanford_background = _load_background(hanford_background)
-        livingston_background = _load_background(livingston_background)
+        hanford_background = _load_background(hanford_background, frac)
+        livingston_background = _load_background(livingston_background, frac)
         assert len(hanford_background) == len(livingston_background)
 
         offset = offset * sample_rate
@@ -334,7 +345,7 @@ class DeterministicWaveformDataset:
         if glitch_sampler is not None:
             if isinstance(glitch_sampler, (str, Path)):
                 glitch_sampler = GlitchSampler(
-                    glitch_sampler, deterministic=True
+                    glitch_sampler, deterministic=True, frac=frac
                 )
             glitches = glitch_sampler.sample(-1, self.kernel_size, offset)
             glitches = np.stack(glitches).transpose(1, 0, 2)
