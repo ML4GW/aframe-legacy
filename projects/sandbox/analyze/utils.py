@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
-import numpy as np
-
 from bbhnet.io.timeslides import Segment
 
 MAYBE_SEGMENTS = Union[Segment, Iterable[Segment]]
@@ -49,18 +47,3 @@ def get_write_dir(
         write_dir = write_dir / shift / f"{label}"
     write_dir.mkdir(parents=True, exist_ok=True)
     return write_dir
-
-
-def get_fname(t: np.ndarray, write_dir: Path, prefix: str = "out"):
-    """Infer the file name produced by write_timeseries
-    from a time array
-    """
-    t0 = t[0]
-    t0 = int(t0) if int(t0) == t0 else t0
-
-    length = t[-1] - t[0] + t[1] - t[0]
-    length = int(length) if int(length) == length else length
-
-    # format the filename and write the data to an archive
-    fname = write_dir / f"{prefix}_{t0}-{length}.hdf5"
-    return fname

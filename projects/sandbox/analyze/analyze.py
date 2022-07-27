@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 import h5py
 import numpy as np
 from rich.progress import Progress
-from utils import get_fname, get_write_dir, load_segments
+from utils import get_write_dir, load_segments
 
 from bbhnet.analysis.analysis import integrate
 from bbhnet.analysis.distributions.cluster import ClusterDistribution
@@ -218,20 +218,7 @@ def build_background(
 
                 # fit background to integrated output
                 # in the main process
-
-                # Distribution .fit method expects
-                # Segments so that it can keep track
-                # of paths associated with the Distribution;
-                # So infer the file path that will be written
-                # by write_timeseries, initialize a Segment
-                # with that path and then manually set the cache
-
-                fname = get_fname(t, write_dir, "integrated")
-                int_segment = Segment(fname)
-
-                # TODO: make a set cache method?
-                int_segment._cache = {"t": t, "integrated": integrated}
-                background.fit(int_segment, warm_start=warm_start)
+                background.fit((integrated, t), warm_start=warm_start)
 
                 # submit the writing job to our thread pool and
                 # use a callback to keep track of all the filenames
