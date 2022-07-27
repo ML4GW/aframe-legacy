@@ -25,6 +25,11 @@ def spacing(request):
     return request.param
 
 
+@pytest.fixture(params=[10])
+def jitter(request):
+    return request.param
+
+
 @pytest.fixture(params=[8])
 def buffer(request):
     return request.param
@@ -80,6 +85,7 @@ def test_timeslide_injections_no_segments(
     outdir,
     prior_file,
     spacing,
+    jitter,
     buffer,
     n_slides,
     shifts,
@@ -140,6 +146,7 @@ def test_timeslide_injections_with_segments(
     outdir,
     prior_file,
     spacing,
+    jitter,
     buffer,
     n_slides,
     shifts,
