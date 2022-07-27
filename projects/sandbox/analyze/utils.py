@@ -1,12 +1,9 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Optional, Tuple, Union
+from typing import Iterable, Optional, Union
 
 import numpy as np
 
 from bbhnet.io.timeslides import Segment
-
-if TYPE_CHECKING:
-    from bbhnet.analysis.distributions.distribution import Distribution
 
 MAYBE_SEGMENTS = Union[Segment, Iterable[Segment]]
 
@@ -31,25 +28,6 @@ def load_segments(segments: MAYBE_SEGMENTS, dataset: str):
     return segments
 
 
-# TODO: Should characterize_events just be a function
-# and not a method for the Distirbution class?
-def characterize_events(
-    background: "Distribution",
-    segment: Union["Segment", Tuple[np.ndarray, np.ndarray]],
-    event_times: Union[float, Iterable[float]],
-    window_length: float = 1,
-    metric: str = "far",
-):
-    fars, latencies = background.characterize_events(
-        segment,
-        event_times,
-        window_length,
-        metric,
-    )
-
-    return fars, latencies, event_times
-
-
 def get_write_dir(
     write_dir: Path,
     shift: Union[str, Segment],
@@ -71,3 +49,18 @@ def get_write_dir(
         write_dir = write_dir / shift / f"{label}"
     write_dir.mkdir(parents=True, exist_ok=True)
     return write_dir
+
+
+def get_fname(t: np.ndarray, write_dir: Path, prefix: str = "out"):
+    """Infer the file name produced by write_timeseries
+    from a time array
+    """
+    t0 = t[0]
+    t0 = int(t0) if int(t0) == t0 else t0
+
+    length = t[-1] - t[0] + t[1] - t[0]
+    length = int(length) if int(length) == length else length
+
+    # format the filename and write the data to an archive
+    fname = write_dir / f"{prefix}_{t0}-{length}.hdf5"
+    return fname

@@ -8,6 +8,8 @@ from bbhnet.io.timeslides import Segment
 
 SECONDS_IN_YEAR = 31556952
 
+SEGMENT_LIKE = Union[Segment, Iterable[Segment], Tuple[np.ndarray, np.ndarray]]
+
 
 @dataclass
 class Distribution:
