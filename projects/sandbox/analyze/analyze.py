@@ -181,6 +181,11 @@ def build_background(
             y, t = seg.load("out")
 
             for norm in norm_seconds:
+                # if user passes 0
+                # in norm_seconds treat it
+                # as no normalization
+                if norm == 0:
+                    norm = None
                 # build a normalizer for the given normalization window length
                 if norm is not None:
                     normalizer = GaussianNormalizer(norm * sample_rate)
