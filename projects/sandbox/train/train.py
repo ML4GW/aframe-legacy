@@ -155,6 +155,7 @@ def main(
             min_snr=min_snr,
             max_snr=max_snr,
             highpass=highpass,
+            deterministic=True,
             frac=-valid_frac,
         )
         val_waveform_sampler.fit(

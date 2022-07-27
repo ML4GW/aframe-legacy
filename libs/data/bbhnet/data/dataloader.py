@@ -473,4 +473,4 @@ class DeterministicWaveformDataset:
 
         # crop y in case we had to crop X to match the
         # number of waveforms or glitches
-        return X, y[: len(X)]
+        return X, y[: len(X)].to(self.device)

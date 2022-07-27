@@ -61,7 +61,7 @@ class WaveformSampler:
                 # load any sampled extrinsic parameters
                 # associated with the waveform
                 self.priors = {}
-                for param in list(PRIORS.keys()) + ["geocent_time"]:
+                for param in list(PRIORS.keys()):
                     try:
                         value = f[param][:]
                     except KeyError:
@@ -76,6 +76,12 @@ class WaveformSampler:
                     elif frac is not None:
                         value = value[:num_waveforms]
                     self.priors[param] = value
+
+                try:
+                    value = f["geocent_time"][:]
+                except KeyError:
+                    value = np.linspace(t0, t0 + duration, len(self.waveforms))
+                self.priors["geocent_time"] = value
 
         if not deterministic:
             # if we're not sampling deterministically, set up
@@ -210,9 +216,9 @@ class WaveformSampler:
             # if we're sampling kernels deterministically,
             # just place them in the center of the kernel
             # plus some indicated offset
-            center = signals.shape[-1] // 2
-            left = center + offset - size // 2
-            right = left + size
+            center = int(signals.shape[-1] // 2)
+            left = int(center + offset - size // 2)
+            right = int(left + size)
             return signals[:, :, left:right]
         else:
             # otherwise randomly sample kernels from these signals

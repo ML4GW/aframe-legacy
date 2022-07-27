@@ -64,9 +64,9 @@ class GlitchSampler:
             if N == -1:
                 N = len(self.hanford)
 
-            center = self.hanford.shape[-1] // 2
-            left = center + offset - size // 2
-            right = left + size
+            center = int(self.hanford.shape[-1] // 2)
+            left = int(center + offset - size // 2)
+            right = int(left + size)
 
             hanford = self.hanford[:N, left:right]
             livingston = self.livingston[:N, left:right]
