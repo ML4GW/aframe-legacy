@@ -17,7 +17,6 @@ class Distribution:
 
     def __post_init__(self):
         self.Tb = 0
-        self.fnames = []
 
     def write(self, path: Path):
         raise NotImplementedError
@@ -174,7 +173,7 @@ class Distribution:
 
     def fit(
         self,
-        segments: Union[Segment, Iterable[Segment]],
+        segments: SEGMENT_LIKE,
         warm_start: bool = True,
     ) -> None:
         """
@@ -192,6 +191,10 @@ class Distribution:
         if not warm_start:
             self.__post_init__()
 
+        if isinstance(segments, Tuple):
+            self.update(*segments)
+            return
+
         # TODO: accept pathlike and initialize a timeslide?
         if isinstance(segments, Segment):
             segments = [segments]
@@ -199,7 +202,6 @@ class Distribution:
         for segment in segments:
             y, t = segment.load(self.dataset)
             self.update(y, t)
-            self.fnames.extend(segment.fnames)
 
     def __str__(self):
         return f"{self.__class__.__name__}('{self.dataset}', Tb={self.Tb})"
