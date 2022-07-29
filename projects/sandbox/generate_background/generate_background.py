@@ -2,12 +2,12 @@ import logging
 from pathlib import Path
 from typing import List
 
-import h5py
 import numpy as np
 from gwdatafind import find_urls
 from gwpy.segments import DataQualityDict
 from gwpy.timeseries import TimeSeries
 
+from bbhnet.io.h5 import write_timeseries
 from bbhnet.logging import configure_logging
 from hermes.typeo import typeo
 
@@ -27,30 +27,51 @@ def main(
     force_generation: bool = False,
     verbose: bool = False,
 ):
-    """Generates background data for training BBHnet
+    """Generates a stretch of background data for training BBHnet,
+    as well as a stretch of backround for generating timeslides and
+    injections for testing
+
+    Uses segments defined by `state_flag` to query
+    a continuous and coincident stretch of data between
+    `start` and `stop` that is at least 2 * `minimum_length`
+    seconds long. The first half of this queried segment
+    will be used for training BBHnet while the second half
+    will be used for creating timeslides and injections
+    used for testing.
 
     Args:
         start: start gpstime
         stop: stop gpstime
-        ifos: which ifos to query data for
-        outdir: where to store data
+        ifos: List of interferometers
+        sample_rate: sample rate
+        channel: data channel
+        frame_type: frame type for gwdatafind
+        state_flag: name of science segments to use
+        minimum_length:
+            minimum continuous, coincident stretch
+            of time between start and stop
+        datadir: directory to store data
+        logdir: directory to store logs
+        force_generation:
+            If False, will only generate data if output path doesnt exist.
+            If True, will always generate data
+        verbose: If True, log verbosely
     """
 
-    # make logdir dir
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
-    # configure logging output file
+
     configure_logging(logdir / "generate_background.log", verbose)
 
-    # check if paths already exist
-    # TODO: maybe put all background in one path
-    paths_exist = [
-        Path(datadir / f"{ifo}_background.h5").exists() for ifo in ifos
-    ]
+    # if force generation is False check to see
+    # if both training and testing backgrounds
+    # exist
+    train_file_exists = len(list(datadir.glob("training_background*.h5"))) > 0
+    test_file_exists = len(list(datadir.glob("testing_background*.h5"))) > 0
 
-    if all(paths_exist) and not force_generation:
+    if train_file_exists and test_file_exists and not force_generation:
         logging.info(
-            "Background data already exists"
+            "All background data already exists"
             " and forced generation is off. Not generating background"
         )
         return
@@ -70,10 +91,14 @@ def main(
     for ifo in ifos:
         intersection &= segments[f"{ifo}:{state_flag}"].active
 
-    # find first continuous segment of minimum length
+    # find first continuous segment of 2 * minimum length
+    # the first minimum_length of this segment will be
+    # used for training BBHnet, the second will be
+    # used for creating timeslides and injections for testing
     segment_lengths = np.array(
         [float(seg[1] - seg[0]) for seg in intersection]
     )
+
     continuous_segments = np.where(segment_lengths >= minimum_length)[0]
 
     if len(continuous_segments) == 0:
@@ -89,6 +114,12 @@ def main(
         "from {} to {}".format(*segment)
     )
 
+    seg_start, seg_stop = segment
+    midpoint = (seg_start + seg_stop) / 2
+
+    training_data = {}
+    testing_data = {}
+
     for ifo in ifos:
 
         # find frame files
@@ -99,18 +130,35 @@ def main(
             gpsend=stop,
             urltype="file",
         )
-        data = TimeSeries.read(
-            files, channel=f"{ifo}:{channel}", start=segment[0], end=segment[1]
+        ts = TimeSeries.read(
+            files, channel=f"{ifo}:{channel}", start=seg_start, end=seg_stop
         )
 
         # resample
-        data = data.resample(sample_rate)
+        ts = ts.resample(sample_rate)
 
-        if np.isnan(data).any():
+        if np.isnan(ts).any():
             raise ValueError(
                 f"The background for ifo {ifo} contains NaN values"
             )
 
-        with h5py.File(datadir / f"{ifo}_background.h5", "w") as f:
-            f.create_dataset("hoft", data=data)
-            f.create_dataset("t0", data=float(segment[0]))
+        # store first half for training
+        train_ts = ts.crop(seg_start, midpoint)
+        training_data[ifo] = train_ts
+
+        # store second half for testing
+        test_ts = ts.crop(midpoint, seg_stop)
+        testing_data[ifo] = test_ts
+
+        train_times = train_ts.times.value
+        test_times = test_ts.times.value
+
+    train_fname = write_timeseries(
+        datadir, "training_background", t=train_times, **training_data
+    )
+
+    test_fname = write_timeseries(
+        datadir, "testing_background", t=test_times, **testing_data
+    )
+
+    return train_fname, test_fname
