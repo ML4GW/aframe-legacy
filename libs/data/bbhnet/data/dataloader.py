@@ -147,7 +147,7 @@ class RandomWaveformDataset:
         # load in the background data
         # and infer interferometers
         self.background_dict = _load_background(background_file, frac)
-
+        self.background = torch.stack(list(self.background_dict.values()))
         self.ifos = self.background_dict.keys()
         self.n_ifos = len(self.ifos)
 
@@ -188,10 +188,6 @@ class RandomWaveformDataset:
         # make sure that we have at least _some_
         # pure background in each batch
         assert (self.num_waveforms + self.num_glitches) < batch_size
-
-    @property
-    def background(self):
-        return torch.stack(self.background_dict.values())
 
     def sample_from_background(self):  # , independent: bool = True):
         """Sample a batch of kernels from the background data
@@ -324,6 +320,7 @@ class DeterministicWaveformDataset:
 
         # load in the background data
         self.background_dict = _load_background(background_file, frac)
+        self.background = torch.stack(list(self.background_dict.values()))
         self.ifos = list(self.background_dict.keys())
 
         offset = offset * sample_rate
@@ -334,6 +331,7 @@ class DeterministicWaveformDataset:
 
             # sample waveforms up front
             waveforms = waveform_sampler.sample(-1, self.kernel_size, offset)
+            print(waveforms.shape)
             self.waveforms = torch.Tensor(waveforms)
 
         # load in any glitches if we specified them
@@ -343,14 +341,11 @@ class DeterministicWaveformDataset:
                     glitch_sampler, deterministic=True, frac=frac
                 )
             glitches = glitch_sampler.sample(-1, self.kernel_size, offset)
-            glitches = np.stack(glitches.values()).transpose(1, 0, 2)
+            print(glitches)
+            glitches = np.stack(list(glitches.values())).transpose(1, 0, 2)
             self.glitches = torch.Tensor(glitches)
 
         self._idx = self._status = self._secondary_idx = None
-
-    @property
-    def background(self):
-        return torch.stack(self.background_dict.values())
 
     def to(self, device: str):
         """
@@ -422,7 +417,7 @@ class DeterministicWaveformDataset:
             kernel_size=(1, num_kernels), dilation=(1, self.stride_size)
         )
         X = unfold(X)
-        X = X.reshape(2, num_kernels, -1).transpose(1, 0)
+        X = X.reshape(len(self.ifos), num_kernels, -1).transpose(1, 0)
         y = torch.zeros((len(X),))
 
         self._idx += num_kernels * self.stride_size
@@ -462,6 +457,7 @@ class DeterministicWaveformDataset:
             stop = self._secondary_idx + num_kernels
             waveforms = self.waveforms[self._secondary_idx : stop]
             X = X[: waveforms.shape[0]]
+            print(X.shape, waveforms.shape)
             X += waveforms
             y += 1
             self._secondary_idx = stop

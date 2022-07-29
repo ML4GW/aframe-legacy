@@ -353,7 +353,7 @@ def test_deterministic_waveform_dataset(
             expected_batch = leftover
         else:
             expected_batch = batch_size
-        assert X.shape == (expected_batch, 2, sample_rate)
+        assert X.shape == (expected_batch, len(ifos), sample_rate)
 
         for j, x in enumerate(X):
             start = first_idx + stride_size * (i * batch_size + j)
@@ -383,7 +383,7 @@ def validate_deterministic_dataset(
     stride_size = int(stride * sample_rate)
     num_kernels = (data_size - kernel_size) // stride_size + 1
 
-    def func(dataset, batch_size, target):
+    def func(dataset, batch_size, target, ifos):
         num_batches = (num_kernels - 1) // batch_size + 1
         last_batch = num_kernels % batch_size or batch_size
 
@@ -437,7 +437,7 @@ def validate_deterministic_dataset(
                 expected_batch = nb_last_batch * factor
 
             msg = f"{i}, {iteration}, {idx}, {num_batches}, {num_nb_batches}"
-            assert X.shape == (expected_batch, 2, sample_rate), msg
+            assert X.shape == (expected_batch, len(ifos), sample_rate), msg
 
             if iteration == 0:
                 assert (X == 1).all(), msg
@@ -453,6 +453,8 @@ def validate_deterministic_dataset(
                 expected = np.arange(
                     X[0, 0, 0], X[expected_batch // 2 - 1, 0, 0] + 1
                 )
+                # TODO: this only checks first two ifo instances
+
                 assert (X[: expected_batch // 2, 0, 0] == expected).all(), msg
                 assert (X[: expected_batch // 2, 1, 0] == 1).all(), msg
 
@@ -478,32 +480,58 @@ def validate_deterministic_dataset(
 
 
 @pytest.fixture
-def events(kernel_length, sample_rate, num_non_background):
-    kernel_size = int(sample_rate * kernel_length)
-    waveforms = np.ones((kernel_size, num_non_background))
-    waveforms += np.arange(num_non_background)
-    events = waveforms.T
-    return [events, -events]
+def make_glitches(kernel_length, sample_rate, num_non_background):
+    def func(ifos):
+        glitches = {}
+        kernel_size = int(sample_rate * kernel_length)
+        data = np.ones((kernel_size, num_non_background))
+        data += np.arange(num_non_background)
+        data = data.T
+        for i, ifo in enumerate(ifos):
+            power = (-1) ** i
+            glitches[ifo] = data * power
+
+        return glitches
+
+    return func
+
+
+@pytest.fixture
+def make_events(kernel_length, sample_rate, num_non_background):
+    def func(ifos):
+        events = []
+        kernel_size = int(sample_rate * kernel_length)
+        waveforms = np.ones((kernel_size, num_non_background))
+        waveforms += np.arange(num_non_background)
+        waveforms = waveforms.T
+
+        for i in range(len(ifos)):
+            power = (-1) ** i
+            events.append(waveforms * power)
+        return events
+
+    return func
 
 
 def test_deterministic_waveform_dataset_with_glitch_sampling(
-    ones_hanford_background,
-    ones_livingston_background,
+    gen_ones_background,
     batch_size,
     sample_rate,
     data_length,
     kernel_length,
+    ifos,
     stride,
     device,
-    events,
+    make_glitches,
     frac,
     validate_deterministic_dataset,
 ):
+    glitches = make_glitches(ifos)
+    ones_background = gen_ones_background(ifos)
     sampler = MagicMock()
-    sampler.sample = MagicMock(return_value=events)
+    sampler.sample = MagicMock(return_value=glitches)
     dataset = dataloader.DeterministicWaveformDataset(
-        ones_hanford_background,
-        ones_livingston_background,
+        ones_background,
         kernel_length=kernel_length,
         stride=stride,
         sample_rate=sample_rate,
@@ -517,27 +545,28 @@ def test_deterministic_waveform_dataset_with_glitch_sampling(
     dataset.to(device)
     assert dataset.glitches.device.type == device
 
-    validate_deterministic_dataset(dataset, batch_size, target=0)
+    validate_deterministic_dataset(dataset, batch_size, target=0, ifos=ifos)
 
 
 def test_deterministic_waveform_dataset_with_waveform_sampling(
-    ones_hanford_background,
-    ones_livingston_background,
+    gen_ones_background,
     batch_size,
     sample_rate,
     kernel_length,
     stride,
+    ifos,
     device,
-    events,
+    make_events,
     frac,
     validate_deterministic_dataset,
 ):
+    events = make_events(ifos)
+    ones_background = gen_ones_background(ifos)
     waveforms = np.stack(events).transpose(1, 0, 2)
     sampler = MagicMock()
     sampler.sample = MagicMock(return_value=waveforms)
     dataset = dataloader.DeterministicWaveformDataset(
-        ones_hanford_background,
-        ones_livingston_background,
+        ones_background,
         kernel_length=kernel_length,
         stride=stride,
         sample_rate=sample_rate,
@@ -552,4 +581,4 @@ def test_deterministic_waveform_dataset_with_waveform_sampling(
     dataset.to(device)
     assert dataset.waveforms.device.type == device
 
-    validate_deterministic_dataset(dataset, batch_size, target=1)
+    validate_deterministic_dataset(dataset, batch_size, target=1, ifos=ifos)

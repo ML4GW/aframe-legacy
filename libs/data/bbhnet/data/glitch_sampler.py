@@ -58,7 +58,7 @@ class GlitchSampler:
         sampled_glitches = {}
         if self.deterministic:
             if N == -1:
-                N = len(self.hanford)
+                N = len(self.glitches[self.ifos[0]])
 
             center = int(self.glitches[self.ifos[0]].shape[-1] // 2)
             left = int(center + offset - size // 2)
