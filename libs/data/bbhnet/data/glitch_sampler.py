@@ -15,33 +15,28 @@ class GlitchSampler:
         deterministic: bool = False,
         frac: Optional[float] = None,
     ) -> None:
-        # TODO: will these need to be resampled?
+
+        self.glitches = {}
         with h5py.File(glitch_dataset, "r") as f:
-            hanford_glitches = f["H1_glitches"][:]
-            livingston_glitches = f["L1_glitches"][:]
+            self.ifos = list(f.keys())
+            for ifo in self.ifos:
+                ifo_glitches = f[ifo][:]
 
-        if frac is not None:
-            num_hanford_glitches = int(frac * len(hanford_glitches))
-            num_livingston_glitches = int(frac * len(livingston_glitches))
-            if frac < 0:
-                hanford_glitches = hanford_glitches[num_hanford_glitches:]
-                livingston_glitches = livingston_glitches[
-                    num_livingston_glitches:
-                ]
-            else:
-                hanford_glitches = hanford_glitches[:num_hanford_glitches]
-                livingston_glitches = livingston_glitches[
-                    :num_livingston_glitches
-                ]
+                if frac is not None:
+                    num_glitches = int(frac * len(ifo_glitches))
+                    if frac < 0:
+                        ifo_glitches = ifo_glitches[num_glitches:]
 
-        self.hanford = torch.Tensor(hanford_glitches)
-        self.livingston = torch.Tensor(livingston_glitches)
+                    else:
+                        ifo_glitches = ifo_glitches[:num_glitches]
+
+                self.glitches[ifo] = torch.Tensor(ifo_glitches)
 
         self.deterministic = deterministic
 
     def to(self, device: str) -> None:
-        self.hanford = self.hanford.to(device)
-        self.livingston = self.livingston.to(device)
+        for ifo in self.ifos:
+            self.glitches[ifo] = self.glitches[ifo].to(device)
 
     def sample(self, N: int, size: int, offset: int = 0) -> np.ndarray:
         """Sample glitches from each interferometer
@@ -60,31 +55,43 @@ class GlitchSampler:
         value of 0 indicates that every kernel must contain the trigger.
         """
 
+        sampled_glitches = {}
         if self.deterministic:
             if N == -1:
                 N = len(self.hanford)
 
-            center = int(self.hanford.shape[-1] // 2)
+            center = int(self.glitches[self.ifos[0]].shape[-1] // 2)
             left = int(center + offset - size // 2)
             right = int(left + size)
 
-            hanford = self.hanford[:N, left:right]
-            livingston = self.livingston[:N, left:right]
+            for ifo in self.ifos:
+                sampled_glitches[ifo] = self.glitches[ifo][:N, left:right]
         else:
-            hanford = livingston = None
-            num_hanford = np.random.randint(N)
-            num_livingston = N - num_hanford
+            for i, ifo in enumerate(self.ifos):
 
-            if num_hanford > 0:
-                hanford = sample_kernels(
-                    self.hanford, size, offset, num_hanford
-                )
-                hanford = torch.stack(hanford, axis=0)
+                # if on the last ifo
+                # set num to remaining requested
+                if i == len(self.ifos) - 1:
+                    num = N
 
-            if num_livingston > 0:
-                livingston = sample_kernels(
-                    self.livingston, size, offset, num_livingston
-                )
-                livingston = torch.stack(livingston, axis=0)
+                # otherwise choose random num
+                # from remaining gliches requested
+                else:
+                    num = np.random.randint(N)
 
-        return hanford, livingston
+                # update N to reflect num
+                # of glitches sampled already
+                N = N - num
+
+                # sample glitches
+                if num > 0:
+                    sampled_glitches[ifo] = sample_kernels(
+                        self.glitches[ifo], size, offset, num
+                    )
+                    sampled_glitches[ifo] = torch.stack(
+                        sampled_glitches[ifo], axis=0
+                    )
+                else:
+                    sampled_glitches[ifo] = None
+
+        return sampled_glitches

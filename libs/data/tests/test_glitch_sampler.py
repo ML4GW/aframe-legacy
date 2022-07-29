@@ -13,12 +13,15 @@ def test_glitch_sampler(
     data_length,
     offset,
     device,
+    ifos,
     frac,
 ):
     sampler = GlitchSampler(arange_glitches, deterministic, frac=frac)
     sampler.to(device)
-    assert sampler.hanford.device.type == device
-    assert sampler.livingston.device.type == device
+
+    for ifo in ifos:
+        assert sampler.glitches[ifo].device.type == device
+        assert sampler.glitches[ifo].device.type == device
 
     expected_length = glitch_length * sample_rate
     init_idx = 0
@@ -29,30 +32,33 @@ def test_glitch_sampler(
         if frac < 0:
             init_idx = (100 - expected_num) * expected_length
 
-    assert sampler.hanford.shape == (expected_num, expected_length)
-    assert sampler.livingston.shape == (expected_num, expected_length)
+    for ifo in ifos:
+        assert sampler.glitches[ifo].shape == (expected_num, expected_length)
+        assert sampler.glitches[ifo].shape == (expected_num, expected_length)
 
     # take over randint to return 4 so that we
     # know what size arrays to expect and verify
     # that they come out correctly
     with patch("numpy.random.randint", return_value=4):
-        hanford, livingston = sampler.sample(8, data_length, offset)
+        glitches = sampler.sample(4 * len(ifos), data_length, offset)
 
-    expected_batch = 8 if deterministic else 4
-    assert hanford.shape == (expected_batch, data_length)
-    assert livingston.shape == (expected_batch, data_length)
+    expected_batch = 4 * len(ifos) if deterministic else 4
+    for ifo in ifos:
+        assert glitches[ifo].shape == (expected_batch, data_length)
 
     # resample these since setting randint to equal
     # 4 actually throws off sample_kernels when it
     # gets called under the hood. Use this cheap little
     # loop to make sure that we have some data for both
     # interferometers to verify
-    hanford = livingston = None
-    while hanford is None or livingston is None:
-        hanford, livingston = sampler.sample(8, data_length, offset)
+    for ifo in ifos:
+        glitches[ifo] = None
+    while any(value is None for value in glitches.values()):
+        glitches = sampler.sample(8, data_length, offset)
 
     glitch_size = glitch_length * sample_rate
-    for i, tensor in enumerate([hanford, livingston]):
+    for i, ifo in enumerate(ifos):
+        tensor = glitches[ifo]
         value = tensor.cpu().numpy()
 
         # the livingston data is negative
@@ -80,12 +86,27 @@ def test_glitch_sampler(
 
     # now make sure that Nones get returned when
     # all the glitches are one or the other
-    with patch("numpy.random.randint", return_value=0):
-        hanford, livingston = sampler.sample(8, data_length)
-    assert hanford is None
-    assert livingston.shape == (8, data_length)
 
-    with patch("numpy.random.randint", return_value=8):
-        hanford, livingston = sampler.sample(8, data_length)
-    assert livingston is None
-    assert hanford.shape == (8, data_length)
+    n_samples = (len(ifos) - 1) * 4
+    with patch("numpy.random.randint", return_value=0):
+        glitches = sampler.sample(n_samples, data_length)
+        print(glitches)
+
+    for i, tensor in enumerate(glitches.values()):
+        # if not on last ifo
+        # expect to return None
+        if (i + 1) != len(ifos):
+            assert tensor is None
+        else:
+            assert tensor.shape == (n_samples, data_length)
+
+    with patch("numpy.random.randint", return_value=4):
+        glitches = sampler.sample(n_samples, data_length)
+
+    for i, tensor in enumerate(glitches.values()):
+        # if on last ifo
+        # expect to return Non
+        if (i + 1) == len(ifos):
+            assert tensor is None
+        else:
+            assert tensor.shape == (4, data_length)
