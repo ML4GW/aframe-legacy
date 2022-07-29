@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Optional
 
-import torch
-
 from bbhnet.data import (
     DeterministicWaveformDataset,
     GlitchSampler,
@@ -26,8 +24,7 @@ from bbhnet.trainer import trainify
 def main(
     glitch_dataset: str,
     signal_dataset: str,
-    hanford_background: str,
-    livingston_background: str,
+    background_dataset: str,
     waveform_frac: float,
     glitch_frac: float,
     kernel_length: float,
@@ -85,10 +82,6 @@ def main(
 
     configure_logging(logdir / "train.log", verbose)
 
-    # TODO: maybe package up hanford and livingston
-    # (or any arbitrary set of ifos) background files into one
-    # for simplicity
-
     if valid_frac is not None:
         frac = 1 - valid_frac
     else:
@@ -109,8 +102,7 @@ def main(
 
     # create full training dataloader
     train_dataset = RandomWaveformDataset(
-        hanford_background,
-        livingston_background,
+        background_dataset,
         kernel_length=kernel_length,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -130,10 +122,7 @@ def main(
         2, sample_rate, kernel_length, highpass=highpass, fduration=fduration
     )
 
-    # TODO: make this a `train_dataset.background` `@property`?
-    background = torch.stack(
-        [train_dataset.hanford_background, train_dataset.livingston_background]
-    )
+    background = train_dataset.background
     preprocessor.fit(background)
 
     # deterministic validation glitch sampler
@@ -165,8 +154,7 @@ def main(
 
         # create full validation dataloader
         valid_dataset = DeterministicWaveformDataset(
-            hanford_background,
-            livingston_background,
+            background_dataset,
             kernel_length=kernel_length,
             sample_rate=sample_rate,
             stride=valid_stride,
