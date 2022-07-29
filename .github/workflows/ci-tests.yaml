@@ -53,8 +53,8 @@ jobs:
               - 'projects/sandbox/export/**'
             infer:
               - 'projects/sandbox/infer/**'
-            timeslide_injections:
-              - 'projects/sandbox/timeslide_injections/**'
+            generate_timeslides:
+              - 'projects/sandbox/generate_timeslides/**'
 
       # install gcc for bilby build
       -
@@ -171,9 +171,9 @@ jobs:
 
       - name: run timeslide injection tests
         if: |
-          (steps.filter.outputs.timeslide_injections == 'true')
+          (steps.filter.outputs.generate_timeslides == 'true')
           || (steps.filter.outputs.io == 'true')
           || (steps.filter.outputs.injection == 'true')
         env:
-          test_dir: /github/workspace/projects/sandbox/timeslide_injections
+          test_dir: /github/workspace/projects/sandbox/generate_timeslides
         run: pinto -p $test_dir run pytest $test_dir/tests

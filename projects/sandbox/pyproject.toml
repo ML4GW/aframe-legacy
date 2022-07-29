@@ -117,7 +117,7 @@ streams_per_gpu = 10
 verbose = true
 commands.resnet = "${base.resnet}"
 
-[tool.typeo.scripts.timeslide_injections]
+[tool.typeo.scripts.generate_timeslides]
 start = "${base.start}" 
 stop = "${base.stop}" 
 datadir = "${base.basedir}/timeslide_injections/"

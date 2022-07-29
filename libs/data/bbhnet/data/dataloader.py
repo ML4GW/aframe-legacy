@@ -148,7 +148,7 @@ class RandomWaveformDataset:
         # and infer interferometers
         self.background_dict = _load_background(background_file, frac)
         self.background = torch.stack(list(self.background_dict.values()))
-        self.ifos = self.background_dict.keys()
+        self.ifos = list(self.background_dict.keys())
         self.n_ifos = len(self.ifos)
 
         if waveform_sampler is not None:
