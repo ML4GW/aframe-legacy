@@ -63,21 +63,25 @@ def write_timeseries(data_dir):
 
 
 @pytest.fixture
-def arange_glitches(glitch_length, sample_rate, write_timeseries, data_dir):
+def arange_glitches(
+    glitch_length, sample_rate, write_timeseries, ifos, data_dir
+):
     num_glitches = 100
     glitches = np.arange(num_glitches * glitch_length * sample_rate).reshape(
         num_glitches, -1
     )
 
-    data = {
-        "H1_glitches": glitches,
-        "L1_glitches": -glitches,
-    }
+    data = {}
+    for i, ifo in enumerate(ifos):
+        data[ifo] = (-1) ** (i) * glitches
+
     write_timeseries("arange_glitches.h5", **data)
     return data_dir / "arange_glitches.h5"
 
 
-@pytest.fixture(params=[["H1"], ["H1", "L1"], ["H1", "L1", "V1"]])
+@pytest.fixture(
+    params=[["H1", "L1"], ["H1", "L1", "V1"], ["H1", "K1", "L1", "V1"]]
+)
 def ifos(request):
     return request.param
 

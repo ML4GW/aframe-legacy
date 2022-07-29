@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
@@ -12,24 +13,28 @@ from bbhnet.data.waveform_sampler import WaveformSampler
 
 
 def _load_background(fname: str, frac: Optional[float] = None) -> torch.Tensor:
-    # TODO: maybe these are gwf and we resample?
-    with h5py.File(fname, "r") as f:
-        background = f["hoft"][:]
+    background = OrderedDict()
 
-    if frac is not None:
-        N = int(frac * len(background))
-        if frac < 0:
-            background = background[N:]
-        else:
-            background = background[:N]
-    return torch.tensor(background, dtype=torch.float64)
+    with h5py.File(fname, "r") as f:
+        ifos = list(f.keys())
+        for ifo in ifos:
+            data = f[ifo][:]
+
+            if frac is not None:
+                N = int(frac * len(data))
+                if frac < 0:
+                    data = data[N:]
+                else:
+                    data = data[:N]
+            background[ifo] = torch.tensor(data, dtype=torch.float64)
+
+    return background
 
 
 class RandomWaveformDataset:
     def __init__(
         self,
-        hanford_background: str,
-        livingston_background: str,
+        background_file: str,
         kernel_length: float,
         sample_rate: float,
         batch_size: int,
@@ -140,11 +145,11 @@ class RandomWaveformDataset:
         self.batches_per_epoch = batches_per_epoch
 
         # load in the background data
-        self.hanford_background = _load_background(hanford_background, frac)
-        self.livingston_background = _load_background(
-            livingston_background, frac
-        )
-        assert len(self.hanford_background) == len(self.livingston_background)
+        # and infer interferometers
+        self.background_dict = _load_background(background_file, frac)
+
+        self.ifos = self.background_dict.keys()
+        self.n_ifos = len(self.ifos)
 
         if waveform_sampler is not None:
             assert waveform_frac > 0
@@ -153,9 +158,7 @@ class RandomWaveformDataset:
             # any data, fit it to this background for the snr
             # reweighting computation
             if waveform_sampler.background_asd is None:
-                waveform_sampler.fit(
-                    H1=self.hanford_background, L1=self.livingston_background
-                )
+                waveform_sampler.fit(**self.background_dict)
             self.waveform_sampler = waveform_sampler
             self.num_waveforms = max(1, int(waveform_frac * batch_size))
         else:
@@ -186,6 +189,10 @@ class RandomWaveformDataset:
         # pure background in each batch
         assert (self.num_waveforms + self.num_glitches) < batch_size
 
+    @property
+    def background(self):
+        return torch.stack(self.background_dict.values())
+
     def sample_from_background(self):  # , independent: bool = True):
         """Sample a batch of kernels from the background data
 
@@ -198,25 +205,23 @@ class RandomWaveformDataset:
             to make use of pre-sampled idx
         """
 
-        hanford_kernels = sample_kernels(
-            self.hanford_background,
-            self.kernel_size,
-            self.trigger_distance_size,
-            self.batch_size,
-        )
-        livingston_kernels = sample_kernels(
-            self.livingston_background,
-            self.kernel_size,
-            self.trigger_distance_size,
-            self.batch_size,
-        )
+        kernels = []
+        for ifo in self.ifos:
+            ifo_kernels = sample_kernels(
+                self.background_dict[ifo],
+                self.kernel_size,
+                self.trigger_distance_size,
+                self.batch_size,
+            )
+
+            kernels.append(ifo_kernels)
 
         # interweave these kernels along the 0th axis so that
         # a reshape puts them in the right channel dimension
-        kernels = zip(hanford_kernels, livingston_kernels)
+        kernels = zip(*kernels)
         kernels = [i for j in kernels for i in j]
         kernels = torch.stack(kernels, dim=0)
-        return kernels.reshape(self.batch_size, 2, -1)
+        return kernels.reshape(self.batch_size, self.n_ifos, -1)
 
     def to(self, device: str):
         """
@@ -226,13 +231,10 @@ class RandomWaveformDataset:
         to the device, you're ready for training, and you
         (in general) don't want to train at double precision
         """
-        self.hanford_background = self.hanford_background.to(device).type(
-            torch.float32
-        )
-        self.livingston_background = self.livingston_background.to(
-            device
-        ).type(torch.float32)
-
+        for ifo in self.ifos:
+            self.background_dict[ifo] = (
+                self.background_dict[ifo].to(device).type(torch.float32)
+            )
         if self.glitch_sampler is not None:
             self.glitch_sampler.to(device)
 
@@ -258,19 +260,16 @@ class RandomWaveformDataset:
         # replace some of this data with glitches if
         # we have glitch data to use
         if self.glitch_sampler is not None:
-            hanford_glitches, livingston_glitches = self.glitch_sampler.sample(
+            glitches = self.glitch_sampler.sample(
                 self.num_glitches, self.kernel_size, self.trigger_distance_size
             )
 
-            if hanford_glitches is not None:
-                X[: len(hanford_glitches), 0] = hanford_glitches
-                idx = len(hanford_glitches)
-            else:
-                idx = 0
-
-            if livingston_glitches is not None:
-                slc = slice(idx, idx + len(livingston_glitches))
-                X[slc, 1] = livingston_glitches
+            idx = 0
+            for i, (ifo, glitches) in enumerate(glitches.items()):
+                if glitches is not None:
+                    slc = slice(idx, idx + len(glitches))
+                    X[slc, i] = glitches
+                    idx += len(glitches)
 
         # inject waveforms into the background if we have
         # generated waveforms to sample from
@@ -304,8 +303,7 @@ class Status(Enum):
 class DeterministicWaveformDataset:
     def __init__(
         self,
-        hanford_background: str,
-        livingston_background: str,
+        background_file: str,
         kernel_length: float,
         stride: float,
         sample_rate: float,
@@ -325,17 +323,14 @@ class DeterministicWaveformDataset:
         self.batch_size = batch_size
 
         # load in the background data
-        hanford_background = _load_background(hanford_background, frac)
-        livingston_background = _load_background(livingston_background, frac)
-        assert len(hanford_background) == len(livingston_background)
+        self.background_dict = _load_background(background_file, frac)
+        self.ifos = list(self.background_dict.keys())
 
         offset = offset * sample_rate
         self.waveforms = self.glitches = None
         if waveform_sampler is not None:
             if waveform_sampler.background_asd is None:
-                waveform_sampler.fit(
-                    H1=hanford_background, L1=livingston_background
-                )
+                waveform_sampler.fit(**self.background_dict)
 
             # sample waveforms up front
             waveforms = waveform_sampler.sample(-1, self.kernel_size, offset)
@@ -348,14 +343,14 @@ class DeterministicWaveformDataset:
                     glitch_sampler, deterministic=True, frac=frac
                 )
             glitches = glitch_sampler.sample(-1, self.kernel_size, offset)
-            glitches = np.stack(glitches).transpose(1, 0, 2)
+            glitches = np.stack(glitches.values()).transpose(1, 0, 2)
             self.glitches = torch.Tensor(glitches)
 
-        # initialize some attributes for iteration
-        self.background = torch.stack(
-            [hanford_background, livingston_background]
-        )
         self._idx = self._status = self._secondary_idx = None
+
+    @property
+    def background(self):
+        return torch.stack(self.background_dict.values())
 
     def to(self, device: str):
         """

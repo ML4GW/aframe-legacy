@@ -77,23 +77,25 @@ def write_background(write_timeseries, t0, data_dir):
 
 
 @pytest.fixture
-def sequential_hanford_background(sequential_data, write_background):
-    return write_background("hanford.h5", sequential_data)
+def gen_sequential_background(sequential_data, write_timeseries, ifos):
+    def func(ifos):
+        data = {}
+        for i, ifo in enumerate(ifos):
+            data[ifo] = (-1) ** i * sequential_data
+        return write_timeseries("background.h5", **data)
+
+    return func
 
 
 @pytest.fixture
-def sequential_livingston_background(sequential_data, write_background):
-    return write_background("livingston.h5", -sequential_data)
+def gen_ones_background(ones_data, write_timeseries, ifos):
+    def func(ifos):
+        data = {}
+        for ifo in ifos:
+            data[ifo] = ones_data
+        return write_timeseries("background.h5", **data)
 
-
-@pytest.fixture
-def ones_hanford_background(ones_data, write_background):
-    return write_background("hanford.h5", ones_data)
-
-
-@pytest.fixture
-def ones_livingston_background(ones_data, write_background):
-    return write_background("livingston.h5", ones_data)
+    return func
 
 
 @pytest.fixture(params=["path", "sampler"])
@@ -158,17 +160,17 @@ def validate_dataset(dataset, cutoff_idx, target):
 
 # Test the training dataset class first
 def test_random_waveform_dataset(
-    sequential_hanford_background,
-    sequential_livingston_background,
+    gen_sequential_background,
     sample_rate,
     data_size,
     device,
     frac,
+    ifos,
 ):
+    sequential_background = gen_sequential_background(ifos)
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        sequential_hanford_background,
-        sequential_livingston_background,
+        sequential_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -179,15 +181,13 @@ def test_random_waveform_dataset(
     if frac is not None:
         data_size = int(abs(frac) * data_size)
 
-    for ifo in ["hanford", "livingston"]:
-        background = getattr(dataset, f"{ifo}_background")
+    for background in dataset.background_dict.values():
         assert background.device.type == "cpu"
         assert background.dtype == torch.float64
         assert len(background) == data_size
 
     dataset.to(device)
-    for ifo in ["hanford", "livingston"]:
-        background = getattr(dataset, f"{ifo}_background")
+    for background in dataset.background_dict.values():
         assert background.device.type == device
         assert background.dtype == torch.float32
 
@@ -199,7 +199,7 @@ def test_random_waveform_dataset(
     # now go through and make sure that the iteration
     # method generates data of the right size
     for i, (X, y) in enumerate(dataset):
-        assert X.shape == (batch_size, 2, sample_rate)
+        assert X.shape == (batch_size, len(ifos), sample_rate)
         validate_sequential(X)
 
         # make sure targets are all 0 because we
@@ -211,18 +211,19 @@ def test_random_waveform_dataset(
 
 
 def test_random_waveform_dataset_with_glitch_sampling(
-    ones_hanford_background,
-    ones_livingston_background,
+    gen_ones_background,
     glitch_sampler,
     glitch_frac,
     sample_rate,
     data_length,
+    ifos,
     device,
 ):
+
+    ones_background = gen_ones_background(ifos)
     batch_size = 32
     dataset = dataloader.RandomWaveformDataset(
-        ones_hanford_background,
-        ones_livingston_background,
+        ones_background,
         kernel_length=1,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -230,9 +231,11 @@ def test_random_waveform_dataset_with_glitch_sampling(
         glitch_sampler=glitch_sampler,
         batches_per_epoch=10,
     )
+    ifos = list(dataset.background_dict.keys())
     dataset.to(device)
-    assert dataset.glitch_sampler.hanford.device.type == device
-    assert dataset.glitch_sampler.livingston.device.type == device
+
+    for ifo in ifos:
+        assert dataset.glitch_sampler.glitches[ifo].device.type == device
 
     expected_num = max(1, int(glitch_frac * batch_size))
     assert dataset.num_glitches == expected_num
@@ -244,11 +247,11 @@ def test_random_waveform_dataset_with_glitch_sampling(
 
 
 def test_random_waveform_dataset_with_waveform_sampling(
-    ones_hanford_background,
-    ones_livingston_background,
+    gen_ones_background,
     sine_waveforms,
     waveform_frac,
     sample_rate,
+    ifos,
     data_length,
     device,
 ):
@@ -256,14 +259,14 @@ def test_random_waveform_dataset_with_waveform_sampling(
         sine_waveforms, sample_rate, min_snr=20, max_snr=40
     )
 
+    ones_background = gen_ones_background(ifos)
     batch_size = 32
     with patch(
         "gwpy.timeseries.TimeSeries.asd",
         return_value=mock_asd(data_length, sample_rate),
     ) as mock:
         dataset = dataloader.RandomWaveformDataset(
-            ones_hanford_background,
-            ones_livingston_background,
+            ones_background,
             kernel_length=1,
             sample_rate=sample_rate,
             batch_size=batch_size,
@@ -302,19 +305,19 @@ def stride(request):
 
 
 def test_deterministic_waveform_dataset(
-    sequential_hanford_background,
-    sequential_livingston_background,
+    gen_sequential_background,
     data_size,
     stride,
     sample_rate,
     device,
+    ifos,
     frac,
 ):
+    sequential_background = gen_sequential_background(ifos)
     batch_size = 32
     kernel_length = 1
     dataset = dataloader.DeterministicWaveformDataset(
-        sequential_hanford_background,
-        sequential_livingston_background,
+        sequential_background,
         kernel_length=kernel_length,
         stride=stride,
         sample_rate=sample_rate,
