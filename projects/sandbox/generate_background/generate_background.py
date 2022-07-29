@@ -64,12 +64,10 @@ def main(
     configure_logging(logdir / "generate_background.log", verbose)
 
     # if force generation is False check to see
-    # if both training and testing backgrounds
-    # exist
-    train_file_exists = len(list(datadir.glob("training_background*.h5"))) > 0
-    test_file_exists = len(list(datadir.glob("testing_background*.h5"))) > 0
+    # if training background exist
+    output_path_exists = len(list(datadir.glob("background*.h5"))) > 0
 
-    if train_file_exists and test_file_exists and not force_generation:
+    if output_path_exists and not force_generation:
         logging.info(
             "All background data already exists"
             " and forced generation is off. Not generating background"
@@ -115,10 +113,8 @@ def main(
     )
 
     seg_start, seg_stop = segment
-    midpoint = (seg_start + seg_stop) / 2
 
     training_data = {}
-    testing_data = {}
 
     for ifo in ifos:
 
@@ -143,22 +139,13 @@ def main(
             )
 
         # store first half for training
-        train_ts = ts.crop(seg_start, midpoint)
-        training_data[ifo] = train_ts
+        ts = ts.crop(seg_start, seg_stop)
+        training_data[ifo] = ts
 
-        # store second half for testing
-        test_ts = ts.crop(midpoint, seg_stop)
-        testing_data[ifo] = test_ts
+        times = ts.times.value
 
-        train_times = train_ts.times.value
-        test_times = test_ts.times.value
-
-    train_fname = write_timeseries(
-        datadir, "training_background", t=train_times, **training_data
+    fname = write_timeseries(
+        datadir, "training_background", t=times, **training_data
     )
 
-    test_fname = write_timeseries(
-        datadir, "testing_background", t=test_times, **testing_data
-    )
-
-    return train_fname, test_fname
+    return fname

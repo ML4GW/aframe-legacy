@@ -21,7 +21,7 @@ sample_rate = 2048
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 frame_type = "HOFT_C01"
-minimum_length = 1000
+minimum_length = 10000
 
 [tool.poetry.scripts]
 generate-background = "generate_background:main"
