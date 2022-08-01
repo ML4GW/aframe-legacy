@@ -276,7 +276,6 @@ def analyze_injections(
     results_dir: Path,
     backgrounds: Dict[str, "Distribution"],
     sample_rate: float,
-    fduration: float,
     window_length: float = 1.0,
     kernel_length: float = 1.0,
     metric: str = "far",
@@ -515,7 +514,6 @@ def main(
     data_dir: Path,
     write_dir: Path,
     results_dir: Path,
-    fduration: float,
     t_clust: float,
     kernel_length: float,
     window_length: Optional[float] = None,
@@ -553,8 +551,6 @@ def main(
             Length of time, in seconds, over which to average
             neural network outputs for matched filter analysis
         t_clust: Clustering timescale for background distributions
-        fduration:
-            Number of seconds
         norm_seconds:
             Length of time, in seconds, over which to compute a moving
             "background" used to normalize the averaged neural network
