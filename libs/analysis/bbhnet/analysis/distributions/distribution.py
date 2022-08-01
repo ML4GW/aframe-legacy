@@ -1,14 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 
 from bbhnet.io.timeslides import Segment
 
 SECONDS_IN_YEAR = 31556952
-
-SEGMENT_LIKE = Union[Segment, Iterable[Segment], Tuple[np.ndarray, np.ndarray]]
 
 
 @dataclass
@@ -17,6 +15,7 @@ class Distribution:
 
     def __post_init__(self):
         self.Tb = 0
+        self.fnames = []
 
     def write(self, path: Path):
         raise NotImplementedError
@@ -173,7 +172,8 @@ class Distribution:
 
     def fit(
         self,
-        segments: SEGMENT_LIKE,
+        segments: Union[Segment, Iterable[Segment]],
+        vetoes: Optional[np.ndarray] = None,
         warm_start: bool = True,
     ) -> None:
         """
@@ -191,17 +191,26 @@ class Distribution:
         if not warm_start:
             self.__post_init__()
 
-        if isinstance(segments, Tuple):
-            self.update(*segments)
-            return
-
         # TODO: accept pathlike and initialize a timeslide?
         if isinstance(segments, Segment):
             segments = [segments]
 
         for segment in segments:
             y, t = segment.load(self.dataset)
+
+            if vetoes is not None:
+                root = segment.shift
+                shifts = list(map(float, root.split("-")[1:]))
+                for vetoes, shift in zip(vetoes, shifts):
+                    shifted_times = t + shift
+                    for vetoe in vetoes:
+                        start, stop = vetoe
+                        veto_mask = shifted_times > start
+                        veto_mask &= shifted_times < stop
+                        y[veto_mask] = -np.inf
+
             self.update(y, t)
+            self.fnames.extend(segment.fnames)
 
     def __str__(self):
         return f"{self.__class__.__name__}('{self.dataset}', Tb={self.Tb})"
