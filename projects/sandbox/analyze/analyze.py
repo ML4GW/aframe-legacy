@@ -34,6 +34,7 @@ def build_background(
     kernel_length: float,
     window_length: float,
     norm_seconds: Optional[Iterable[float]] = None,
+    vetoes: Optional[np.ndarray] = None,
 ):
     """
     For a sequence of background segments, compute a discrete
@@ -224,7 +225,9 @@ def build_background(
 
                 # fit background to integrated output
                 # in the main process
-                background.fit((integrated, t), warm_start=warm_start)
+                background.fit(
+                    (integrated, t), warm_start=warm_start, vetoes=vetoes
+                )
 
                 # submit the writing job to our thread pool and
                 # use a callback to keep track of all the filenames
@@ -517,6 +520,7 @@ def main(
     kernel_length: float,
     window_length: Optional[float] = None,
     norm_seconds: Optional[List[float]] = None,
+    veto_files: Optional[Dict[str, Path]] = None,
     max_tb: Optional[float] = None,
     force: bool = False,
     log_file: Optional[str] = None,
@@ -575,6 +579,9 @@ def main(
             or `DEBUG` (if not set)
     """
 
+    if veto_files is not None:
+        vetoes = None
+
     window_length = window_length or kernel_length
 
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -610,6 +617,7 @@ def main(
                 kernel_length,
                 window_length,
                 norm_seconds,
+                vetoes,
             )
 
         # analyze all injection events
