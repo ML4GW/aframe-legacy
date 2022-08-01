@@ -1,5 +1,7 @@
 import logging
+import time
 from collections import defaultdict
+from concurrent.futures import FIRST_EXCEPTION, wait
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 
@@ -251,6 +253,8 @@ def build_background(
                 main_task_id, advance=len(load_futures) * segment.length
             )
 
+    wait(write_futures, return_when=FIRST_EXCEPTION)
+
     Tb = pbar.tasks[main_task_id].completed
     logging.info(f"Accumulated {Tb}s of background matched filter outputs.")
 
@@ -272,6 +276,7 @@ def analyze_injections(
     results_dir: Path,
     backgrounds: Dict[str, "Distribution"],
     sample_rate: float,
+    fduration: float,
     window_length: float = 1.0,
     kernel_length: float = 1.0,
     metric: str = "far",
@@ -454,9 +459,8 @@ def analyze_injections(
                 # get params file for injections for this timeshift
                 param_file = data_dir / shift / "injection" / "params.h5"
                 with h5py.File(param_file) as f:
-                    # TODO: we seem to be systematically off by 1.5 seconds;
-                    # need to find discrepancy
-                    event_times = f["geocent_time"][()] + 1.5
+
+                    event_times = f["geocent_time"][()]
                     event_mask = (event_times < event_window[1]) & (
                         event_times > event_window[0]
                     )
@@ -511,6 +515,7 @@ def main(
     data_dir: Path,
     write_dir: Path,
     results_dir: Path,
+    fduration: float,
     t_clust: float,
     kernel_length: float,
     window_length: Optional[float] = None,
@@ -548,6 +553,8 @@ def main(
             Length of time, in seconds, over which to average
             neural network outputs for matched filter analysis
         t_clust: Clustering timescale for background distributions
+        fduration:
+            Number of seconds
         norm_seconds:
             Length of time, in seconds, over which to compute a moving
             "background" used to normalize the averaged neural network
@@ -591,6 +598,7 @@ def main(
         data_dir / "dt-0.0-0.0", field="injection-out"
     ).segments
 
+    start = time.time()
     with thread_ex, process_ex:
         # build background distributions
         # of all timeslides for various
@@ -625,6 +633,7 @@ def main(
                 backgrounds,
                 sample_rate,
             )
+    print(time.time() - start)
 
 
 if __name__ == "__main__":

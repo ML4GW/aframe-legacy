@@ -19,7 +19,6 @@ def load_segments(segments: MAYBE_SEGMENTS, dataset: str):
 
     if isinstance(segments, Segment):
         segments.load(dataset)
-
     else:
         for segment in segments:
             segment.load(dataset)
