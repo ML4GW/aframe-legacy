@@ -1,5 +1,4 @@
 import logging
-import time
 from collections import defaultdict
 from concurrent.futures import FIRST_EXCEPTION, wait
 from pathlib import Path
@@ -594,7 +593,6 @@ def main(
         data_dir / "dt-0.0-0.0", field="injection-out"
     ).segments
 
-    start = time.time()
     with thread_ex, process_ex:
         # build background distributions
         # of all timeslides for various
@@ -629,7 +627,6 @@ def main(
                 backgrounds,
                 sample_rate,
             )
-    print(time.time() - start)
 
 
 if __name__ == "__main__":

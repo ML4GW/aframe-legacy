@@ -130,6 +130,7 @@ def main(
     model_version: int = -1,
     base_sequence_id: int = 1001,
     log_file: Optional[Path] = None,
+    fduration: Optional[float] = None,
     verbose: bool = False,
 ):
     configure_logging(log_file, verbose)
@@ -170,6 +171,7 @@ def main(
                     write_dir,
                     stream_size,
                     base_sequence_id,
+                    fduration=fduration,
                 )
 
 

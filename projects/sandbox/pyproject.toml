@@ -1,11 +1,11 @@
 [tool.pinto]
 steps = [
-    "generate_background:generate-background",
-    "generate_waveforms:generate-waveforms",
-    "generate_glitches:generate-glitches",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "timeslide_injections:timeslide_injections",
+    #"generate_background:generate-background",
+    #"generate_waveforms:generate-waveforms",
+    #"generate_glitches:generate-glitches",
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"timeslide_injections:timeslide_injections",
     "infer:infer",
     "analyze:analyze"
 ]
