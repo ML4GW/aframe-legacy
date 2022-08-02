@@ -185,6 +185,7 @@ def inject_into_segment(
     segment_parameters = priors.sample(n_samples)
 
     waveform_duration = waveform_generator.duration
+
     # the center of the sample
     # is geocent time
     segment_parameters["geocent_time"] = signal_times + (waveform_duration / 2)
@@ -226,13 +227,14 @@ def inject_into_segment(
         # raw strain
 
         for signal_start, signal in zip(signal_times, signals):
+            # set signal start to the closest value
+            # in the times array so gwpy.TimeSeries doesnt complain
+            signal_start = times[np.argmin(np.abs(times - signal_start))]
             signal_stop = signal_start + len(signal) * (1 / sample_rate)
-            signal_times = np.arange(
-                signal_start, signal_stop, 1 / sample_rate
-            )
+            inj_times = np.arange(signal_start, signal_stop, 1 / sample_rate)
 
             # create gwpy timeseries for signal
-            signal = TimeSeries(signal, times=signal_times)
+            signal = TimeSeries(signal, times=inj_times)
 
             # inject into raw background
             raw_ts[ifo] = raw_ts[ifo].inject(signal)
