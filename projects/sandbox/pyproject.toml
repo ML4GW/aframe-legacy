@@ -6,7 +6,7 @@ steps = [
     #"train:train:resnet",
     #"export:export-model:resnet",
     #"timeslide_injections:timeslide_injections",
-    "infer:infer",
+    #"infer:infer",
     "analyze:analyze"
 ]
 
@@ -135,6 +135,7 @@ sample_rate = "${base.sample_rate}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}" 
 state_flag = "${base.state_flag}"
+jitter = 20
 
 [tool.typeo.scripts.infer]
 model_repo_dir = "${base.repository_directory}"

@@ -29,6 +29,7 @@ def build_background(
     background_segments: Iterable[Segment],
     data_dir: Path,
     write_dir: Path,
+    results_dir: Path,
     max_tb: float,
     t_clust: float,
     kernel_length: float,
@@ -262,7 +263,7 @@ def build_background(
 
     # write all of the background distributions
     for norm, background in backgrounds.items():
-        background.write(write_dir / f"background_{norm}.h5")
+        background.write(results_dir / f"background_{norm}.h5")
 
     return backgrounds, sample_rate
 
@@ -338,7 +339,7 @@ def analyze_injections(
         total=len(injection_segments) * len(norms),
     )
     for norm, background in backgrounds.items():
-        master_fars, master_latencies, master_event_times = [], [], []
+        master_fars, master_latencies, master_integrated = [], [], []
         master_params = defaultdict(list)
         # create normalizer
         if norm is not None:
@@ -482,7 +483,7 @@ def analyze_injections(
                 # characterize events in main thread
                 segment = (integrated, t)
 
-                fars, latencies = background.characterize_events(
+                fars, latencies, outputs = background.characterize_events(
                     segment,
                     segment_event_times,
                     window_length=window_length,
@@ -494,21 +495,21 @@ def analyze_injections(
                 # append results
                 master_fars.append(fars)
                 master_latencies.append(latencies)
-
+                master_integrated.append(outputs)
                 pbar.update(main_task_id, advance=1)
 
         master_fars = np.vstack(master_fars)
         master_latencies = np.vstack(master_latencies)
+        master_integrated = np.vstack(master_integrated)
 
-        logging.info(f"Saving analysis data to {results_dir}")
-        with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
-            f.create_dataset("fars", data=master_fars)
-            f.create_dataset("latencies", data=master_latencies)
-            f.create_dataset("event_times", data=master_event_times)
-
-            # store all the corresponding injection parameters
-            for k, v in master_params.items():
-                f.create_dataset(k, data=v)
+    logging.info(f"Saving analysis data to {results_dir}")
+    with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
+        f.create_dataset("fars", data=master_fars)
+        f.create_dataset("latencies", data=master_latencies)
+        f.create_dataset("integrated", data=master_integrated)
+        # store all the corresponding injection parameters
+        for k, v in master_params.items():
+            f.create_dataset(k, data=v)
 
 
 @typeo
@@ -579,6 +580,7 @@ def main(
             or `DEBUG` (if not set)
     """
 
+    vetoes = None
     if veto_files is not None:
         vetoes = None
 
@@ -612,6 +614,7 @@ def main(
                 background_segments,
                 data_dir,
                 write_dir,
+                results_dir,
                 max_tb,
                 t_clust,
                 kernel_length,

@@ -18,6 +18,7 @@ python = ">=3.9,<3.11"
 "bbhnet.analysis" = {path = "../../../libs/analysis/", develop = true}
 rich = "^12.4.4"
 bokeh = "^2.4.3"
+dqsegdb = "^2.0.0"
 
 
 [build-system]

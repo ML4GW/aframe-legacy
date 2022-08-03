@@ -9,6 +9,9 @@ from bbhnet.io.timeslides import Segment
 SECONDS_IN_YEAR = 31556952
 
 
+SEGMENT_LIKE = Union[Segment, Iterable[Segment], Tuple[np.ndarray, np.ndarray]]
+
+
 @dataclass
 class Distribution:
     dataset: str
@@ -131,7 +134,7 @@ class Distribution:
         # might happen after that depending on how that goes
         length = t[-1] - t[0]
 
-        metrics, times = [], []
+        metrics, times, integrated = [], [], []
         for event_time in event_iter:
             # normalize the time array by the event time
             tc = t - event_time
@@ -158,6 +161,7 @@ class Distribution:
             elif metric == "significance":
                 characterization = self.significance(event, length)
 
+            integrated.append(event)
             metrics.append(characterization)
             times.append(tc[idx : idx + window_size])
 
@@ -168,11 +172,11 @@ class Distribution:
 
         # otherwise, return an array of these
         # stacked along the 0th dimension
-        return np.stack(metrics), np.stack(times)
+        return np.stack(metrics), np.stack(times), np.stack(integrated)
 
     def fit(
         self,
-        segments: Union[Segment, Iterable[Segment]],
+        segments: SEGMENT_LIKE,
         vetoes: Optional[np.ndarray] = None,
         warm_start: bool = True,
     ) -> None:
@@ -190,6 +194,10 @@ class Distribution:
         """
         if not warm_start:
             self.__post_init__()
+
+        if isinstance(segments, Tuple):
+            self.update(*segments)
+            return
 
         # TODO: accept pathlike and initialize a timeslide?
         if isinstance(segments, Segment):
