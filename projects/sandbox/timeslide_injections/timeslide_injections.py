@@ -130,72 +130,71 @@ def main(
         ]
     )
 
-    for shifts in timeslides:
+    # create process pool
+    process_ex = AsyncExecutor(4, thread=False)
+    with process_ex:
+        for shifts in timeslides:
 
-        # TODO: might be overly complex naming,
-        # but wanted to attempt to generalize to multi ifo
-        root = datadir / f"dt-{'-'.join(map(str,shifts))}"
+            # name timeslide dir based on ifo shifts
+            root = datadir / f"dt-{'-'.join(map(str,shifts))}"
 
-        # make root and timeslide directories
-        root.mkdir(exist_ok=True, parents=True)
+            # make root and timeslide directories
+            root.mkdir(exist_ok=True, parents=True)
 
-        # create TimeSlide object for injection
-        # this will create the directories if
-        # they don't exist
-        injection_ts = TimeSlide.create(root=root, field="injection")
+            # create TimeSlide object for injection
+            # this will create the directories if
+            # they don't exist
+            injection_ts = TimeSlide.create(root=root, field="injection")
 
-        # create TimeSlide object for raw data
-        # this will create the directories
-        # if they don't exist
-        raw_ts = TimeSlide.create(root=root, field="background")
+            # create TimeSlide object for raw data
+            # this will create the directories
+            # if they don't exist
+            raw_ts = TimeSlide.create(root=root, field="background")
 
-        for segment in intersection:
-            segment_start, segment_stop = segment
-            segment_start, segment_stop = float(segment_start), float(
-                segment_stop
-            )
-
-            segment_length = segment_stop - segment_start
-            if segment_length < (n_slides * max(shifts)):
-                logging.warning(
-                    "Performing a circular timeshift on a segment shorter in"
-                    " length then the longest timeshift: some timeslides will"
-                    " be duplicates"
+            for segment in intersection:
+                segment_start, segment_stop = segment
+                segment_start, segment_stop = float(segment_start), float(
+                    segment_stop
                 )
 
-            shifted_data = {}
-            for shift, ifo in enumerate(ifos):
-                # get data for this segment
-                segment_data = (
-                    data[ifo].crop(segment_start, segment_stop).value
+                segment_length = segment_stop - segment_start
+                if segment_length < (n_slides * max(shifts)):
+                    logging.warning(
+                        "Performing a circular timeshift on a segment "
+                        "shorter in length then the longest timeshift "
+                        "some timeslides may be duplicates"
+                    )
+
+                shifted_data = {}
+                for shift, ifo in enumerate(ifos):
+                    # get data for this segment
+                    segment_data = (
+                        data[ifo].crop(segment_start, segment_stop).value
+                    )
+                    times = (
+                        data[ifo].crop(segment_start, segment_stop).times.value
+                    )
+
+                    # roll timeseries by timeshift for ifo
+                    shifted_data[ifo] = np.roll(
+                        segment_data, int(np.round(shift * sample_rate))
+                    )
+
+                # write timeseries
+                h5.write_timeseries(
+                    raw_ts.path, prefix="raw", t=times, **shifted_data
                 )
-                times = data[ifo].crop(segment_start, segment_stop).times.value
 
-                # roll timeseries by timeshift for ifo
-                shifted_data[ifo] = np.roll(
-                    segment_data, int(np.round(shift * sample_rate))
-                )
+            # update segments in TimeSlide
 
-            # write timeseries
-            h5.write_timeseries(
-                raw_ts.path, prefix="raw", t=times, **shifted_data
-            )
+            raw_ts.update()
 
-        # update segments in TimeSlide
+            # now inject signals into raw files;
+            # this function automatically writes h5 files to TimeSlide
+            # for injected data
 
-        raw_ts.update()
-
-        # create process and thread pools
-        thread_ex = AsyncExecutor(4, thread=True)
-        process_ex = AsyncExecutor(4, thread=False)
-
-        # now inject signals into raw files;
-        # this function automatically writes h5 files to TimeSlide
-        # for injected data
-        with process_ex, thread_ex:
-            inject_signals_into_timeslide(
-                process_ex,
-                thread_ex,
+            process_ex.submit(
+                inject_signals_into_timeslide,
                 raw_ts,
                 injection_ts,
                 ifos,
