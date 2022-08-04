@@ -35,7 +35,7 @@ def buffer(request):
     return request.param
 
 
-@pytest.fixture(params=[1, 5, 10])
+@pytest.fixture(params=[3])
 def n_slides(request):
     return request.param
 
@@ -138,8 +138,23 @@ def test_timeslide_injections_no_segments(
         background_ts = TimeSlide(slide, field="background")
 
         assert len(injection_ts.segments) == len(background_ts.segments)
-
         assert (injection_ts.path / "params.h5").exists()
+
+        for segment in background_ts.segments:
+            shifted_seg = segment.make_shift(slide)
+
+            *y, t = segment.load(*ifos)
+            *y_shifted, t_shifted = shifted_seg.load(*ifos)
+
+            # time array refers to fixed ifo
+            # so shouldnt change
+            assert (t == t_shifted).all()
+
+            # make we are shifting!
+            for i, shift in enumerate(shifts):
+                assert (
+                    np.roll(y[i], int(shift * sample_rate)) == y_shifted[i]
+                ).all()
 
 
 def test_timeslide_injections_with_segments(
@@ -164,7 +179,7 @@ def test_timeslide_injections_with_segments(
 
     times = np.arange(start, stop, 1 / sample_rate)
     n_samples = len(times)
-    ts = TimeSeries(np.ones(n_samples), times=times)
+    ts = TimeSeries(np.arange(0, n_samples, 1), times=times)
 
     # create same segments for each ifo
     segments = DataQualityDict()
@@ -215,15 +230,34 @@ def test_timeslide_injections_with_segments(
     background_ts = TimeSlide(outdir / "dt-0.0-0.0", field="background")
 
     assert len(injection_ts.segments) == len(background_ts.segments)
+
     # make sure there is as many directories
     # as requested slides
     assert len(timeslides) == n_slides
 
     for slide in timeslides:
+
+        # unpack float values of shifts
+        # from timeslide dir name
+        shifts = list(map(float, slide.split("-")[1:]))
+
         # should be able to find same segment
         # in different time slide
         for segment in injection_ts.segments:
             segment.make_shift(slide)
 
         for segment in background_ts.segments:
-            segment.make_shift(slide)
+            shifted_seg = segment.make_shift(slide)
+
+            *y, t = segment.load(*ifos)
+            *y_shifted, t_shifted = shifted_seg.load(*ifos)
+
+            # time array refers to fixed ifo
+            # so shouldnt change
+            assert (t == t_shifted).all()
+
+            # make we are shifting!
+            for i, shift in enumerate(shifts):
+                assert (
+                    np.roll(y[i], int(shift * sample_rate)) == y_shifted[i]
+                ).all()
