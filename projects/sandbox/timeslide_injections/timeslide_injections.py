@@ -164,7 +164,8 @@ def main(
                 )
 
             shifted_data = {}
-            for shift, ifo in enumerate(ifos):
+            for i, ifo in enumerate(ifos):
+                shift = shifts[i]
                 # get data for this segment
                 segment_data = (
                     data[ifo].crop(segment_start, segment_stop).value
