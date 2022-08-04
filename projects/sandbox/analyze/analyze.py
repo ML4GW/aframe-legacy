@@ -125,6 +125,13 @@ def build_background(
         # going to the previous one to keep data as fresh as possible
         load_futures = {}
         for shift in data_dir.iterdir():
+
+            # don't add 0-lag to background
+            shift_values = np.array(
+                list(map(float, shift.name.split("-")[1:]))
+            )
+            if (shift_values == 0).all():
+                continue
             try:
                 shifted = segment.make_shift(shift.name)
             except ValueError:
@@ -509,14 +516,14 @@ def analyze_injections(
         master_latencies = np.vstack(master_latencies)
         master_integrated = np.vstack(master_integrated)
 
-    logging.info(f"Saving analysis data to {results_dir}")
-    with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
-        f.create_dataset("fars", data=master_fars)
-        f.create_dataset("latencies", data=master_latencies)
-        f.create_dataset("integrated", data=master_integrated)
-        # store all the corresponding injection parameters
-        for k, v in master_params.items():
-            f.create_dataset(k, data=v)
+        logging.info(f"Saving analysis data to {results_dir}")
+        with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
+            f.create_dataset("fars", data=master_fars)
+            f.create_dataset("latencies", data=master_latencies)
+            f.create_dataset("integrated", data=master_integrated)
+            # store all the corresponding injection parameters
+            for k, v in master_params.items():
+                f.create_dataset(k, data=v)
 
 
 @typeo
