@@ -177,6 +177,7 @@ class Distribution:
     def fit(
         self,
         segments: SEGMENT_LIKE,
+        shift: float,
         vetoes: Optional[np.ndarray] = None,
         warm_start: bool = True,
     ) -> None:
@@ -191,12 +192,15 @@ class Distribution:
             warm_start:
                 Whether to fit the distribution from scratch
                 or continue from its existing state.
+            vetoes:
+            shift:
+                Time shift of second interferometer
         """
         if not warm_start:
             self.__post_init__()
 
         if isinstance(segments, Tuple):
-            self.update(*segments)
+            self.update(*segments, shift)
             return
 
         # TODO: accept pathlike and initialize a timeslide?
@@ -217,7 +221,7 @@ class Distribution:
                         veto_mask &= shifted_times < stop
                         y[veto_mask] = -np.inf
 
-            self.update(y, t)
+            self.update(y, t, shift)
             self.fnames.extend(segment.fnames)
 
     def __str__(self):

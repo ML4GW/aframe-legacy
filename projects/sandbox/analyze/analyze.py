@@ -166,6 +166,10 @@ def build_background(
 
         for shift, seg in as_completed(load_futures):
 
+            # get shift value of
+            # second ifo
+            shift_value = float(shift.split("-")[-1])
+
             # advance the task keeping track of how many files
             # we've loaded by one
             pbar.update(load_task_id, advance=1)
@@ -227,7 +231,10 @@ def build_background(
                 # fit background to integrated output
                 # in the main process
                 background.fit(
-                    (integrated, t), warm_start=warm_start, vetoes=vetoes
+                    (integrated, t),
+                    shift_value,
+                    warm_start=warm_start,
+                    vetoes=vetoes,
                 )
 
                 # submit the writing job to our thread pool and
