@@ -7,6 +7,7 @@ import numpy as np
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.palettes import Colorblind8 as palette
 from bokeh.plotting import figure
+from gwpy.plot import Plot
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.analysis.distributions.cluster import ClusterDistribution
@@ -85,11 +86,13 @@ def scan_events(
     n_events: float,
     ifos: Iterable[str],
     timeslide_dir: Path,
+    results_dir: Path,
     distribution: ClusterDistribution,
     qrange: Tuple[float],
     frange: Tuple[float],
     tres: float,
     fres: float,
+    durs: List[float],
 ):
 
     # unpack the loudest and quietest n events
@@ -107,28 +110,55 @@ def scan_events(
         for segment in ts.segments:
 
             # find segment that corresponds to shift
-            shifted = ts.make_shift("dt-0.0-{float(shift)}")
+            shifted = segment.make_shift(f"dt-0.0-{float(shift)}")
 
             # if time is in this segment
             if time in shifted:
 
                 # load in raw hoft data
                 *raw, t = segment.load(*ifos)
-                for i, ifo in ifos:
+                for i, ifo in enumerate(ifos):
 
                     # create qscan
+                    longest = max(durs)
                     data = raw[i]
-                    asd = data.asd()
                     timeseries = TimeSeries(data, times=t)
-                    timeseries = timeseries.crop(time - 1, time + 1)
-                    qscan = timeseries.q_transform(
-                        frange=frange,
-                        qrange=qrange,
-                        tres=tres,
-                        fres=fres,
-                        whiten=asd,
+                    asd = timeseries.asd()
+                    timeseries = timeseries.crop(
+                        time - longest, time + longest
                     )
-                    qscan.plot()
+                    try:
+                        qgrams = [
+                            timeseries.q_transform(
+                                frange=frange,
+                                logf=True,
+                                outseg=(time - dur, time + dur),
+                                whiten=asd,
+                            )
+                            for dur in durs
+                        ]
+                    except ValueError:
+                        continue
+                    fig = Plot(
+                        *qgrams,
+                        figsize=(10 * len(durs), 5),
+                        geometry=(1, len(durs)),
+                        yscale="log",
+                        method="pcolormesh",
+                    )
+                    for ax in fig.axes:
+                        fig.colorbar(
+                            ax=ax, label="Normalized energy", clim=(0, 30)
+                        )
+                        ax.set_epoch(time)
+                    fig.suptitle(
+                        f"Omegascans of event at {time}", fontweight="bold"
+                    )
+
+                    fig.savefig(
+                        results_dir / f"background-scan-{time}.png",
+                        format="png",
+                    )
 
 
 @typeo
@@ -142,6 +172,7 @@ def main(
     frange: Tuple[float],
     fres: float,
     tres: float,
+    durs: List[float],
 ):
 
     # load in backgrounds
@@ -168,10 +199,12 @@ def main(
             n_events,
             ifos,
             timeslide_dir,
+            results_dir,
             background,
             qrange,
             frange,
             tres,
             fres,
+            durs,
         )
         return fars, latencies, integrated
