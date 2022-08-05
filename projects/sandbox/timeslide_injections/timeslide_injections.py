@@ -28,7 +28,8 @@ def main(
     datadir: Path,
     prior_file: str,
     spacing: float,
-    buffer: float,
+    jitter: float,
+    buffer_: float,
     n_slides: int,
     shifts: Iterable[float],
     ifos: Iterable[str],
@@ -163,7 +164,8 @@ def main(
                 )
 
             shifted_data = {}
-            for shift, ifo in enumerate(ifos):
+            for i, ifo in enumerate(ifos):
+                shift = shifts[i]
                 # get data for this segment
                 segment_data = (
                     data[ifo].crop(segment_start, segment_stop).value
@@ -200,13 +202,14 @@ def main(
                 ifos,
                 prior_file,
                 spacing,
+                jitter,
                 sample_rate,
                 file_length,
                 fmin,
                 waveform_duration,
                 reference_frequency,
                 waveform_approximant,
-                buffer,
+                buffer_,
             )
 
     return datadir
