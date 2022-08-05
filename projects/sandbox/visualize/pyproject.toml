@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "visualize"
+version = "0.1.0"
+description = "Visualize results from end to end BBHnet analysis"
+authors = ["ethan.marx <ethan.marx@ligo.org>"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+bokeh = "^2.4.3"
+"bbhnet.analysis" = {path = "../../../libs/analysis/", develop = true}
+"hermes.typeo" = "^0.1.5"
+
+[tool.poetry.scripts]
+visualize = "visualize:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

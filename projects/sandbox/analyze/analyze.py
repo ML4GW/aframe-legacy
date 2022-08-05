@@ -29,6 +29,7 @@ def build_background(
     background_segments: Iterable[Segment],
     data_dir: Path,
     write_dir: Path,
+    results_dir: Path,
     max_tb: float,
     t_clust: float,
     window_length: float = 1.0,
@@ -289,7 +290,7 @@ def build_background(
         pbar.update(fit_task_ids[norm], advance=1)
 
     for norm, background in backgrounds.items():
-        background.write(write_dir / f"background_{norm}.h5")
+        background.write(results_dir / f"background_{norm}.h5")
 
     return backgrounds, sample_rate
 
@@ -646,6 +647,7 @@ def main(
                 background_segments,
                 data_dir,
                 write_dir,
+                results_dir,
                 max_tb,
                 t_clust,
                 window_length,
