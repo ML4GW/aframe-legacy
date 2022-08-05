@@ -137,6 +137,7 @@ sample_rate = "${base.sample_rate}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}" 
 state_flag = "${base.state_flag}"
+jitter = 20
 
 [tool.typeo.scripts.infer]
 model_repo_dir = "${base.repository_directory}"

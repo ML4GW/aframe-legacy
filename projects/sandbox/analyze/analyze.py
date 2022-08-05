@@ -35,6 +35,7 @@ def build_background(
     kernel_length: float,
     window_length: float,
     norm_seconds: Optional[Iterable[float]] = None,
+    vetoes: Optional[np.ndarray] = None,
 ):
     """
     For a sequence of background segments, compute a discrete
@@ -124,6 +125,13 @@ def build_background(
         # going to the previous one to keep data as fresh as possible
         load_futures = {}
         for shift in data_dir.iterdir():
+
+            # don't add 0-lag to background
+            shift_values = np.array(
+                list(map(float, shift.name.split("-")[1:]))
+            )
+            if (shift_values == 0).all():
+                continue
             try:
                 shifted = segment.make_shift(shift.name)
             except ValueError:
@@ -164,6 +172,10 @@ def build_background(
         sample_rate = None
 
         for shift, seg in as_completed(load_futures):
+
+            # get shift value of
+            # second ifo
+            shift_value = float(shift.split("-")[-1])
 
             # advance the task keeping track of how many files
             # we've loaded by one
@@ -225,7 +237,12 @@ def build_background(
 
                 # fit background to integrated output
                 # in the main process
-                background.fit((integrated, t), warm_start=warm_start)
+                background.fit(
+                    (integrated, t),
+                    shift_value,
+                    warm_start=warm_start,
+                    vetoes=vetoes,
+                )
 
                 # submit the writing job to our thread pool and
                 # use a callback to keep track of all the filenames
@@ -336,7 +353,7 @@ def analyze_injections(
         total=len(injection_segments) * len(norms),
     )
     for norm, background in backgrounds.items():
-        master_fars, master_latencies, master_event_times = [], [], []
+        master_fars, master_latencies, master_integrated = [], [], []
         master_params = defaultdict(list)
         # create normalizer
         if norm is not None:
@@ -480,7 +497,7 @@ def analyze_injections(
                 # characterize events in main thread
                 segment = (integrated, t)
 
-                fars, latencies = background.characterize_events(
+                fars, latencies, outputs = background.characterize_events(
                     segment,
                     segment_event_times,
                     window_length=window_length,
@@ -492,18 +509,18 @@ def analyze_injections(
                 # append results
                 master_fars.append(fars)
                 master_latencies.append(latencies)
-
+                master_integrated.append(outputs)
                 pbar.update(main_task_id, advance=1)
 
         master_fars = np.vstack(master_fars)
         master_latencies = np.vstack(master_latencies)
+        master_integrated = np.vstack(master_integrated)
 
         logging.info(f"Saving analysis data to {results_dir}")
         with h5py.File(results_dir / f"injections-{norm}.h5", "w") as f:
             f.create_dataset("fars", data=master_fars)
             f.create_dataset("latencies", data=master_latencies)
-            f.create_dataset("event_times", data=master_event_times)
-
+            f.create_dataset("integrated", data=master_integrated)
             # store all the corresponding injection parameters
             for k, v in master_params.items():
                 f.create_dataset(k, data=v)
@@ -518,6 +535,7 @@ def main(
     kernel_length: float,
     window_length: Optional[float] = None,
     norm_seconds: Optional[List[float]] = None,
+    veto_files: Optional[Dict[str, Path]] = None,
     max_tb: Optional[float] = None,
     force: bool = False,
     log_file: Optional[str] = None,
@@ -576,6 +594,10 @@ def main(
             or `DEBUG` (if not set)
     """
 
+    vetoes = None
+    if veto_files is not None:
+        vetoes = None
+
     window_length = window_length or kernel_length
 
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -612,6 +634,7 @@ def main(
                 kernel_length,
                 window_length,
                 norm_seconds,
+                vetoes,
             )
 
         # analyze all injection events
