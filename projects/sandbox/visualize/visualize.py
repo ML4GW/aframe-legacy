@@ -10,7 +10,7 @@ from bokeh.plotting import figure
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.analysis.distributions.cluster import ClusterDistribution
-from bbhnet.io.timeslide import Timeslide
+from bbhnet.io.timeslides import TimeSlide
 from hermes.typeo import typeo
 
 
@@ -99,7 +99,7 @@ def scan_events(
     loudest_shifts = distribution.shifts[loudest_args]
 
     # read in all segments
-    ts = Timeslide(timeslide_dir / "dt-0.0-0.0", field="background")
+    ts = TimeSlide(timeslide_dir / "dt-0.0-0.0", field="background")
 
     # for each event
     for time, shift in zip(loudest_times, loudest_shifts):

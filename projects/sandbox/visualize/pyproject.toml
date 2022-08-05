@@ -8,8 +8,9 @@ authors = ["ethan.marx <ethan.marx@ligo.org>"]
 python = ">=3.9,<3.11"
 bokeh = "^2.4.3"
 "bbhnet.analysis" = {path = "../../../libs/analysis/", develop = true}
+"bbhnet.base" = {path = "../../../libs/base", extras=["gwpy"], develop = true}
+"bbhnet.io" = {path = "../../../libs/io", develop = true}
 "hermes.typeo" = "^0.1.5"
-
 [tool.poetry.scripts]
 visualize = "visualize:main"
 
