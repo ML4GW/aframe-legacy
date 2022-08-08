@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Iterable, List, Tuple
 
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 from bokeh.models import ColumnDataSource, HoverTool
 from bokeh.palettes import Colorblind8 as palette
@@ -88,6 +89,7 @@ def scan_events(
     timeslide_dir: Path,
     results_dir: Path,
     distribution: ClusterDistribution,
+    kernel_length: float,
     qrange: Tuple[float],
     frange: Tuple[float],
     tres: float,
@@ -95,17 +97,24 @@ def scan_events(
     durs: List[float],
 ):
 
+    """Generates omega scan of various durations
+    for the most significant and quietest background
+    events
+    """
+
     # unpack the loudest and quietest n events
     events = distribution.events
-    loudest_args = np.argsort(events)[-n_events:]
-    loudest_times = distribution.event_times[loudest_args]
-    loudest_shifts = distribution.shifts[loudest_args]
+    sorted_args = np.argsort(events)
+    args = np.concatenate((sorted_args[-n_events:], sorted_args[:n_events]))
+    events = distribution.events[args]
+    times = distribution.event_times[args]
+    shifts = distribution.shifts[args]
 
     # read in all segments
     ts = TimeSlide(timeslide_dir / "dt-0.0-0.0", field="background")
 
     # for each event
-    for time, shift in zip(loudest_times, loudest_shifts):
+    for time, shift, event in zip(times, shifts, events):
 
         for segment in ts.segments:
 
@@ -115,8 +124,11 @@ def scan_events(
             # if time is in this segment
             if time in shifted:
 
+                # center time on middle of kernel
+                time = time - kernel_length / 2
+
                 # load in raw hoft data
-                *raw, t = segment.load(*ifos)
+                *raw, t = shifted.load(*ifos)
                 for i, ifo in enumerate(ifos):
 
                     # create qscan
@@ -156,9 +168,50 @@ def scan_events(
                     )
 
                     fig.savefig(
-                        results_dir / f"background-scan-{time}.png",
+                        results_dir / f"background-scan-{ifo}-{event}.png",
                         format="png",
                     )
+
+
+def roc_curve(
+    background: ClusterDistribution,
+    inj_fars: np.ndarray,
+    inj_snrs: np.ndarray,
+    far_thresholds: np.ndarray,
+    norm: float,
+    outdir: Path,
+):
+
+    fig = plt.figure()
+
+    # create bins
+    n_bins = 10
+    bins = np.logspace(0, np.log10(max(inj_snrs)), n_bins)
+    mid = (bins[:-1] + bins[1:]) / 2
+
+    for thresh in far_thresholds:
+
+        effs = []
+        for i in range(len(bins) - 1):
+
+            # calculate efficiency for this
+            # bin at far thresh
+            mask = inj_snrs < bins[i + 1]
+            mask &= inj_snrs > bins[i]
+            fars = inj_fars[mask]
+            eff = len(fars[fars < thresh]) / len(fars)
+            effs.append(eff)
+
+        plt.plot(mid, effs, label=f"FAR {thresh} yr^-1")
+        plt.xlabel("Network SNR")
+        plt.ylabel("Detection efficiency")
+        plt.title(
+            f"Detection efficiency vs SNR at fixed FAR "
+            f"({norm} s normalization)"
+        )
+
+    plt.legend()
+    fig.savefig(outdir / "roc.png")
 
 
 @typeo
@@ -173,6 +226,7 @@ def main(
     fres: float,
     tres: float,
     durs: List[float],
+    kernel_length: float,
 ):
 
     # load in backgrounds
@@ -180,18 +234,33 @@ def main(
     # for each normalizaiton
 
     for norm in norm_seconds:
+        # 0 norm seconds corresponds to no normalization
         if norm == 0:
             norm = None
+
+        norm_results_dir = results_dir / f"norm-{norm}"
+        norm_results_dir.mkdir(exist_ok=True)
+
         injection_file = results_dir / f"injections-{norm}.h5"
         background_file = results_dir / f"background_{norm}.h5"
 
         with h5py.File(injection_file) as f:
-            fars = f["fars"]
-            latencies = f["latencies"]
-            integrated = f["integrated"]
+            inj_fars = f["fars"][()][:, -1]
+            inj_snrs = np.sqrt(f["H1_snr"][()] ** 2 + f["L1_snr"][()] ** 2)
 
         background = ClusterDistribution.from_file(
             "integrated", background_file
+        )
+
+        # create roc curve at various fixed FAR rates
+        far_thresholds = [1, 10, 1000, 10000, 100000]
+        roc_curve(
+            background,
+            inj_fars,
+            inj_snrs,
+            far_thresholds,
+            norm,
+            norm_results_dir,
         )
 
         # scan the loudest and quietest background events
@@ -199,12 +268,17 @@ def main(
             n_events,
             ifos,
             timeslide_dir,
-            results_dir,
+            norm_results_dir,
             background,
+            kernel_length,
             qrange,
             frange,
             tres,
             fres,
             durs,
         )
-        return fars, latencies, integrated
+
+        # histogram background and injection
+        # distributions
+
+    return results_dir
