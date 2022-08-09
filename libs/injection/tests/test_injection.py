@@ -9,7 +9,6 @@ from gwpy.detector import Channel
 from gwpy.timeseries import TimeSeries
 
 import bbhnet.injection
-from bbhnet.parallelize import AsyncExecutor
 
 TEST_DIR = Path(__file__).resolve().parent
 
@@ -114,29 +113,22 @@ def test_inject_signals_into_timeslide(
     prior,
 ):
 
-    # create process and thread pools
-    thread_ex = AsyncExecutor(4, thread=True)
-    process_ex = AsyncExecutor(4, thread=False)
-
     # TODO: why did we get rid of this fixture? just re using code
     prior_file = Path(__file__).absolute().parent / "prior_files"
     prior_file /= prior
     prior_file = prior_file.as_posix()
 
-    with process_ex, thread_ex:
-        out_timeslide = bbhnet.injection.inject_signals_into_timeslide(
-            process_ex,
-            thread_ex,
-            raw_timeslide,
-            inj_timeslide,
-            ifos,
-            prior_file,
-            spacing,
-            jitter,
-            sample_rate,
-            file_length,
-            fmin,
-        )
+    out_timeslide = bbhnet.injection.inject_signals_into_timeslide(
+        raw_timeslide,
+        inj_timeslide,
+        ifos,
+        prior_file,
+        spacing,
+        jitter,
+        sample_rate,
+        file_length,
+        fmin,
+    )
 
     param_file = out_timeslide.path / "params.h5"
     assert out_timeslide.path.exists()

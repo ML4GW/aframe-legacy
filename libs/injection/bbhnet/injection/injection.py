@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import List
@@ -231,8 +230,8 @@ def inject_signals_into_timeslide(
         signal_times = np.arange(start, stop, spacing)
 
         # add random jitter to signal times
-        jitter = rng.uniform(-jitter, jitter, size=len(signal_times))
-        signal_times += jitter
+        jitters = rng.uniform(-jitter, jitter, size=len(signal_times))
+        signal_times += jitters
 
         n_samples = len(signal_times)
 
@@ -316,6 +315,4 @@ def inject_signals_into_timeslide(
         for k, v in parameters.items():
             f.create_dataset(k, data=v)
 
-    logging.info(parameters["H1_snr"][0:4])
-    logging.info(jitter[0:4])
     return out_timeslide
