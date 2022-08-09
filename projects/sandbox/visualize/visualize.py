@@ -102,10 +102,11 @@ def scan_events(
     events
     """
 
-    # unpack the loudest and quietest n events
+    # unpack the loudest n events
     events = distribution.events
     sorted_args = np.argsort(events)
-    args = np.concatenate((sorted_args[-n_events:], sorted_args[:n_events]))
+    args = sorted_args[-n_events:]
+
     events = distribution.events[args]
     times = distribution.event_times[args]
     shifts = distribution.shifts[args]
@@ -129,48 +130,70 @@ def scan_events(
 
                 # load in raw hoft data
                 *raw, t = shifted.load(*ifos)
+                qgrams = []
                 for i, ifo in enumerate(ifos):
 
                     # create qscan
                     longest = max(durs)
                     data = raw[i]
+                    # TODO: generalize this to multi ifo.
+                    # should store shifts for all ifos
+                    if i != 0:
+                        times = times - shift
+                        shifted_time = time - shift
+                    else:
+                        shifted_time = time
                     timeseries = TimeSeries(data, times=t)
                     asd = timeseries.asd()
                     timeseries = timeseries.crop(
-                        time - longest, time + longest
+                        shifted_time - longest - 1, shifted_time + longest + 1
                     )
+                    # why was this failing again?
                     try:
-                        qgrams = [
-                            timeseries.q_transform(
-                                frange=frange,
-                                logf=True,
-                                outseg=(time - dur, time + dur),
-                                whiten=asd,
-                            )
-                            for dur in durs
-                        ]
+                        qgrams.extend(
+                            [
+                                timeseries.q_transform(
+                                    frange=frange,
+                                    logf=True,
+                                    outseg=(
+                                        shifted_time - dur,
+                                        shifted_time + dur,
+                                    ),
+                                    whiten=asd,
+                                )
+                                for dur in durs
+                            ]
+                        )
                     except ValueError:
                         continue
-                    fig = Plot(
-                        *qgrams,
-                        figsize=(10 * len(durs), 5),
-                        geometry=(1, len(durs)),
-                        yscale="log",
-                        method="pcolormesh",
-                    )
-                    for ax in fig.axes:
-                        fig.colorbar(
-                            ax=ax, label="Normalized energy", clim=(0, 30)
-                        )
+
+                fig = Plot(
+                    *qgrams,
+                    figsize=(8 * len(durs), 8),
+                    geometry=(2, len(durs)),
+                    yscale="log",
+                    method="pcolormesh",
+                )
+
+                for i, ax in enumerate(fig.axes):
+                    if i <= len(durs) - 1:
                         ax.set_epoch(time)
-                    fig.suptitle(
-                        f"Omegascans of event at {time}", fontweight="bold"
+                    else:
+                        ax.set_epoch(time - shift)
+                    fig.colorbar(
+                        ax=ax, label="Normalized energy", clim=(0, 30)
                     )
 
-                    fig.savefig(
-                        results_dir / f"background-scan-{ifo}-{event}.png",
-                        format="png",
-                    )
+                fig.suptitle(
+                    "Omegascans of background event"
+                    f"w/ integrated output {event}",
+                    fontweight="bold",
+                )
+
+                fig.savefig(
+                    results_dir / f"background_scan_{event:.2f}.png",
+                    format="png",
+                )
 
 
 def roc_curve(
@@ -239,7 +262,7 @@ def main(
             norm = None
 
         norm_results_dir = results_dir / f"norm-{norm}"
-        norm_results_dir.mkdir(exist_ok=True)
+        norm_results_dir.mkdir(exist_ok=True, parents=True)
 
         injection_file = results_dir / f"injections-{norm}.h5"
         background_file = results_dir / f"background_{norm}.h5"
