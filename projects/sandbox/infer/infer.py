@@ -23,12 +23,11 @@ def load(segment: Segment):
 def stream_data(
     x: np.ndarray, stream_size: int, sequence_id: int, client: InferenceClient
 ):
-
     # TODO: added this b/c there was a complaint
     # should the required data types be an argument
     # to the h5.write functions?
     x = x.astype(np.float32)
-    num_streams = (x.shape[-1] - 1) // stream_size + 1
+    num_streams = x.shape[-1] // stream_size
     for i in range(num_streams):
         stream = x[:, i * stream_size : (i + 1) * stream_size]
         client.infer(
@@ -70,7 +69,8 @@ def infer(
 
             # create a new timeseries entry to keep track of
             # as results come back in from the inference server
-            t = t[::stream_size]
+            num_streams = len(t) // stream_size
+            t = t[: num_streams * stream_size : stream_size]
             timeseries[sequence_id] = {"t": t, "y": np.array([])}
 
             # submit all the streaming inference requests to
@@ -126,6 +126,7 @@ def main(
     fields: Iterable[str],
     sample_rate: float,
     inference_sampling_rate: float,
+    batch_size: int,
     num_workers: int,
     model_version: int = -1,
     base_sequence_id: int = 1001,
@@ -134,7 +135,7 @@ def main(
     verbose: bool = False,
 ):
     configure_logging(log_file, verbose)
-    stream_size = int(sample_rate // inference_sampling_rate)
+    stride_size = int(sample_rate // inference_sampling_rate)
 
     if log_file is not None:
         server_log_file = log_file.parent / "server.log"
@@ -169,7 +170,7 @@ def main(
                     executor,
                     timeslides,
                     write_dir,
-                    stream_size,
+                    stride_size * batch_size,
                     base_sequence_id,
                     fduration=fduration,
                 )
