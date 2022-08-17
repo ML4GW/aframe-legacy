@@ -11,6 +11,7 @@ from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor, as_completed
 from hermes.aeriel.client import InferenceClient
 from hermes.aeriel.serve import serve
+from hermes.stillwater import ServerMonitor
 from hermes.typeo import typeo
 
 
@@ -151,12 +152,20 @@ def main(
         # read/writes of timeseries in parallel
         executor = AsyncExecutor(num_workers, thread=False)
 
+        monitor = ServerMonitor(
+            model_name=model_name,
+            ips="localhost",
+            filename=log_file.parent / "server-stats.csv",
+            model_version=model_version,
+            name="monitor",
+        )
+
         # now enter a context which will:
         # - for the client, start a streaming connection with
         #       with the inference service and launch a separate
         #       process for inference
         # - for the executor, launch the process pool
-        with client, executor:
+        with client, executor, monitor:
             for field in fields:
                 # initialize all the `TimeSlide`s which will organize
                 # their corresponding files into segments
