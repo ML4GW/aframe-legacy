@@ -19,6 +19,7 @@ def export(
     kernel_length: float,
     inference_sampling_rate: float,
     sample_rate: float,
+    batch_size: int,
     weights: Optional[Path] = None,
     streams_per_gpu: int = 1,
     instances: Optional[int] = None,
@@ -185,6 +186,7 @@ def export(
             ensemble.add_streaming_inputs(
                 inputs=[bbhnet.inputs["hoft"]],
                 stream_size=stream_size,
+                batch_size=batch_size,
                 name="snapshotter",
                 streams_per_gpu=streams_per_gpu,
             )
