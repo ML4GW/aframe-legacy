@@ -38,7 +38,7 @@ def stream_data(
             sequence_start=i == 0,
             sequence_end=(i + 1) == num_streams,
         )
-        time.sleep(1e-3)
+        time.sleep(3e-3)
 
 
 def infer(
@@ -46,10 +46,12 @@ def infer(
     executor: AsyncExecutor,
     timeslides: Iterable[TimeSlide],
     write_dir: Path,
-    stream_size: int,
+    stride_size: int,
+    batch_size: int,
     base_sequence_id: int,
     fduration: Optional[float] = None,
 ):
+    stream_size = stride_size * batch_size
     for timeslide in timeslides:
 
         ts_write_dir = write_dir / timeslide.shift / f"{timeslide.field}-out"
@@ -71,7 +73,7 @@ def infer(
             # create a new timeseries entry to keep track of
             # as results come back in from the inference server
             num_streams = len(t) // stream_size
-            t = t[: num_streams * stream_size : stream_size]
+            t = t[: num_streams * stream_size : stride_size]
             timeseries[sequence_id] = {"t": t, "y": np.array([])}
 
             # submit all the streaming inference requests to
@@ -87,10 +89,17 @@ def infer(
             response = client.get()
             if response is None:
                 continue
+
             y, _, sequence_id = response
             # update our running neural network outputs
             y = np.append(timeseries[sequence_id]["y"], y)
             timeseries[sequence_id]["y"] = y
+            logging.debug("Sequence {}: {}/{}".format(
+                sequence_id,
+                len(timeseries[sequence_id]["y"]),
+                len(timeseries[sequence_id]["t"])
+            ))
+
             if len(timeseries[sequence_id]["y"]) == len(
                 timeseries[sequence_id]["t"]
             ):
@@ -179,7 +188,8 @@ def main(
                     executor,
                     timeslides,
                     write_dir,
-                    stride_size * batch_size,
+                    stride_size,
+                    batch_size,
                     base_sequence_id,
                     fduration=fduration,
                 )
