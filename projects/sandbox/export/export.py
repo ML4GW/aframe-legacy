@@ -141,7 +141,7 @@ def export(
 
     # export this version of the model (with its current
     # weights), to this entry in the model repository
-    input_shape = (1, num_ifos, int(kernel_length * sample_rate))
+    input_shape = (batch_size, num_ifos, int(kernel_length * sample_rate))
 
     bbhnet.export_version(
         nn,
