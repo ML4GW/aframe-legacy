@@ -1,6 +1,5 @@
 import logging
 import time
-from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
 from typing import Iterable, Optional
@@ -19,28 +18,15 @@ from hermes.typeo import typeo
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
-class Sequence:
-    def __init__(self, t, x, stream_size):
-        self.t = t
-        self.x = x
-        self.stream_size = stream_size
 
+class Sequence:
+    def __init__(self, t, write_dir):
+        self.t = t
         self.y = np.array([])
-        self.request_id = -1
-        self.num_streams = len(self.x) // self.stream_size
+        self.write_dir = write_dir
 
     def update(self, y):
         self.y = np.append([self.y, y])
-
-    def __next__(self):
-        self.request_id += 1
-        if self.request_id == self.num_streams:
-            raise StopIteration
-
-        start = self.request_id * self.stream_size
-        stop = (self.request_id + 1) * self.stream_size
-        sequence_end = self.request_id == (self.num_streams - 1)
-        return self.x[start:stop], self.request_id, sequence_end
 
     @property
     def finished(self):
@@ -48,29 +34,25 @@ class Sequence:
 
 
 class SequenceManager:
-    def __init__(self, executor, base_sequence_id):
+    def __init__(self, executor):
         self.executor = executor
-        self.base_sequence_id = base_sequence_id
-
         self.sequences = {}
         self.futures = []
 
-    def add(self, sequence: Sequence, write_dir: Path):
-        id = self.base_sequence_id + len(self.sequences)
-        logging.debug(
-            "Adding sequence starting at t={} for write dir {} "
-            "to sequence id {}".format(sequence.t[0], write_dir, id)
-        )
-        self.sequences[id] = (sequence, write_dir)
-        return id
+    def add(self, sequence: Sequence, seq_id: int):
+        self.sequences[seq_id] = sequence
 
     def __call__(self, y, request_id, sequence_id):
-        self.sequences[sequence_id][0].update(y)
-        if self.sequences[sequence_id][0].finished:
+        self.sequences[sequence_id].update(y)
+
+        if self.sequences[sequence_id].finished:
             logging.debug(f"Finished inference on sequence {sequence_id}")
             sequence, write_dir = self.sequences.pop(sequence_id)
             future = self.executor.submit(
-                write_timeseries, write_dir, y=sequence.y, t=sequence.t
+                write_timeseries,
+                sequence.write_dir,
+                y=sequence.y,
+                t=sequence.t,
             )
             self.futures.append(future)
 
@@ -80,29 +62,46 @@ class SequenceManager:
         self.futures = []
 
 
-class Loader:
-    def __init__(self, stride_size, batch_size, fduration):
-        self.stride_size = stride_size
-        self.batch_size = batch_size
-        self.fduration = fduration
+def load(
+    segment: Segment,
+    write_dir: Path,
+    stride_size: int,
+    batch_size: int,
+    fduration: Optional[float] = None,
+):
+    hanford, t = segment.load("H1")
+    livingston, _ = segment.load("L1")
+    logging.debug(f"Loaded data from segment {segment}")
 
-    @property
-    def stream_size(self):
-        return self.stride_size * self.batch_size
+    stream_size = stride_size * batch_size
+    num_streams = len(t) // stream_size
+    t = t[: num_streams * stream_size : stride_size]
 
-    def __call__(self, segment: Segment):
-        hanford, t = segment.load("H1")
-        livingston, _ = segment.load("L1")
-        logging.debug(f"Loaded data from segment {segment}")
+    x = np.stack([hanford, livingston])
+    x = x[: num_streams * stream_size].astype("float32")
 
-        num_streams = len(t) // self.stream_size
-        t = t[: num_streams * self.stream_size : self.stride_size]
+    sequence = Sequence(t, write_dir)
+    return sequence, x
 
-        x = np.stack([hanford, livingston])
-        x = x[: num_streams * self.stream_size].astype("float32")
 
-        sequence = Sequence(t, x, self.stream_size)
-        return sequence
+def infer(
+    x: np.ndarray,
+    stream_size: int,
+    sequence_id: int,
+    client: InferenceClient,
+    inference_rate: float,
+):
+    num_streams = len(x) // stream_size
+    x = np.split(x, num_streams)
+    for i, update in enumerate(x):
+        client.infer(
+            update,
+            request_id=i,
+            sequence_id=sequence_id,
+            sequence_start=i == 0,
+            sequence_end=i == (len(x) - 1),
+        )
+        time.sleep(1 / inference_rate)
 
 
 @typeo
@@ -136,13 +135,12 @@ def main(
         # now build a client to connect to the inference service
         # create a process pool that we'll use to perform
         # read/writes of timeseries in parallel
-        executor = AsyncExecutor(num_workers, thread=False)
-
-        manager = SequenceManager(executor, base_sequence_id)
+        io_pool = AsyncExecutor(num_workers, thread=False)
+        infer_pool = AsyncExecutor(num_workers, thread=True)
+        callback = SequenceManager(io_pool)
         client = InferenceClient(
-            "localhost:8001", model_name, model_version, callback=manager
+            "localhost:8001", model_name, model_version, callback=callback
         )
-        loader = Loader(stride_size, batch_size, fduration)
 
         monitor = ServerMonitor(
             model_name=model_name,
@@ -157,55 +155,49 @@ def main(
         #       with the inference service and launch a separate
         #       process for inference
         # - for the executor, launch the process pool
-        with client, executor, monitor:
+        with client, io_pool, infer_pool, monitor:
             for shift, field in product(data_dir.iterdir(), fields):
                 ts_write_dir = write_dir / shift.name / f"{field}-out"
                 ts_write_dir.mkdir(parents=True, exist_ok=True)
                 timeslide = TimeSlide(shift, field)
 
                 futures = []
-                for segment in timeslide.segments:
-                    future = executor.submit(loader, segment)
-                    callback = lambda f: manager.add(f.result(), ts_write_dir)
-                    future.add_done_callback(callback)
+                for i, segment in enumerate(timeslide.segments):
+                    future = io_pool.submit(
+                        load,
+                        segment,
+                        ts_write_dir,
+                        stride_size,
+                        batch_size,
+                        fduration,
+                    )
+
+                    # add it to our manager callback that appends
+                    # server responses and submits finished sequences
+                    # for writing
+                    seq_id = base_sequence_id + i
+                    future.add_done_callback(
+                        lambda f: callback.add(f.result()[0], seq_id)
+                    )
+
+                    # submit an inference job with it to our infer_pool
+                    future.add_done_callback(
+                        lambda f: infer_pool.submit(
+                            infer,
+                            f.result()[1],
+                            stride_size * batch_size,
+                            seq_id,
+                            client,
+                            inference_rate,
+                        )
+                    )
                     futures.append(future)
 
-                finished_sequences = []
-                while True:
-                    seq_ids = list(manager.sequences)
-                    for seq_id in seq_ids:
-                        if seq_id in finished_sequences:
-                            continue
+                # wait until all the infer submissions are done
+                _ = [i for i in as_completed(futures)]
 
-                        it, _ = manager.sequences[seq_id]
-                        try:
-                            x, request_id, sequence_end = next(it)
-                        except StopIteration:
-                            finished_sequences.append(seq_id)
-                            continue
-
-                        client.infer(
-                            x,
-                            request_id=request_id,
-                            sequence_id=seq_id,
-                            sequence_start=request_id == 0,
-                            sequence_end=sequence_end,
-                        )
-                        if sequence_end:
-                            finished_sequences.append(seq_id)
-                        time.sleep(1 / inference_rate / len(manager.sequences))
-
-                    if (
-                        len(manager.sequences) == 0
-                        and all([f.done() for f in futures])
-                    ):
-                        exc = futures[0].exception()
-                        if exc is not None:
-                            raise exc
-                        logging.debug(f"Finished inference for {timeslide}")
-                        break
-                       
-                manager.wait()
+                # now wait until all the inferences are completed
+                callback.wait()
 
 
 if __name__ == "__main__":
