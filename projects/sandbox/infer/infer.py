@@ -2,6 +2,7 @@ import logging
 import time
 from itertools import product
 from pathlib import Path
+from threading import Lock
 from typing import Iterable, Optional
 
 import numpy as np
@@ -20,8 +21,9 @@ logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 class Sequence:
-    def __init__(self, t, write_dir):
+    def __init__(self, t, x, write_dir):
         self.t = t
+        self.x = x
         self.y = np.array([])
         self.write_dir = write_dir
 
@@ -36,6 +38,7 @@ class Sequence:
 class SequenceManager:
     def __init__(self, executor):
         self.executor = executor
+        self.lock = Lock()
         self.sequences = {}
         self.futures = []
 
@@ -45,14 +48,17 @@ class SequenceManager:
                 sequence.t[0], seq_id
             )
         )
-        self.sequences[seq_id] = sequence
+        with self.lock:
+            self.sequences[seq_id] = sequence
 
     def __call__(self, y, request_id, sequence_id):
         self.sequences[sequence_id].update(y)
 
         if self.sequences[sequence_id].finished:
             logging.debug(f"Finished inference on sequence {sequence_id}")
-            sequence, write_dir = self.sequences.pop(sequence_id)
+
+            with self.lock:
+                sequence = self.sequences.pop(sequence_id)
             future = self.executor.submit(
                 write_timeseries,
                 sequence.write_dir,
@@ -84,29 +90,29 @@ def load(
 
     x = np.stack([hanford, livingston])
     x = x[: num_streams * stream_size].astype("float32")
+    x = np.split(x, num_streams)
 
-    sequence = Sequence(t, write_dir)
-    return sequence, x
+    sequence = Sequence(t, x, write_dir)
+    return sequence
 
 
 def infer(
-    x: np.ndarray,
+    sequence: np.ndarray,
     stream_size: int,
     sequence_id: int,
+    manager: SequenceManager,
     client: InferenceClient,
     inference_rate: float,
 ):
-    num_streams = len(x) // stream_size
-    x = np.split(x, num_streams)
-
+    manager.add(sequence, sequence_id)
     logging.debug(f"Beginning inference on sequence {sequence_id}")
-    for i, update in enumerate(x):
+    for i, update in enumerate(sequence.x):
         client.infer(
             update,
             request_id=i,
             sequence_id=sequence_id,
             sequence_start=i == 0,
-            sequence_end=i == (len(x) - 1),
+            sequence_end=i == (len(sequence.x) - 1),
         )
         time.sleep(1 / inference_rate)
 
@@ -179,21 +185,14 @@ def main(
                         fduration,
                     )
 
-                    # add it to our manager callback that appends
-                    # server responses and submits finished sequences
-                    # for writing
-                    seq_id = base_sequence_id + i
-                    future.add_done_callback(
-                        lambda f: callback.add(f.result()[0], seq_id)
-                    )
-
                     # submit an inference job with it to our infer_pool
                     future.add_done_callback(
                         lambda f: infer_pool.submit(
                             infer,
                             f.result()[1],
                             stride_size * batch_size,
-                            seq_id,
+                            base_sequence_id + i,
+                            callback,
                             client,
                             inference_rate,
                         )
