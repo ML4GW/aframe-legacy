@@ -40,6 +40,11 @@ class SequenceManager:
         self.futures = []
 
     def add(self, sequence: Sequence, seq_id: int):
+        logging.debug(
+            "Managing sequence with t0={} as id {}".format(
+                sequence.t[0], seq_id
+            )
+        )
         self.sequences[seq_id] = sequence
 
     def __call__(self, y, request_id, sequence_id):
@@ -93,6 +98,8 @@ def infer(
 ):
     num_streams = len(x) // stream_size
     x = np.split(x, num_streams)
+
+    logging.debug(f"Beginning inference on sequence {sequence_id}")
     for i, update in enumerate(x):
         client.infer(
             update,
