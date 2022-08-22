@@ -22,7 +22,7 @@ gwpy = "^2.1"
 [tool.poetry.dependencies."hermes.quiver"]
 path = "../../../hermes/hermes/hermes.quiver"
 develop = true
-extras = ["torch", "tensorflow"]
+extras = ["torch", "tensorrt"]
 
 [tool.typeo.base]
 resnet = {layers = [3, 3, 3]}
