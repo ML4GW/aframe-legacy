@@ -16,6 +16,7 @@ from hermes.aeriel.serve import serve
 from hermes.stillwater import ServerMonitor
 from hermes.typeo import typeo
 
+# turn off debugging messages from request libraries
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
@@ -29,7 +30,7 @@ class Sequence:
         self.write_dir = write_dir
 
     def update(self, y):
-        self.y[self.i: self.i + len(y)] = y[:, 0]
+        self.y[self.i : self.i + len(y)] = y[:, 0]
         self.i += len(y)
 
     @property
@@ -43,7 +44,6 @@ class SequenceManager:
         self.lock = Lock()
         self.sequences = {}
         self.futures = []
-        self.num_sequences = 0
 
     def add(self, sequence: Sequence, seq_id: int):
         logging.debug(
@@ -53,7 +53,6 @@ class SequenceManager:
         )
         with self.lock:
             self.sequences[seq_id] = sequence
-            self.num_sequences += 1
 
     def __call__(self, y, request_id, sequence_id):
         self.sequences[sequence_id].update(y)
@@ -80,18 +79,6 @@ class SequenceManager:
             with self.lock:
                 self.futures.append(future)
             return future
-
-    def wait(self):
-        while True:
-            with self.lock:
-                done = len(self.sequences) == 0
-                done &= all([f.done() for f in self.futures])
-
-            if done:
-                break
-
-        self.futures = []
-        self.num_sequences = 0
 
 
 def load(
@@ -166,16 +153,27 @@ def main(
 
     # spin up a triton server and don't move on until it's ready
     with serve(model_repo_dir, wait=True, log_file=server_log_file):
-        # now build a client to connect to the inference service
-        # create a process pool that we'll use to perform
-        # read/writes of timeseries in parallel
+        # do reading and writing of segments using multiprocessing
         io_pool = AsyncExecutor(num_workers, thread=False)
+
+        # submit inference requests using threads so that we
+        # can leverage all of our snapshotter states on the server
         infer_pool = AsyncExecutor(num_workers, thread=True)
+
+        # create a callback which will concatenate the server
+        # responses for each parallel sequence we're working
+        # on and will submit them to be written once inference
+        # has been completed on that sequence
         callback = SequenceManager(io_pool)
+
+        # create a client connection to the server and give
+        # it the callback to be executed once responses come in
         client = InferenceClient(
             "localhost:8001", model_name, model_version, callback=callback
         )
 
+        # create a monitor which will recored per-model
+        # inference stats for profiling purposes
         monitor = ServerMonitor(
             model_name=model_name,
             ips="localhost",
@@ -184,11 +182,7 @@ def main(
             name="monitor",
         )
 
-        # now enter a context which will:
-        # - for the client, start a streaming connection with
-        #       with the inference service and launch a separate
-        #       process for inference
-        # - for the executor, launch the process pool
+        # enter all of these objects as contexts
         with client, io_pool, infer_pool, monitor:
             for shift, field in product(data_dir.iterdir(), fields):
                 ts_write_dir = write_dir / shift.name / f"{field}-out"
