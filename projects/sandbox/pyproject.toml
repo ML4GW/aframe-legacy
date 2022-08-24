@@ -152,7 +152,7 @@ batch_size = "${base.inference_sampling_rate}"
 model_version = -1
 base_sequence_id = 1001
 log_file = "${base.logdir}/infer.log"
-num_workers = 1
+num_workers = 4
 fduration = "${base.fduration}"
 verbose = true
 
