@@ -257,7 +257,7 @@ def main(
             # generate timestamps of trigger times for each waveform.
             # Jitter will get added in `get_params`
             signal_start = segment_start + buffer_
-            signal_stop = segment_stop + buffer_
+            signal_stop = segment_stop - buffer_
             signal_times = np.arange(signal_start, signal_stop, spacing)
 
             # sample dictionary of params for each timeslide
