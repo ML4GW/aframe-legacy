@@ -17,11 +17,8 @@ from gwpy.segments import (
 )
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
-from bbhnet.injection import (
-    generate_gw,
-    get_waveform_generator,
-    project_raw_gw,
-)
+from bbhnet.injection import generate_gw, project_raw_gw
+from bbhnet.injection.utils import get_waveform_generator
 from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
@@ -74,10 +71,14 @@ def get_params(
     return shift_parameters
 
 
+def generate_waveforms(parameters, waveform_generator):
+    return generate_gw(parameters, waveform_generator), parameters
+
+
 def inject_waveforms(
     data: Dict[str, np.ndarray],
     times: np.ndarray,
-    signals: np.ndarray,
+    waveforms: np.ndarray,
     waveform_generator: bilby.gw.waveform_generator.WaveformGenerator,
     parameters: Dict[str, List[float]],
     fftlength: float = 2,
@@ -86,14 +87,14 @@ def inject_waveforms(
     signal_times = parameters["geocent_time"]
     for ifo, x in data.items():
         ts = TimeSeries(x, times=times)
-        sample_rate = ts.sample_rate
+        sample_rate = ts.sample_rate.value
 
         # calculate psd for this segment
         psd = ts.psd(fftlength)
 
         # project raw waveforms
         signals, snr = project_raw_gw(
-            signals,
+            waveforms,
             parameters,
             waveform_generator,
             ifo,
@@ -126,7 +127,7 @@ def main(
     stop: int,
     logdir: Path,
     datadir: Path,
-    prior_file: str,
+    prior_file: Path,
     spacing: float,
     jitter: float,
     buffer_: float,
@@ -144,6 +145,7 @@ def main(
     waveform_approximant: str = "IMRPhenomPv2",
     fftlength: float = 2,
     state_flag: Optional[str] = None,
+    verbose: bool = False
 ):
     """Generates timeslides of background and background + injections.
     Timeslides are generated on a per segment basis: First, science segments
@@ -176,7 +178,7 @@ def main(
 
     logdir.mkdir(parents=True, exist_ok=True)
     datadir.mkdir(parents=True, exist_ok=True)
-    configure_logging(logdir / "timeslide_injections.log")
+    configure_logging(logdir / "timeslide_injections.log", verbose)
 
     # if state_flag is passed, query segments for each ifo.
     # A certificate is needed for this, see X509 instructions on
@@ -217,9 +219,11 @@ def main(
         sampling_frequency=sample_rate,
         duration=waveform_duration,
     )
-    priors = bilby.gw.prior.BBHPriorDict(prior_file)
+    if not prior_file.is_absolute():
+        prior_file = Path(__file__).resolve().parent / prior_file
+    priors = bilby.gw.prior.BBHPriorDict(str(prior_file))
 
-    min_segment_length = min_segment_length or float("inf")
+    min_segment_length = min_segment_length or 0
     total_slides = n_slides ** (len([i for i in shifts if i]))
     max_shift = int(max(shifts) * n_slides * sample_rate)
 
@@ -246,7 +250,7 @@ def main(
                 segment_stop,
             )
             download_future.add_done_callback(
-                logging.debug(
+                lambda f: logging.debug(
                     "Completed download of segment {}-{}".format(
                         segment_start, segment_stop
                     )
@@ -260,49 +264,55 @@ def main(
             signal_times = np.arange(signal_start, signal_stop, spacing)
 
             # sample dictionary of params for each timeslide
+            logging.debug(
+                "Sampling {} waveform parameters".format(
+                    total_slides * len(signal_times)
+                )
+            )
             parameters = get_params(
                 priors, total_slides, signal_times, jitter, waveform_duration
             )
 
             # generate each timeslide's waveforms in parallel
             # wrap with a lambda function to keep the parameters
-            waveform_futures = process_pool.imap(
-                lambda p, wg: (generate_gw(p, wg), p),
+            logging.debug("Launching waveform generation in parallel")
+            waveform_it = process_pool.imap(
+                generate_waveforms,
                 parameters,
-                waveform_generator,
+                waveform_generator=waveform_generator
             )
 
             # wait until the download has completed to move on
             while True:
                 try:
                     background = download_future.result(timeout=1e-3)
+                    break
                 except TimeoutError:
                     time.sleep(1e-2)
 
             ranges = [range(n_slides) for i in shifts if i]
             shift_iterator = itertools.product(*ranges)
             futures = []
-            for waveforms, parameters in as_completed(waveform_futures):
+            for waveforms, parameters in waveform_it:
                 # convoluted way to get our shifts, including the 0 values
                 # that wouldn't have been included in the shift_iterator
                 idx = iter(next(shift_iterator))
                 ts_shifts = []
                 for shift in shifts:
-                    if shift == 0:
-                        ts_shifts.append(0)
-                    else:
-                        ts_shifts.append(next(idx) * shift)
+                    shift = shift if shift == 0 else next(idx) * shift
+                    ts_shifts.append(float(shift))
 
                 # create all the directories we'll
                 # need for our various timeslides
-                shift_str = ["{i[0]}{j}" for i, j in zip(ifos, ts_shifts)]
+                shift_str = [f"{i[0]}{j}" for i, j in zip(ifos, ts_shifts)]
+                shift_str = "-".join(shift_str)
                 logging.debug(
                     "Creating timeslide for segment {}-{} "
                     "with shifts {}".format(
                         segment_start, segment_stop, shift_str
                     )
                 )
-                root = datadir / f"dt-{'-'.join(shift_str)}"
+                root = datadir / f"dt-{shift_str}"
                 root.mkdir(exist_ok=True, parents=True)
 
                 raw_ts = TimeSlide.create(root=root, field="background")
@@ -316,7 +326,7 @@ def main(
                     background_data[ifo] = background[ifo].value[slc]
 
                 # submit this data as a write job to the process pool
-                times = background[ifo].value[slc]
+                times = background[ifo].times.value[slc]
                 future = process_pool.submit(
                     h5.write_timeseries,
                     raw_ts.path,
@@ -360,7 +370,7 @@ def main(
                 )
                 futures.append(future)
 
-                with h5py.file(injection_ts.path / "params.h5", "w") as f:
+                with h5py.File(injection_ts.path / "params.h5", "w") as f:
                     for k, v in parameters.items():
                         f.create_dataset(k, data=v)
 
