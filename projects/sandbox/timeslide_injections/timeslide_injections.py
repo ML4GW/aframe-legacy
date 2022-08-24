@@ -145,7 +145,7 @@ def main(
     waveform_approximant: str = "IMRPhenomPv2",
     fftlength: float = 2,
     state_flag: Optional[str] = None,
-    verbose: bool = False
+    verbose: bool = False,
 ):
     """Generates timeslides of background and background + injections.
     Timeslides are generated on a per segment basis: First, science segments
@@ -279,7 +279,7 @@ def main(
             waveform_it = process_pool.imap(
                 generate_waveforms,
                 parameters,
-                waveform_generator=waveform_generator
+                waveform_generator=waveform_generator,
             )
 
             # wait until the download has completed to move on
