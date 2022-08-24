@@ -17,7 +17,8 @@ from bbhnet.io.timeslides import TimeSlide
 
 @pytest.fixture(params=["priors/nonspin_BBH.prior"])
 def prior_file(request):
-    return str(Path(__file__).resolve().parent / request.param)
+    # TODO: verify absolute behavior as well
+    return Path(request.param)
 
 
 @pytest.fixture(params=[60])
@@ -96,7 +97,6 @@ def test_timeslide_injections_no_segments(
     frame_type,
     channel,
 ):
-
     start = 1123456789
     stop = 1123457789
 
@@ -105,9 +105,7 @@ def test_timeslide_injections_no_segments(
     ts = TimeSeries(np.ones(n_samples), times=times)
 
     mock_ts = patch("gwpy.timeseries.TimeSeries.read", return_value=ts)
-
     mock_datafind = patch("gwdatafind.find_urls", return_value=None)
-
     with mock_datafind, mock_ts:
         outdir = main(
             start,
@@ -137,7 +135,22 @@ def test_timeslide_injections_no_segments(
         injection_ts = TimeSlide(slide, field="injection")
         background_ts = TimeSlide(slide, field="background")
 
-        assert len(injection_ts.segments) == len(background_ts.segments)
+        assert len(injection_ts.segments) == len(background_ts.segments) == 1
+        segment = background_ts.segments[0]
+        h, t = segment.load("H1")
+        l, _ = segment.load("L1")
+
+        expected_length = 1000 - n_slides
+        assert len(h) == len(l) == expected_length * sample_rate
+
+        h_expected = np.arange(start, start + expected_length, 1 / sample_rate)
+        assert (h == h_expected).all()
+
+        l_shift = float(slide.split("-L")[-1])
+        l_expected = np.arange(
+            start + l_shift, start + l_shift + expected_length, 1 / sample_rate
+        )
+        assert (l == l_expected).all()
 
         assert (injection_ts.path / "params.h5").exists()
 
@@ -167,6 +180,8 @@ def test_timeslide_injections_with_segments(
     ts = TimeSeries(np.ones(n_samples), times=times)
 
     # create same segments for each ifo
+    # TODO: test making them shorter than
+    # min_segment_length
     segments = DataQualityDict()
     segment_list = SegmentList(
         [
@@ -211,8 +226,8 @@ def test_timeslide_injections_with_segments(
     timeslides = list(timeslides)
 
     # create timeslide
-    injection_ts = TimeSlide(outdir / "dt-0.0-0.0", field="injection")
-    background_ts = TimeSlide(outdir / "dt-0.0-0.0", field="background")
+    injection_ts = TimeSlide(outdir / "dt-H0.0-L0.0", field="injection")
+    background_ts = TimeSlide(outdir / "dt-H0.0-L0.0", field="background")
 
     assert len(injection_ts.segments) == len(background_ts.segments)
     # make sure there is as many directories
@@ -220,6 +235,8 @@ def test_timeslide_injections_with_segments(
     assert len(timeslides) == n_slides
 
     for slide in timeslides:
+        assert len(slide.segments) == 2
+
         # should be able to find same segment
         # in different time slide
         for segment in injection_ts.segments:
