@@ -184,7 +184,6 @@ def main(
     # A certificate is needed for this, see X509 instructions on
     # https://computing.docs.ligo.org/guide/auth/#ligo-x509
     logging.info("Querying segments")
-    segments = SegmentListDict()
     if state_flag:
         # query science segments
         segments = DataQualityDict.query_dqsegdb(
@@ -192,14 +191,12 @@ def main(
             start,
             stop,
         )
+
         # convert DQ dict to SegmentList Dict
-        segments = SegmentListDict(
-            {key: segments[key].active for key in segments.keys()}
-        )
+        segments = SegmentListDict({k: v.active for k, v in segments.items()})
 
         # intersect segments
         intersection = segments.intersection(segments.keys())
-
     else:
         # not considering segments so
         # make intersection from start to stop
@@ -325,8 +322,12 @@ def main(
                     slc = slice(shift, -max_shift + shift)
                     background_data[ifo] = background[ifo].value[slc]
 
+                    if shift == 0:
+                        # TODO: what happens if all are shifted? Is this
+                        # a possibility that we want to entertain?
+                        times = background[ifo].times.value[slc]
+
                 # submit this data as a write job to the process pool
-                times = background[ifo].times.value[slc]
                 future = process_pool.submit(
                     h5.write_timeseries,
                     raw_ts.path,
