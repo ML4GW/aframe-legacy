@@ -56,9 +56,9 @@ def main(
             batch_size=batch_size,
             fduration=fduration,
             inference_rate=inference_rate,
-            num_workers=num_workers,
-            streams_per_gpu=streams_per_gpu,  # * len(gpus),
-            max_secons=max_seconds,
+            num_io_workers=num_workers,
+            max_streams=streams_per_gpu,  # * len(gpus),
+            max_seconds=max_seconds,
             base_sequence_id=base_sequence_id,
         )
 
