@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from infer import main as infer
+from infer.main import main as infer
 
 from bbhnet.io.h5 import read_timeseries, write_timeseries
 
