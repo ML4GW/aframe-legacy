@@ -1,5 +1,6 @@
 import logging
 import time
+from concurrent.futures import wait
 from itertools import chain, product
 from pathlib import Path
 from threading import Lock
@@ -93,10 +94,12 @@ class SequenceManager:
         self.client = client
         self.client.callback = self.callback
 
+        self.write_dir = write_dir
         self.stride_size = stride_size
         self.batch_size = batch_size
         self.fduration = fduration
         self.inference_rate = inference_rate
+        self.base_sequence_id = base_sequence_id
 
         # do reading and writing of segments using multiprocessing
         self.io_pool = AsyncExecutor(num_io_workers, thread=False)
@@ -118,8 +121,15 @@ class SequenceManager:
         self.sequences = {}
 
     def is_done(self):
-        self.futures = [f for f in self.futures if not f.done()]
-        return len(self.futures) == 0 and self._done
+        with self.lock:
+            done, not_done = wait(self.futures, timeout=1e-6)
+            for f in list(done):
+                exc = f.exception()
+                if exc is not None:
+                    raise exc
+
+            self.futures = list(not_done)
+            return len(self.futures) == 0 and self._done
 
     def add(self, sequence: Sequence) -> int:
         with self.lock:
@@ -165,6 +175,7 @@ class SequenceManager:
             if self.sequences[sequence_id].finished:
                 logging.info(f"Finished inference on sequence {sequence_id}")
                 sequence = self.sequences.pop(sequence_id)
+                self._num_seconds -= sequence.t[-1] - sequence.t[0]
 
                 write_future = self.io_pool.submit(
                     write_timeseries,
@@ -213,6 +224,11 @@ class SequenceManager:
         self._num_seconds += segment.length
         return segment
 
+    def load_callback(self, future):
+        infer_future = self.infer_pool.submit(self.infer, future.result())
+        with self.lock:
+            self.futures.append(infer_future)
+
     def submit_load(self, segment: Segment):
         future = self.io_pool.submit(
             load,
@@ -222,9 +238,7 @@ class SequenceManager:
             self.batch_size,
             self.fduration,
         )
-        future.add_done_callback(
-            lambda f: self.infer_pool.submit(self.infer, f.result())
-        )
+        future.add_done_callback(self.load_callback)
         return future
 
     def __enter__(self):
