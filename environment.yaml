@@ -11,4 +11,3 @@ dependencies:
   - pytorch
   - torchvision
   - cudatoolkit=11.3
-  - gxx_linux-64>=11.1.0
