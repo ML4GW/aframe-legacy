@@ -122,7 +122,7 @@ verbose = true
 commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.timeslide_injections]
-start = 1262620622 
+start = "${base.stop}" 
 stop = 1262751694
 datadir = "${base.basedir}/timeslide_injections/"
 logdir = "${base.logdir}"
