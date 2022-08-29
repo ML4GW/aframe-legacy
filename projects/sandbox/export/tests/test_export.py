@@ -80,6 +80,7 @@ def validate_repo(repo_dir):
         expected_num_ifos,
         expected_stream_size,
         expected_kernel_size,
+        expected_batch_size,
     ):
         for i, model in enumerate(repo_dir.iterdir()):
             config = load_config(model / "config.pbtxt")
@@ -100,15 +101,22 @@ def validate_repo(repo_dir):
                         )
                     assert instance_group.count == expected_snapshots
 
-                assert config.input[0].dims[1] == expected_num_ifos
-                assert config.input[0].dims[2] == expected_stream_size
-
-                assert config.output[0].dims[1] == expected_num_ifos
-                assert config.output[0].dims[2] == expected_kernel_size
+                assert config.input[0].dims == [
+                    1,
+                    expected_num_ifos,
+                    expected_stream_size * expected_batch_size,
+                ]
+                assert config.output[0].dims == [
+                    expected_batch_size,
+                    expected_num_ifos,
+                    expected_kernel_size,
+                ]
 
                 assert (model / "1" / "model.savedmodel").is_dir()
                 assert not (model / "2").is_dir()
             elif model.name == "bbhnet":
+                assert config.output[0].dims[0] == batch_size
+
                 try:
                     instance_group = config.instance_group[0]
                 except IndexError:
@@ -125,9 +133,12 @@ def validate_repo(repo_dir):
                         )
                     assert instance_group.count == expected_instances
 
-                assert config.input[0].dims[1] == expected_num_ifos
-                assert config.input[0].dims[2] == expected_kernel_size
-                assert [j == 1 for j in config.output[0].dims]
+                assert config.input[0].dims == [
+                    expected_batch_size,
+                    expected_num_ifos,
+                    expected_kernel_size,
+                ]
+                assert config.output[0].dims == [expected_batch_size, 1]
 
                 for j in range(expected_versions):
                     assert (model / str(j + 1) / "model.onnx").is_file()
@@ -167,12 +178,18 @@ def kernel_length(request):
     return request.param
 
 
+@pytest.fixture(params=[1, 2, 8])
+def batch_size(request):
+    return request.param
+
+
 def test_export_for_shapes(
     repo_dir,
     output_dir,
     num_ifos,
     sample_rate,
     kernel_length,
+    batch_size,
     inference_sampling_rate,
     architecture,
     get_network_weights,
@@ -196,6 +213,7 @@ def test_export_for_shapes(
             kernel_length=kernel_length,
             inference_sampling_rate=inference_sampling_rate,
             sample_rate=sample_rate,
+            batch_size=batch_size,
             weights=weights,
             streams_per_gpu=1,
             instances=1,
@@ -207,6 +225,7 @@ def test_export_for_shapes(
             expected_num_ifos=num_ifos,
             expected_stream_size=int(sample_rate / inference_sampling_rate),
             expected_kernel_size=int(sample_rate * kernel_length),
+            expected_batch_size=batch_size,
         )
 
 
@@ -253,6 +272,7 @@ def test_export_for_weights(
         kernel_length=kernel_length,
         inference_sampling_rate=inference_sampling_rate,
         sample_rate=sample_rate,
+        batch_size=1,
         weights=weights,
         streams_per_gpu=1,
         instances=1,
@@ -264,6 +284,7 @@ def test_export_for_weights(
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
+        expected_batch_size=1,
     )
 
 
