@@ -15,6 +15,7 @@ python = ">=3.9,<3.11"
 "bbhnet.io" = {path = "../../../libs/io/", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging/", develop = true}
 "bbhnet.parallelize" = {path = "../../../libs/parallelize/", develop = true}
+"ml4gw.utils" = {path = "../../../ml4gw/utils/", develop = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"

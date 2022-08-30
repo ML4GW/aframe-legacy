@@ -4,6 +4,7 @@ import numpy as np
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from bilby.gw.waveform_generator import WaveformGenerator
+from gwpy.timeseries import TimeSeries
 
 
 def generate_gw(
@@ -67,3 +68,53 @@ def generate_gw(
         signals[i] = polarizations
 
     return signals
+
+
+def inject_waveforms(
+    background_data: Dict[str, np.ndarray],
+    times: np.ndarray,
+    waveforms: Dict[str, np.ndarray],
+    signal_times: np.ndarray,
+    sample_rate: float,
+) -> Dict[str, np.ndarray]:
+
+    """
+    Inject a set of signals into background data
+
+    Args:
+        background_data:
+            A dictionary where the key is an interferometer
+            and the value is a timeseries
+        times:
+            times corresponding to samples in background_data
+        waveforms:
+            A dictionary where the key is an interfereometer
+            and the value is an np.ndarray array of
+            projected waveforms of shape (n_signals, waveform_size)
+        signal_times: np.ndarray,:
+            An array of times where signals will be injected
+        sample_rate:
+            timeseries sampling rate
+    Returns
+        A dictionary where the key is an interferometer and the value
+        is a timeseries with the signals injected
+    """
+    output = {}
+
+    for ifo, x in background_data.items():
+        ts = TimeSeries(x, times=times)
+
+        # loop over signals, injecting them into the raw strain
+        for signal_start, signal in zip(signal_times, waveforms):
+            signal_stop = signal_start + len(signal) * (1 / sample_rate)
+            signal_times = np.arange(
+                signal_start, signal_stop, 1 / sample_rate
+            )
+
+            # create gwpy timeseries for signal
+            signal = TimeSeries(signal, times=signal_times)
+
+            # inject into raw background
+            ts.inject(signal)
+        output[ifo] = ts.value
+    return output

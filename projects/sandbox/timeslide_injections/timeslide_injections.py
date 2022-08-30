@@ -9,6 +9,7 @@ import bilby
 import gwdatafind
 import h5py
 import numpy as np
+import torch
 from gwpy.segments import (
     DataQualityDict,
     Segment,
@@ -17,13 +18,13 @@ from gwpy.segments import (
 )
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
-from bbhnet.injection import generate_gw, project_raw_gw
-from bbhnet.injection.utils import get_waveform_generator
+from bbhnet.injection import generate_gw, inject_waveforms
 from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor, as_completed
 from hermes.typeo import typeo
+from ml4gw.utils.injection import get_ifo_geometry, project_raw_gw
 
 
 def download_data(
@@ -71,54 +72,23 @@ def get_params(
     return shift_parameters
 
 
-def generate_waveforms(parameters, waveform_generator):
-    return generate_gw(parameters, waveform_generator), parameters
-
-
-def inject_waveforms(
-    data: Dict[str, np.ndarray],
-    times: np.ndarray,
-    waveforms: np.ndarray,
-    waveform_generator: bilby.gw.waveform_generator.WaveformGenerator,
-    parameters: Dict[str, List[float]],
-    fftlength: float = 2,
-) -> Dict[str, np.ndarray]:
-    output = {}
-    signal_times = parameters["geocent_time"]
-    for ifo, x in data.items():
-        ts = TimeSeries(x, times=times)
-        sample_rate = ts.sample_rate.value
-
-        # calculate psd for this segment
-        psd = ts.psd(fftlength)
-
-        # project raw waveforms
-        signals, snr = project_raw_gw(
-            waveforms,
-            parameters,
-            waveform_generator,
-            ifo,
-            get_snr=True,
-            noise_psd=psd,
-        )
-
-        # store snr
-        parameters[f"{ifo}_snr"] = snr
-
-        # loop over signals, injecting them into the raw strain
-        for signal_start, signal in zip(signal_times, signals):
-            signal_stop = signal_start + len(signal) * (1 / sample_rate)
-            signal_times = np.arange(
-                signal_start, signal_stop, 1 / sample_rate
-            )
-
-            # create gwpy timeseries for signal
-            signal = TimeSeries(signal, times=signal_times)
-
-            # inject into raw background
-            ts.inject(signal)
-        output[ifo] = ts.value
-    return output
+def generate_waveforms(
+    parameters,
+    minimum_frequency,
+    reference_frequency,
+    sample_rate,
+    waveform_duration,
+    waveform_approximant,
+):
+    signals = generate_gw(
+        parameters,
+        minimum_frequency,
+        reference_frequency,
+        sample_rate,
+        waveform_duration,
+        waveform_approximant,
+    )
+    return signals, parameters
 
 
 @typeo
@@ -135,7 +105,7 @@ def main(
     shifts: Iterable[float],
     ifos: Iterable[str],
     file_length: int,
-    fmin: float,
+    minimum_frequency: float,
     sample_rate: float,
     frame_type: str,
     channel: str,
@@ -165,7 +135,7 @@ def main(
             will not shift this ifo for any slide.
         ifos: List interferometers
         file_length: length in seconds of each separate file
-        fmin: min frequency for highpass filter, used for simulating
+        minimum_frequency: minimum_frequency used for waveform generation
         sample_rate: sample rate
         frame_type: frame type for data discovery
         channel: strain channel to analyze
@@ -209,13 +179,6 @@ def main(
         )
     )
 
-    waveform_generator = get_waveform_generator(
-        waveform_approximant=waveform_approximant,
-        reference_frequency=reference_frequency,
-        minimum_frequency=fmin,
-        sampling_frequency=sample_rate,
-        duration=waveform_duration,
-    )
     if not prior_file.is_absolute():
         prior_file = Path(__file__).resolve().parent / prior_file
     priors = bilby.gw.prior.BBHPriorDict(str(prior_file))
@@ -226,6 +189,10 @@ def main(
 
     process_pool = AsyncExecutor(4, thread=False)
     thread_pool = AsyncExecutor(2, thread=True)
+
+    # get tensors and vertices for requested ifos
+    tensors, vertices = get_ifo_geometry(*ifos)
+
     with process_pool, thread_pool:
         for segment_start, segment_stop in intersection:
             if segment_stop - segment_start < min_segment_length:
@@ -276,7 +243,11 @@ def main(
             waveform_it = process_pool.imap(
                 generate_waveforms,
                 parameters,
-                waveform_generator=waveform_generator,
+                minimum_frequency,
+                reference_frequency,
+                sample_rate,
+                waveform_duration,
+                waveform_approximant,
             )
 
             # wait until the download has completed to move on
@@ -347,12 +318,34 @@ def main(
                     "Beginning injection of {} waveforms "
                     "on timeslide {}".format(len(waveforms), shift_str)
                 )
+
+                # pack up polarizations in compatible format
+                # with ml4gw project_raw_gw
+                polarizations = {
+                    "hcross": torch.Tensor(waveforms[:, 0, :]),
+                    "hplus": torch.Tensor(waveforms[:, 1, :]),
+                }
+
+                # project raw waveforms
+                signals = project_raw_gw(
+                    sample_rate,
+                    parameters["dec"],
+                    parameters["psi"],
+                    parameters["ra"],
+                    tensors,
+                    vertices,
+                    **polarizations,
+                )
+
+                # TODO: insert calc_snr here and store in parameters
+
+                # inject projected waveforms into background data
                 injected_data = inject_waveforms(
                     background_data,
                     times,
-                    waveforms,
-                    waveform_generator,
-                    parameters,
+                    signals,
+                    parameters["geocent_time"],
+                    sample_rate,
                 )
 
                 # submit this injected data as a
