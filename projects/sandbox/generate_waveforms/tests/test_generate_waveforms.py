@@ -30,7 +30,7 @@ def n_samples(request):
     return request.param
 
 
-@pytest.fixture(params=[20, 50])
+@pytest.fixture(params=[50])
 def reference_frequency(request):
     return request.param
 
@@ -40,7 +40,7 @@ def minimum_frequency(request):
     return request.param
 
 
-@pytest.fixture(params=[1, 8, 60])
+@pytest.fixture(params=[8])
 def waveform_duration(request):
     return request.param
 
