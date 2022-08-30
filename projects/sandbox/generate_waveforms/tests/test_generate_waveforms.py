@@ -30,6 +30,16 @@ def n_samples(request):
     return request.param
 
 
+@pytest.fixture(params=[20, 50])
+def reference_frequency(request):
+    return request.param
+
+
+@pytest.fixture(params=[20, 40])
+def minimum_frequency(request):
+    return request.param
+
+
 @pytest.fixture(params=[1, 8, 60])
 def waveform_duration(request):
     return request.param
@@ -48,7 +58,14 @@ def prior_file(request):
 
 
 def test_check_file_contents(
-    data_dir, log_dir, n_samples, waveform_duration, sample_rate, prior_file
+    data_dir,
+    log_dir,
+    n_samples,
+    waveform_duration,
+    sample_rate,
+    prior_file,
+    minimum_frequency,
+    reference_frequency,
 ):
 
     signal_length = waveform_duration * sample_rate
@@ -58,8 +75,10 @@ def test_check_file_contents(
         n_samples,
         log_dir,
         data_dir,
-        waveform_duration=waveform_duration,
-        sample_rate=sample_rate,
+        reference_frequency,
+        minimum_frequency,
+        sample_rate,
+        waveform_duration,
     )
 
     with h5py.File(signal_file, "r") as f:

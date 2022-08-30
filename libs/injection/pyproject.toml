@@ -13,7 +13,7 @@ python = ">=3.8,<3.11"
 bilby = "<1.2"
 lalsuite = "^7.4"
 
-"bbhnet.base" = {path = "../base", extras = ["numpy"], develop = true}
+"bbhnet.base" = {path = "../base", extras = ["numpy", "gwpy"], develop = true}
 
 
 [tool.poetry.dev-dependencies]
