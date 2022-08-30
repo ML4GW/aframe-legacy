@@ -15,7 +15,7 @@ from hermes.typeo import typeo
 
 @typeo
 def main(
-    prior_file: str,
+    prior_file: Path,
     n_samples: int,
     logdir: Path,
     datadir: Path,
@@ -61,6 +61,11 @@ def main(
             " Not generating signals"
         )
         return signal_file
+
+    # if prior file is a relative path,
+    # make it relative to this script
+    if not prior_file.is_absolute():
+        prior_file = Path(__file__).resolve().parent / prior_file
 
     # log and print out some simulation parameters
     logging.info("Simulation parameters")
