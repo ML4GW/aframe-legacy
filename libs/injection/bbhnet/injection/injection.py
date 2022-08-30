@@ -26,8 +26,9 @@ def generate_gw(
         waveform_approximant: name of waveform approximant to use.
     Returns:
         An (n_samples, 2, waveform_size) array, containing both polarizations
-        for each of the desired number of samples. The first polarization is
-        always plus and the second is always cross
+        for each of the desired number of samples.
+        The waveforms are shifted such that
+        the coalescence time lies at the center of the sample
     """
 
     sample_params = [
