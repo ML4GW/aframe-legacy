@@ -123,7 +123,7 @@ commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.timeslide_injections]
 start = "${base.stop}" 
-stop = 1262751694
+stop = "${base.test_stop}"
 datadir = "${base.basedir}/timeslide_injections/"
 logdir = "${base.logdir}"
 prior_file = "${base.prior_file}"
