@@ -456,7 +456,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "tritonclient"
-version = "2.24.0"
+version = "2.25.0"
 description = "Python client library and utilities for communicating with Triton Inference Server"
 category = "main"
 optional = false
@@ -1272,8 +1272,8 @@ toml = [
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 tritonclient = [
-    {file = "tritonclient-2.24.0-py3-none-any.whl", hash = "sha256:923c01462265b097b7b899bbfc7e67e44f6719cdffefc9bf9b4330a893538f57"},
-    {file = "tritonclient-2.24.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:d7c34e6702c858f73685f0ea1fa41ae6864dc85aa3db47d759cb5eea4a17d1be"},
+    {file = "tritonclient-2.25.0-py3-none-any.whl", hash = "sha256:d2cc98001fb8138837b4ea548216d20a8002c11970b94d1622d6585d1444a1a2"},
+    {file = "tritonclient-2.25.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:df9d80d1aafcc5c6e48dba840c0fabad3bfc31dddd748f728912c3cc6708625f"},
 ]
 urllib3 = [
     {file = "urllib3-1.26.12-py2.py3-none-any.whl", hash = "sha256:b930dd878d5a8afb066a637fbb35144fe7901e3b209d1cd4f524bd0e9deee997"},

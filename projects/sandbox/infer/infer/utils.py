@@ -153,13 +153,17 @@ class SequenceManager:
             logging.debug(
                 "Submitting request {} for sequence {}".format(i, sequence_id)
             )
-            self.client.infer(
-                update,
-                request_id=i,
-                sequence_id=sequence_id,
-                sequence_start=i == 0,
-                sequence_end=i == (len(sequence.x) - 1),
-            )
+            try:
+                self.client.infer(
+                    update,
+                    request_id=i,
+                    sequence_id=sequence_id,
+                    sequence_start=i == 0,
+                    sequence_end=i == (len(sequence.x) - 1),
+                )
+            except Exception as e:
+                logging.error(str(e))
+                raise e
             time.sleep(1 / self.inference_rate)
 
             # let the first request complete before we
