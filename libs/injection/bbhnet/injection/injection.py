@@ -60,5 +60,9 @@ def generate_gw(
             [polarizations[p] for p in polarization_names]
         )
 
+        # center so that coalescence time is middle sample
+        dt = waveform_duration / 2
+        polarizations = np.roll(polarizations, int(dt * sample_rate), axis=-1)
         signals[i] = polarizations
+
     return signals
