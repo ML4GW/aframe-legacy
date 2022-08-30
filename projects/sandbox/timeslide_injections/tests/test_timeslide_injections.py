@@ -32,7 +32,7 @@ def jitter(request):
 
 
 @pytest.fixture(params=[8])
-def buffer(request):
+def buffer_(request):
     return request.param
 
 
@@ -87,7 +87,7 @@ def test_timeslide_injections_no_segments(
     prior_file,
     spacing,
     jitter,
-    buffer,
+    buffer_,
     n_slides,
     shifts,
     file_length,
@@ -116,7 +116,7 @@ def test_timeslide_injections_no_segments(
             prior_file,
             spacing,
             jitter,
-            buffer,
+            buffer_,
             n_slides,
             shifts,
             ifos,
@@ -160,7 +160,7 @@ def test_timeslide_injections_with_segments(
     prior_file,
     spacing,
     jitter,
-    buffer,
+    buffer_,
     n_slides,
     shifts,
     file_length,
@@ -212,7 +212,7 @@ def test_timeslide_injections_with_segments(
             prior_file,
             spacing,
             jitter,
-            buffer,
+            buffer_,
             n_slides,
             shifts,
             ifos,

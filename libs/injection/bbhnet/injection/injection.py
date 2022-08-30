@@ -73,7 +73,7 @@ def generate_gw(
 def inject_waveforms(
     background_data: Dict[str, np.ndarray],
     times: np.ndarray,
-    waveforms: Dict[str, np.ndarray],
+    waveforms: np.ndarray,
     signal_times: np.ndarray,
     sample_rate: float,
 ) -> Dict[str, np.ndarray]:
@@ -101,11 +101,12 @@ def inject_waveforms(
     """
     output = {}
 
-    for ifo, x in background_data.items():
+    for i, (ifo, x) in enumerate(background_data.items()):
+        signals = waveforms[:, i, :]
         ts = TimeSeries(x, times=times)
 
         # loop over signals, injecting them into the raw strain
-        for signal_start, signal in zip(signal_times, waveforms):
+        for signal_start, signal in zip(signal_times, signals):
             signal_stop = signal_start + len(signal) * (1 / sample_rate)
             signal_times = np.arange(
                 signal_start, signal_stop, 1 / sample_rate

@@ -243,11 +243,11 @@ def main(
             waveform_it = process_pool.imap(
                 generate_waveforms,
                 parameters,
-                minimum_frequency,
-                reference_frequency,
-                sample_rate,
-                waveform_duration,
-                waveform_approximant,
+                minimum_frequency=minimum_frequency,
+                reference_frequency=reference_frequency,
+                sample_rate=sample_rate,
+                waveform_duration=waveform_duration,
+                waveform_approximant=waveform_approximant,
             )
 
             # wait until the download has completed to move on
@@ -322,16 +322,16 @@ def main(
                 # pack up polarizations in compatible format
                 # with ml4gw project_raw_gw
                 polarizations = {
-                    "hcross": torch.Tensor(waveforms[:, 0, :]),
-                    "hplus": torch.Tensor(waveforms[:, 1, :]),
+                    "cross": torch.Tensor(waveforms[:, 0, :]),
+                    "plus": torch.Tensor(waveforms[:, 1, :]),
                 }
 
                 # project raw waveforms
                 signals = project_raw_gw(
                     sample_rate,
-                    parameters["dec"],
-                    parameters["psi"],
-                    parameters["ra"],
+                    torch.Tensor(parameters["dec"]),
+                    torch.Tensor(parameters["psi"]),
+                    torch.Tensor(parameters["ra"]),
                     tensors,
                     vertices,
                     **polarizations,
