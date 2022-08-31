@@ -24,7 +24,7 @@ from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor, as_completed
 from hermes.typeo import typeo
-from ml4gw.utils.injection import get_ifo_geometry, project_raw_gw
+from ml4gw.gw import compute_ifo_snr, compute_observed_strain, get_ifo_geometry
 
 
 def download_data(
@@ -327,17 +327,30 @@ def main(
                 }
 
                 # project raw waveforms
-                signals = project_raw_gw(
-                    sample_rate,
+                # onto ifos to produce
+                # observed strain
+                signals = compute_observed_strain(
                     torch.Tensor(parameters["dec"]),
                     torch.Tensor(parameters["psi"]),
                     torch.Tensor(parameters["ra"]),
                     tensors,
                     vertices,
+                    sample_rate,
                     **polarizations,
                 )
 
-                # TODO: insert calc_snr here and store in parameters
+                # pack up backgrounds into tensors
+                # compatible with ml4gw compute_ifo_snr
+                backgrounds = torch.stack(background.values())
+
+                snrs = compute_ifo_snr(
+                    signals,
+                    backgrounds,
+                    sample_rate,
+                )
+
+                for i, ifo in enumerate(ifos):
+                    parameters[f"{ifo}_snr"] = snrs[:, i]
 
                 # inject projected waveforms into background data
                 injected_data = inject_waveforms(
