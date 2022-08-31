@@ -339,13 +339,25 @@ def main(
                     **polarizations,
                 )
 
-                # pack up backgrounds into tensors
+                # create psds from background timeseries
+                # and pack up into tensors
                 # compatible with ml4gw compute_ifo_snr
-                backgrounds = torch.stack(background.values())
+                df = 1 / (signals.shape[-1] / sample_rate)
+                psds = torch.stack(
+                    [
+                        torch.Tensor(
+                            background[ifo]
+                            .psd(fftlength)
+                            .interpolate(df)
+                            .value
+                        )
+                        for ifo in ifos
+                    ]
+                )
 
                 snrs = compute_ifo_snr(
                     signals,
-                    backgrounds,
+                    psds,
                     sample_rate,
                 )
 
