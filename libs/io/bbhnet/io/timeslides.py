@@ -190,7 +190,7 @@ class Segment:
     @property
     def ifos(self):
         """Parses the shift directory name for ifos"""
-        ifos = [float(shift[0]) for shift in self.shift_dir.split("-")[1:]]
+        ifos = [shift[0] for shift in self.shift_dir.split("-")[1:]]
         return ifos
 
     @property
@@ -349,8 +349,20 @@ class TimeSlide:
         return self.root / self.field
 
     @property
-    def shift(self):
+    def shift_dir(self):
         return self.root.name
+
+    @property
+    def shifts(self):
+        """Parses the shift directory name for shift values"""
+        shifts = [float(shift[1]) for shift in self.shift_dir.split("-")[1:]]
+        return shifts
+
+    @property
+    def ifos(self):
+        """Parses the shift directory name for ifos"""
+        ifos = [shift[0] for shift in self.shift_dir.split("-")[1:]]
+        return ifos
 
     def __post_init__(self):
         self.root = Path(self.root)
