@@ -13,18 +13,30 @@ SEGMENT_LIKE = Union[Segment, Iterable[Segment], Tuple[np.ndarray, np.ndarray]]
 
 @dataclass
 class Distribution:
+    """A base class for a Distribution of events
+
+    Args:
+        dataset:
+            The name of the dataset used to generate events. Used to load data
+            when fitting directly from Segment objects
+        ifos:
+            The ifos from which these events are derived.
+
+    """
+
     dataset: str
+    ifos: Iterable[str]
 
     def __post_init__(self):
         self.Tb = 0
-        self.events = []
-        self.event_times = []
-        self.shifts = []
+        self.events = np.array([])
+        self.event_times = np.array([])
+        self.shifts = np.empty((0, len(self.ifos)))
 
     def write(self, path: Path):
         raise NotImplementedError
 
-    def update(self, x: np.ndarray, t: np.ndarray):
+    def update(self, x: np.ndarray, t: np.ndarray, shifts: np.ndarray):
         """Update this distribution to reflect new data"""
 
         raise NotImplementedError
@@ -85,8 +97,9 @@ class Distribution:
             segments = [segments]
 
         for segment in segments:
+            shifts = segment.shifts
             y, t = segment.load(self.dataset)
-            self.update(y, t)
+            self.update(y, t, shifts)
 
     def apply_vetoes(self, **vetoes: np.ndarray):
         """Remove events if the time in any of the interferometers lies in
@@ -94,8 +107,31 @@ class Distribution:
 
         Args:
             vetoes:
-                np.ndarray of shape (n_segments, 2)
+                np.ndarray of shape (n_segments, 2) corresponding to segments
+                that should be vetoed.
         """
+
+        for ifo, vetoes in vetoes.items():
+            if ifo not in self.ifos:
+                raise ValueError(
+                    f"Attempting to apply vetoes to ifo {ifo},"
+                    f"but {ifo} is not an ifo in this distribution"
+                )
+
+            # find shifts corresponding to this ifo
+            # and calculate event times for this ifo
+            shift_arg = np.where(np.array(self.ifos) == ifo)[0][0]
+            times = self.event_times - self.shifts[:, shift_arg]
+
+            # determine event times that are in vetoed segments
+            mask = np.ones(len(times), dtype=bool)
+            for t0, tf in vetoes:
+                mask &= (t0 >= times) | (times >= tf)
+
+            # apply mask
+            self.event_times = self.event_times[mask]
+            self.shifts = self.shifts[mask]
+            self.events = self.events[mask]
 
     def __str__(self):
         return f"{self.__class__.__name__}('{self.dataset}', Tb={self.Tb})"

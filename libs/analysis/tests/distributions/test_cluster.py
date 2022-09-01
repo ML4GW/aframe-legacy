@@ -1,63 +1,33 @@
-from unittest.mock import MagicMock, Mock
-
 import numpy as np
+import pytest
 
 from bbhnet.analysis.distributions.cluster import ClusterDistribution
-from bbhnet.io.timeslides import Segment
 
 
-def test_cluster_distribution():
-    distribution = ClusterDistribution("test", 5)
+@pytest.fixture(params=[2, 5, 10, 11, 29])
+def t_clust(request):
+    return request.param
 
-    y = t = np.arange(20).astype("float32")
-    distribution.update(y, t)
-    assert distribution.Tb == 20
-    assert distribution.events == [4.0, 9.0, 14.0, 19.0]
 
-    y += 1
-    distribution.update(y, t)
-    assert distribution.Tb == 40
-    assert distribution.events == [
-        4.0,
-        9.0,
-        14.0,
-        19.0,
-        5.0,
-        10.0,
-        15.0,
-        20.0,
-    ]
+def test_cluster_distribution(t_clust):
 
-    segment = Mock(Segment)
-    segment.load = MagicMock(return_value=(y, t))
-    segment.fnames = ["test1"]
+    distribution = ClusterDistribution("test", ["H", "L", "V"], t_clust)
 
-    distribution.fit(segment)
-    assert distribution.Tb == 60
-    assert distribution.events == [
-        4.0,
-        9.0,
-        14.0,
-        19.0,
-        5.0,
-        10.0,
-        15.0,
-        20.0,
-        5.0,
-        10.0,
-        15.0,
-        20.0,
-    ]
+    t = np.arange(100).astype("float32")
+    y = np.random.normal(size=len(t))
 
-    # test situation where data length is not
-    # divisible by t_clust
-    y = t = np.arange(19).astype("float32")
-    segment = Mock(Segment)
-    segment.load = MagicMock(return_value=(y, t))
-    segment.fnames = ["test1"]
-    distribution.fit(segment, warm_start=False)
-    assert distribution.Tb == 19
-    assert distribution.events == [4.0, 9.0, 14.0, 18.0]
+    shifts = [0, 1, 1]
 
-    assert distribution.nb(1) == 4
-    assert distribution.nb(10) == 2
+    # insert one maximum value every t_clust / 2 seconds
+    y[:: int(t_clust / 2)] = 100
+
+    distribution.update(y, t, shifts)
+    assert distribution.Tb == 100
+
+    # ensure all event times are at least t_clust / 2 apart
+    assert (np.diff(distribution.event_times) <= (t_clust / 2)).all()
+
+    assert (distribution.events == 100).all()
+    assert distribution.nb(99) == len(distribution.events)
+    print((distribution.shifts))
+    assert len(distribution.shifts) == len(distribution.events)

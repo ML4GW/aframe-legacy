@@ -182,7 +182,19 @@ class Segment:
         return self.root.name
 
     @property
-    def shift(self):
+    def shifts(self):
+        """Parses the shift directory name for shift values"""
+        shifts = [float(shift[1]) for shift in self.shift_dir.split("-")[1:]]
+        return shifts
+
+    @property
+    def ifos(self):
+        """Parses the shift directory name for ifos"""
+        ifos = [float(shift[0]) for shift in self.shift_dir.split("-")[1:]]
+        return ifos
+
+    @property
+    def shift_dir(self):
         """Represents the TimeSlide root directory"""
         if self.root is None:
             return None
