@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, Mock
+
 import numpy as np
 
 from bbhnet.analysis.distributions.cluster import ClusterDistribution
+from bbhnet.io.timeslides import Segment
 
 
 def test_cluster_distribution():
@@ -15,7 +18,7 @@ def test_cluster_distribution():
 
     shifts = [0, 1]
 
-    distribution.update(y, t, shifts)
+    distribution.fit((y, t), shifts)
     assert distribution.Tb == 3
     assert (distribution.events == [2]).all()
     assert len(distribution.shifts) == len(distribution.events)
@@ -24,7 +27,7 @@ def test_cluster_distribution():
     t = np.array([0, 2, 4])
     y = np.array([1, 2, 1])
 
-    distribution.update(y, t, shifts)
+    distribution.fit((y, t), shifts)
     assert distribution.Tb == 9
     assert (distribution.events == [2, 1, 2, 1]).all()
     assert len(distribution.shifts) == len(distribution.events)
@@ -33,7 +36,7 @@ def test_cluster_distribution():
     t = np.array([1, 2, 3, 4, 5, 6, 7])
     y = np.array([1, 2, 1, 2, 1, 2, 1])
 
-    distribution.update(y, t, shifts)
+    distribution.fit((y, t), shifts)
     assert distribution.Tb == 16
     assert (distribution.events == [2, 1, 2, 1, 2, 2, 2]).all()
     assert len(distribution.shifts) == len(distribution.events)
@@ -46,7 +49,7 @@ def test_cluster_distribution():
     # all events should stay
     t = np.array([8, 16, 24, 32])
     y = np.array([1, 2, 3, 4])
-    distribution.update(y, t, shifts)
+    distribution.fit((y, t), shifts)
     assert (distribution.events == [2, 1, 2, 1, 2, 2, 2, 1, 2, 3, 4]).all()
 
     # TODO: do we want the below behavior?
@@ -66,6 +69,27 @@ def test_cluster_distribution():
 
     t = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9])
     y = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9])
-    distribution.update(y, t, shifts)
+    distribution.fit((y, t), shifts)
 
     assert (distribution.events == [9]).all()
+
+    # now test fitting with segments
+    # from scratch
+    t = np.array([1, 2, 3])
+    y = np.array([1, 2, 1])
+
+    shifts = [0, 1]
+    segment = Mock(Segment)
+    segment.load = MagicMock(return_value=(y, t))
+    segment.shifts = shifts
+
+    distribution.fit(segment, warm_start=False)
+    assert distribution.Tb == 3
+    assert (distribution.events == [2]).all()
+    assert len(distribution.shifts) == len(distribution.events)
+
+    # list of segments
+    distribution.fit([segment, segment], warm_start=False)
+    assert distribution.Tb == 6
+    assert (distribution.events == [2, 2]).all()
+    assert len(distribution.shifts) == len(distribution.events)

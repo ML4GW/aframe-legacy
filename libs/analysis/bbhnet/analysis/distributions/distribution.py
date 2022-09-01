@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 
@@ -72,6 +72,7 @@ class Distribution:
     def fit(
         self,
         segments: SEGMENT_LIKE,
+        shifts: Optional[np.ndarray] = None,
         warm_start: bool = True,
     ) -> None:
         """
@@ -80,8 +81,13 @@ class Distribution:
 
         Args:
             segments:
-                `Segment` or list of `Segments` on which
-                to update the distribution
+                `Segment`, list of `Segments`, or Tuple (y, t) of np.ndarrays
+                on which to update the distribution
+            shifts:
+                If passing a Tuple as segments, the time shifts
+                of interferometers used to generate the output.
+                The shifts should correspond one-to-one with the
+                ifos attribute of the Distribution.
             warm_start:
                 Whether to fit the distribution from scratch
                 or continue from its existing state.
@@ -90,7 +96,7 @@ class Distribution:
             self.__post_init__()
 
         if isinstance(segments, Tuple):
-            self.update(*segments)
+            self.update(*segments, shifts)
             return
 
         if isinstance(segments, Segment):
