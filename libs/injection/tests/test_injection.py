@@ -88,7 +88,7 @@ def test_inject_waveforms():
     n_waveforms = len(signal_times)
     waveforms = np.ones((n_waveforms, waveform_size), dtype=np.float32)
 
-    injected = bbhnet.injection.injection.array_like_inject_waveforms_2(
+    injected = bbhnet.injection.injection.inject_waveforms(
         (times, background), waveforms, signal_times
     )
 
