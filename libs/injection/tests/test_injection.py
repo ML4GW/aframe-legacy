@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import bilby
+import numpy as np
 import pytest
 
 import bbhnet.injection
@@ -76,3 +77,23 @@ def test_generate_gw(
         n_pols,
         expected_waveform_size,
     )
+
+
+def test_inject_waveforms():
+    times = np.arange(1000)
+    background = np.zeros_like(times, dtype=np.float32)
+
+    waveform_size = 5
+    signal_times = np.arange(0, 1000, 10)
+    n_waveforms = len(signal_times)
+    waveforms = np.ones((n_waveforms, waveform_size), dtype=np.float32)
+
+    injected = bbhnet.injection.injection.array_like_inject_waveforms_2(
+        (times, background), waveforms, signal_times
+    )
+
+    assert len(background) == len(injected)
+
+    for i in range(n_waveforms):
+        slc = slice(i * 10, (i * 10) + waveform_size)
+        assert (injected[slc] == np.ones(waveform_size)).all()

@@ -18,6 +18,7 @@ bilby = "<1.2"
 "bbhnet.parallelize" = {path = "../../../libs/parallelize/", develop = true}
 "ml4gw" = {path = "../../../ml4gw/", develop = true}
 
+
 [tool.poetry.dev-dependencies]
 pytest = "^6.2"
 line-profiler = "^3.5.1"

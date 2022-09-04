@@ -1,10 +1,9 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from bilby.gw.waveform_generator import WaveformGenerator
-from gwpy.timeseries import TimeSeries
 
 
 def generate_gw(
@@ -71,51 +70,51 @@ def generate_gw(
 
 
 def inject_waveforms(
-    background_data: Dict[str, np.ndarray],
-    times: np.ndarray,
+    background: Tuple[np.ndarray, np.ndarray],
     waveforms: np.ndarray,
     signal_times: np.ndarray,
-    sample_rate: float,
 ) -> Dict[str, np.ndarray]:
 
     """
     Inject a set of signals into background data
 
     Args:
-        background_data:
-            A dictionary where the key is an interferometer
-            and the value is a timeseries
-        times:
-            times corresponding to samples in background_data
+        background:
+            A tuple (t, data) of np.ndarray arrays.
+            The first tuple is an array of times.
+            The second tuple is the background strain values
+            sampled at those times.
         waveforms:
-            A dictionary where the key is an interfereometer
-            and the value is an np.ndarray array of
-            projected waveforms of shape (n_signals, waveform_size)
+            An np.ndarary of shape (n_waveforms, waveform_size)
+            that contains the waveforms to inject
         signal_times: np.ndarray,:
-            An array of times where signals will be injected
-        sample_rate:
-            timeseries sampling rate
+            An array of times where signals will be injected. Corresponds to
+            first sample of waveforms.
     Returns
         A dictionary where the key is an interferometer and the value
         is a timeseries with the signals injected
     """
-    output = {}
 
-    for i, (ifo, x) in enumerate(background_data.items()):
-        signals = waveforms[:, i, :]
-        ts = TimeSeries(x, times=times)
+    times, data = background[0].copy(), background[1].copy()
+    if len(times) != len(data):
+        raise ValueError(
+            "The times and background arrays must be the same length"
+        )
 
-        # loop over signals, injecting them into the raw strain
-        for signal_start, signal in zip(signal_times, signals):
-            signal_stop = signal_start + len(signal) * (1 / sample_rate)
-            signal_times = np.arange(
-                signal_start, signal_stop, 1 / sample_rate
-            )
+    sample_rate = 1 / (times[1] - times[0])
+    # create matrix of indices of waveform_size for each waveform
+    idx = np.arange(waveforms.shape[-1])[None]
+    idx = np.repeat(idx, len(waveforms), axis=0)
 
-            # create gwpy timeseries for signal
-            signal = TimeSeries(signal, times=signal_times)
+    # offset the indices of each waveform corresponding to their time offset
+    time_diffs = signal_times - times[0]
+    idx_diffs = (time_diffs / sample_rate).astype("int64")
+    idx += idx_diffs[:, None]
 
-            # inject into raw background
-            ts.inject(signal)
-        output[ifo] = ts.value
-    return output
+    # flatten these indices and the signals out to 1D
+    # and then add them in-place all at once
+    idx = idx.reshape(-1)
+    waveforms = waveforms.reshape(-1)
+    data[idx] += waveforms
+
+    return data

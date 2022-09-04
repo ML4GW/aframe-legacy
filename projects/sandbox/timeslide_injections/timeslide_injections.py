@@ -45,7 +45,7 @@ def download_data(
             urltype="file",
         )
         data[ifo] = TimeSeries.read(
-            files, channel=f"{ifo}:{channel}", start=start, end=stop
+            files, channel=f"{ifo}:{channel}", start=start, end=stop, nproc=6
         )
     return data.resample(sample_rate)
 
@@ -106,6 +106,7 @@ def main(
     ifos: Iterable[str],
     file_length: int,
     minimum_frequency: float,
+    highpass: float,
     sample_rate: float,
     frame_type: str,
     channel: str,
@@ -136,6 +137,7 @@ def main(
         ifos: List interferometers
         file_length: length in seconds of each separate file
         minimum_frequency: minimum_frequency used for waveform generation
+        highpass: frequency at which data is highpassed
         sample_rate: sample rate
         frame_type: frame type for data discovery
         channel: strain channel to analyze
@@ -222,9 +224,12 @@ def main(
             )
 
             # generate timestamps of trigger times for each waveform.
-            # Jitter will get added in `get_params`
+            # Jitter will get added in `get_params`.
+            # take off min segment length from end of segment stop
+            # since we end up cutting some data off to make sure each timeslide
+            # has the same length of data
             signal_start = segment_start + buffer_
-            signal_stop = segment_stop - buffer_
+            signal_stop = segment_stop - buffer_ - max(shifts) * n_slides
             signal_times = np.arange(signal_start, signal_stop, spacing)
 
             # sample dictionary of params for each timeslide
@@ -313,12 +318,6 @@ def main(
                 )
                 futures.append(future)
 
-                # injected the raw waveforms into the background
-                logging.debug(
-                    "Beginning injection of {} waveforms "
-                    "on timeslide {}".format(len(waveforms), shift_str)
-                )
-
                 # pack up polarizations in compatible format
                 # with ml4gw project_raw_gw
                 polarizations = {
@@ -326,6 +325,10 @@ def main(
                     "plus": torch.Tensor(waveforms[:, 1, :]),
                 }
 
+                logging.debug(
+                    "Projecting and computing snrs for {} waveforms"
+                    " on timeslide {}".format(len(waveforms), shift_str)
+                )
                 # project raw waveforms
                 # onto ifos to produce
                 # observed strain
@@ -345,7 +348,7 @@ def main(
                 df = 1 / (signals.shape[-1] / sample_rate)
                 psds = torch.stack(
                     [
-                        torch.Tensor(
+                        torch.tensor(
                             background[ifo]
                             .psd(fftlength)
                             .interpolate(df)
@@ -356,26 +359,44 @@ def main(
                 )
 
                 snrs = compute_ifo_snr(
-                    signals,
+                    torch.tensor(signals, dtype=torch.float64),
                     psds,
                     sample_rate,
+                    highpass=highpass,
                 )
 
+                logging.debug(
+                    "Completed projection of {} waveforms and snr computation "
+                    "timeslide {} ".format(len(waveforms), shift_str)
+                )
                 for i, ifo in enumerate(ifos):
                     parameters[f"{ifo}_snr"] = snrs[:, i]
 
+                # inject the projected waveforms into the background
+                logging.debug(
+                    "Beginning injection of {} waveforms "
+                    "on timeslide {}".format(len(waveforms), shift_str)
+                )
+                signals = signals.numpy()
+
                 # inject projected waveforms into background data
-                injected_data = inject_waveforms(
-                    background_data,
-                    times,
-                    signals,
-                    parameters["geocent_time"],
-                    sample_rate,
+
+                injected_data = {}
+                for i, ifo in enumerate(ifos):
+                    injected_data[ifo] = inject_waveforms(
+                        (times, background_data[ifo]),
+                        signals[:, i, :],
+                        parameters["geocent_time"],
+                    )
+
+                logging.debug(
+                    "completed injection of {} waveforms on "
+                    "timeslide {}".format(len(waveforms), shift_str)
                 )
 
                 # submit this injected data as a
                 # write job to the process pool
-                process_pool.submit(
+                future = process_pool.submit(
                     h5.write_timeseries,
                     injection_ts.path,
                     prefix="inj",
