@@ -25,4 +25,4 @@ class HighpassFilter(Transform):
         self.b_coeffs = self.add_parameter([b0, b1, b2])
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        return lfilter(X, self.a_coeffs, self.b_coeffs)
+        return lfilter(X, self.a_coeffs, self.b_coeffs, clamp=False)
