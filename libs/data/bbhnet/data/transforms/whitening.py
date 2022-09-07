@@ -77,6 +77,7 @@ class WhiteningTransform(Transform):
         # device along?
         super().to(device)
         self.window = self.window.to(device)
+        return self
 
     def fit(self, X: np.ndarray) -> None:
         """
@@ -104,6 +105,8 @@ class WhiteningTransform(Transform):
                 fftlength=self.fftlength, window="hanning", method="median"
             )
             asd = asd.interpolate(self.df).value
+            if (asd == 0).any():
+                raise ValueError("Found 0 values in background asd")
             tdf = fir_from_transfer(
                 1 / asd,
                 ntaps=self.ntaps,
@@ -116,12 +119,7 @@ class WhiteningTransform(Transform):
         self.set_value(self.time_domain_filter, tdf)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-
         # do a constant detrend along the time axis,
-        # transposing to ensure that the last two dimensions
-        # of the original and dimension-reduced tensors match.
-        # TODO: will using X.mean(axis=-1, keepdims=True)
-        # allow us to avoid these transposes?
         X = X - X.mean(axis=-1, keepdims=True)
         X[:, :, : self.pad] *= self.window[: self.pad]
         X[:, :, -self.pad :] *= self.window[-self.pad :]

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from bbhnet.data.transforms import Transform
+from bbhnet.data.transforms.transform import Transform
 from ml4gw.utils.slicing import sample_kernels
 
 
@@ -11,10 +11,10 @@ class GlitchSampler(Transform):
         self, prob: float, max_offset: int, **glitches: np.ndarray
     ) -> None:
         super().__init__()
-        glitches = torch.nn.ParameterList()
-        for ifo in glitches:
+        self.glitches = torch.nn.ParameterList()
+        for ifo in glitches.values():
             param = self.add_parameter(ifo)
-            glitches.append(param)
+            self.glitches.append(param)
 
         self.prob = prob
         self.max_offset = max_offset
@@ -28,17 +28,18 @@ class GlitchSampler(Transform):
                 )
             )
 
+        masks = torch.rand(size=(len(self.glitches), len(X))) < self.prob
+        # masks = masks.to(X.device)
         for i, ifo in enumerate(self.glitches):
-            mask = torch.rand(size=X.shape[:1]) < self.prob
+            mask = masks[i]
             N = mask.sum().item()
             idx = torch.randint(len(X), size=(N,))
 
             glitches = ifo[idx]
             glitches = sample_kernels(
-                glitches,
+                glitches[:, None],
                 kernel_size=X.shape[-1],
                 max_center_offset=self.max_offset,
-                coincident=False,
             )
             X[mask] = glitches
         return X, y

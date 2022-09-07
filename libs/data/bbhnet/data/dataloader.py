@@ -33,7 +33,7 @@ class BBHInMemoryDataset(InMemoryDataset):
 
     def __next__(self):
         X = super().__next__()
-        y = torch.zeros((len(X), 1))
+        y = torch.zeros((len(X), 1)).to(X.device)
 
         if self.preprocessor is not None:
             X, y = self.preprocessor(X, y)

@@ -3,7 +3,7 @@ import math
 import torch
 from torchaudio.functional import lfilter
 
-from bbhnet.data.transforms import Transform
+from bbhnet.data.transforms.transform import Transform
 
 
 class HighpassFilter(Transform):

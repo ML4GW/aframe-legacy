@@ -92,12 +92,15 @@ highpass = "${base.fmin}"
 trigger_distance = -0.5
 waveform_frac = 0.5
 glitch_frac = 0.25
+mean_snr = 1000
+std_snr = 2
+min_snr = 2
 
 # optimization parameters
-batch_size = 64
+batch_size = 512
 batches_per_epoch = 100
 max_epochs = 200
-lr = 1e-5
+lr = 1e-3
 weight_decay = 1e-5
 patience = 10
 factor = 0.2

@@ -6,12 +6,23 @@ import h5py
 import numpy as np
 import torch
 
-from bbhnet.data.dataloader import BBHInMemoryDataset, GlitchSampler
-from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
-from bbhnet.distributions import Cosine, LogNormal, Uniform
+from bbhnet.data.dataloader import BBHInMemoryDataset
+from bbhnet.data.distributions import Cosine, LogNormal, Uniform
+from bbhnet.data.glitch_sampler import GlitchSampler  # noqa
+from bbhnet.data.transforms import HighpassFilter, WhiteningTransform  # noqa
 from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
 from ml4gw.transforms import RandomWaveformInjection
+
+
+class MultiInputSequential(torch.nn.Sequential):
+    def forward(self, *inputs):
+        for module in self._modules.values():
+            if type(inputs) == tuple:
+                inputs = module(*inputs)
+            else:
+                inputs = module(inputs)
+        return inputs
 
 
 def split(X, frac, axis):
@@ -42,7 +53,7 @@ def main(
     logdir: Path,
     mean_snr: float = 8,
     std_snr: float = 4,
-    min_snr: Optional[float] = 2,
+    min_snr: Optional[float] = None,
     batches_per_epoch: Optional[int] = None,
     fduration: Optional[float] = None,
     trigger_distance: float = 0,
@@ -99,15 +110,15 @@ def main(
         frac = None
 
     # initiate training glitch sampler
-    with h5py.File(glitch_dataset, "r") as f:
-        h1_glitches = glitch_dataset["H1_glitches"][:]
-        l1_glitches = glitch_dataset["L1_glitches"][:]
-    glitch_inserter = GlitchSampler(
-        prob=glitch_frac,
-        max_offset=int(trigger_distance * sample_rate),
-        H1=h1_glitches,
-        L1=l1_glitches,
-    )
+    #     with h5py.File(glitch_dataset, "r") as f:
+    #         h1_glitches = f["H1_glitches"][:]
+    #         l1_glitches = f["L1_glitches"][:]
+    #     glitch_inserter = GlitchSampler(
+    #         prob=glitch_frac,
+    #         max_offset=int(trigger_distance * sample_rate),
+    #         H1=h1_glitches,
+    #         L1=l1_glitches,
+    #     )
 
     # initiate training waveform sampler
     with h5py.File(signal_dataset, "r") as f:
@@ -136,7 +147,7 @@ def main(
         plus=plus,
         cross=cross,
     )
-    augmentation = torch.nn.Sequential(glitch_inserter, injector)
+    augmentation = MultiInputSequential(injector)  # glitch_inserter, injector)
 
     background = []
     for fname in [hanford_background, livingston_background]:
@@ -148,6 +159,8 @@ def main(
     if frac is not None:
         background, valid_background = split(background, frac, 1)
     injector.fit(H1=background[0], L1=background[1])
+    injector = injector.to(device)
+    augmentation = augmentation.to(device)
 
     # create full training dataloader
     train_dataset = BBHInMemoryDataset(
@@ -169,8 +182,11 @@ def main(
         2, sample_rate, kernel_length, highpass=highpass, fduration=fduration
     )
     whitener.fit(background)
-    hpf = HighpassFilter(highpass, sample_rate)
-    preprocessor = torch.nn.Sequential([whitener, hpf])
+    whitener = whitener.to(device)
+
+    # hpf = HighpassFilter(highpass, sample_rate)
+    preprocessor = torch.nn.Sequential(whitener)  # , hpf)
+    preprocessor = preprocessor.to(device)
 
     # deterministic validation glitch sampler
     if valid_frac is not None:
