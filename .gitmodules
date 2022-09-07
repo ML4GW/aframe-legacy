@@ -3,4 +3,4 @@
 	url = git@github.com:ML4GW/hermes.git
 [submodule "ml4gw"]
 	path = ml4gw
-	url = https://github.com/ML4GW/ml4gw
+	url = git@github.com:ML4GW/ml4gw.git

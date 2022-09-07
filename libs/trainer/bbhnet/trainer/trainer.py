@@ -3,6 +3,7 @@ import os
 import time
 from typing import Callable, Iterable, Optional, Tuple
 
+import h5py
 import numpy as np
 import torch
 
@@ -166,6 +167,13 @@ def train(
     device = device or "cpu"
     os.makedirs(outdir, exist_ok=True)
 
+    X, y = next(iter(train_dataset))
+    if preprocessor is not None:
+        X = preprocessor(X)
+    with h5py.File(os.path.join(outdir, "batch.h5"), "w") as f:
+        f["X"] = X.cpu().numpy()
+        f["y"] = y.cpu().numpy()
+
     logging.info(f"Device: {device}")
     # Creating model, loss function, optimizer and lr scheduler
     logging.info("Building and initializing model")
@@ -176,12 +184,6 @@ def train(
 
     model = architecture(num_ifos)
     model.to(device)
-
-    # now move the train dataset and the validation dataset
-    # (if the latter exists) to the target device
-    train_dataset.to(device)
-    if valid_dataset is not None:
-        valid_dataset.to(device)
 
     # if we passed a module for preprocessing,
     # include it in the model so that the weights
