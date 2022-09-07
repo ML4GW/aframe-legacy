@@ -123,6 +123,7 @@ def main(
     # initiate training waveform sampler
     with h5py.File(signal_dataset, "r") as f:
         signals = f["signals"][:]
+        signals = np.roll(signals, -signals.shape[-1] // 2, axis=-1)
         if frac is not None:
             raise ValueError
             # signals, valid_signals = split(signals, frac, 0)
@@ -184,8 +185,8 @@ def main(
     whitener.fit(background)
     whitener = whitener.to(device)
 
-    # hpf = HighpassFilter(highpass, sample_rate)
-    preprocessor = torch.nn.Sequential(whitener)  # , hpf)
+    hpf = HighpassFilter(highpass, sample_rate)
+    preprocessor = torch.nn.Sequential(whitener, hpf)
     preprocessor = preprocessor.to(device)
 
     # deterministic validation glitch sampler

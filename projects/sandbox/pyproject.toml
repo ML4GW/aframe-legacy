@@ -92,8 +92,8 @@ highpass = "${base.fmin}"
 trigger_distance = -0.5
 waveform_frac = 0.5
 glitch_frac = 0.25
-mean_snr = 1000
-std_snr = 2
+mean_snr = 10
+std_snr = 4
 min_snr = 2
 
 # optimization parameters
