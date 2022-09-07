@@ -1,10 +1,9 @@
 import math
 
 import torch
+from torchaudio.functional import lfilter
 
 from bbhnet.data.transforms.transform import Transform
-
-# from torchaudio.functional import lfilter
 
 
 class HighpassFilter(Transform):
@@ -22,16 +21,8 @@ class HighpassFilter(Transform):
         a1 = -2 * math.cos(w0)
         a2 = 1 - alpha
 
-        a_coeffs = torch.Tensor([a2, a1, a0])[None, None] / a0
-        b_coeffs = torch.Tensor([b2, b1, b0])[None, None]
-        self.a_coeffs = self.add_parameter(a_coeffs)
-        self.b_coeffs = self.add_parameter(b_coeffs)
+        self.a_coeffs = self.add_parameter([a0, a1, a2])
+        self.b_coeffs = self.add_parameter([b0, b1, b2])
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        X = torch.nn.functional.pad(X, [2, 0])
-        X = torch.nn.function.conv1d(X, self.b_coeffs, groups=X.shape[1])
-        X.div_(self.a_coeffs[:, :, -1])
-
-        X = torch.nn.functional.pad(X, [0, 2])
-        convd = torch.nn.functional.conv1d(X, self.a_coeffs, groups=X.shape[1])
-        return X - convd
+        return lfilter(X, self.a_coeffs, self.b_coeffs)
