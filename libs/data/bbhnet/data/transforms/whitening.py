@@ -78,7 +78,7 @@ class WhiteningTransform(Transform):
         super().to(device)
         self.window = self.window.to(device)
 
-    def fit(self, X: torch.Tensor) -> None:
+    def fit(self, X: np.ndarray) -> None:
         """
         Build a whitening time domain filter from a set
         of ASDs. TODO: should this be a single tensor
@@ -98,8 +98,7 @@ class WhiteningTransform(Transform):
             )
 
         tdfs = []
-        for x in X.cpu().numpy():
-
+        for x in X:
             ts = TimeSeries(x, dt=1 / self.sample_rate)
             asd = ts.asd(
                 fftlength=self.fftlength, window="hanning", method="median"
@@ -123,10 +122,7 @@ class WhiteningTransform(Transform):
         # of the original and dimension-reduced tensors match.
         # TODO: will using X.mean(axis=-1, keepdims=True)
         # allow us to avoid these transposes?
-        X = X.transpose(2, 0)
-        X = X - X.mean(axis=0)
-        X = X.transpose(0, 2)
-
+        X = X - X.mean(axis=-1, keepdims=True)
         X[:, :, : self.pad] *= self.window[: self.pad]
         X[:, :, -self.pad :] *= self.window[-self.pad :]
 

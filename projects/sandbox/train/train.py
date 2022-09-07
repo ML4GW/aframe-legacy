@@ -1,17 +1,22 @@
+from math import pi
 from pathlib import Path
 from typing import Optional
 
+import h5py
+import numpy as np
 import torch
 
-from bbhnet.data import (
-    DeterministicWaveformDataset,
-    GlitchSampler,
-    RandomWaveformDataset,
-    WaveformSampler,
-)
-from bbhnet.data.transforms import WhiteningTransform
+from bbhnet.data.dataloader import BBHInMemoryDataset, GlitchSampler
+from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
+from bbhnet.distributions import Cosine, LogNormal, Uniform
 from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
+from ml4gw.transforms import RandomWaveformInjection
+
+
+def split(X, frac, axis):
+    return np.split(X, [int(frac * X.shape[axis])], axis=axis)
+
 
 # note that this function decorator acts both to
 # wrap this function such that the outputs of it
@@ -20,8 +25,6 @@ from bbhnet.trainer import trainify
 # as well as to expose these arguments _as well_ as those
 # from bbhnet.trainer.trainer.train to command line
 # execution and parsing
-
-
 @trainify
 def main(
     glitch_dataset: str,
@@ -31,17 +34,18 @@ def main(
     waveform_frac: float,
     glitch_frac: float,
     kernel_length: float,
-    min_snr: float,
-    max_snr: float,
     highpass: float,
     sample_rate: float,
     batch_size: int,
-    batches_per_epoch: int,
     device: str,
     outdir: Path,
     logdir: Path,
+    mean_snr: float = 8,
+    std_snr: float = 4,
+    min_snr: Optional[float] = 2,
+    batches_per_epoch: Optional[int] = None,
     fduration: Optional[float] = None,
-    trigger_distance_size: float = 0,
+    trigger_distance: float = 0,
     valid_frac: Optional[float] = None,
     valid_stride: Optional[float] = None,
     verbose: bool = False,
@@ -95,87 +99,82 @@ def main(
         frac = None
 
     # initiate training glitch sampler
-    train_glitch_sampler = GlitchSampler(glitch_dataset, frac=frac)
-
-    # initiate training waveform sampler
-    train_waveform_sampler = WaveformSampler(
-        signal_dataset,
-        sample_rate,
-        min_snr=min_snr,
-        max_snr=max_snr,
-        highpass=highpass,
-        frac=frac,
+    with h5py.File(glitch_dataset, "r") as f:
+        h1_glitches = glitch_dataset["H1_glitches"][:]
+        l1_glitches = glitch_dataset["L1_glitches"][:]
+    glitch_inserter = GlitchSampler(
+        prob=glitch_frac,
+        max_offset=int(trigger_distance * sample_rate),
+        H1=h1_glitches,
+        L1=l1_glitches,
     )
 
-    # create full training dataloader
-    train_dataset = RandomWaveformDataset(
-        hanford_background,
-        livingston_background,
-        kernel_length=kernel_length,
+    # initiate training waveform sampler
+    with h5py.File(signal_dataset, "r") as f:
+        signals = f["signals"][:]
+        if frac is not None:
+            raise ValueError
+            # signals, valid_signals = split(signals, frac, 0)
+            # valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
+
+            # ra = f["ra"][-len(valid_signals):]
+            # dec = f["dec"][-len(valid_signals):]
+            # psi = f["psi"][-len(valid_signals):]
+            # snr = f["snr"][-len(valid_signals):]
+
+        plus, cross = signals.transpose(1, 0, 2)
+
+    injector = RandomWaveformInjection(
+        dec=Cosine(),
+        psi=Uniform(0, pi),
+        phi=Uniform(-pi, pi),
+        snr=LogNormal(mean_snr, std_snr, min_snr),
         sample_rate=sample_rate,
+        highpass=highpass,
+        prob=waveform_frac,
+        trigger_offset=trigger_distance,
+        plus=plus,
+        cross=cross,
+    )
+    augmentation = torch.nn.Sequential(glitch_inserter, injector)
+
+    background = []
+    for fname in [hanford_background, livingston_background]:
+        with h5py.File(fname, "r") as f:
+            hoft = f["hoft"][:]
+        background.append(hoft)
+    background = np.stack(background)
+
+    if frac is not None:
+        background, valid_background = split(background, frac, 1)
+    injector.fit(H1=background[0], L1=background[1])
+
+    # create full training dataloader
+    train_dataset = BBHInMemoryDataset(
+        background,
+        int(kernel_length * sample_rate),
         batch_size=batch_size,
+        stride=1,
         batches_per_epoch=batches_per_epoch,
-        waveform_sampler=train_waveform_sampler,
-        waveform_frac=waveform_frac,
-        glitch_sampler=train_glitch_sampler,
-        glitch_frac=glitch_frac,
-        trigger_distance=trigger_distance_size,
-        frac=frac,
+        preprocessor=augmentation,
+        coincident=False,
+        shuffle=True,
+        device=device,
     )
 
     # TODO: hard-coding num_ifos into preprocessor. Should
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
-    preprocessor = WhiteningTransform(
+    whitener = WhiteningTransform(
         2, sample_rate, kernel_length, highpass=highpass, fduration=fduration
     )
-
-    # TODO: make this a `train_dataset.background` `@property`?
-    background = torch.stack(
-        [train_dataset.hanford_background, train_dataset.livingston_background]
-    )
-    preprocessor.fit(background)
+    whitener.fit(background)
+    hpf = HighpassFilter(highpass, sample_rate)
+    preprocessor = torch.nn.Sequential([whitener, hpf])
 
     # deterministic validation glitch sampler
     if valid_frac is not None:
-        if valid_stride is None:
-            raise ValueError(
-                "Must specify a validation stride if "
-                "specifying a validation fraction"
-            )
-
-        val_glitch_sampler = GlitchSampler(
-            glitch_dataset, deterministic=True, frac=-valid_frac
-        )
-
-        # deterministic validation waveform sampler
-        val_waveform_sampler = WaveformSampler(
-            signal_dataset,
-            sample_rate,
-            min_snr=min_snr,
-            max_snr=max_snr,
-            highpass=highpass,
-            deterministic=True,
-            frac=-valid_frac,
-        )
-        val_waveform_sampler.fit(
-            H1=train_dataset.hanford_background,
-            L1=train_dataset.livingston_background,
-        )
-
-        # create full validation dataloader
-        valid_dataset = DeterministicWaveformDataset(
-            hanford_background,
-            livingston_background,
-            kernel_length=kernel_length,
-            sample_rate=sample_rate,
-            stride=valid_stride,
-            batch_size=4 * batch_size,
-            waveform_sampler=val_waveform_sampler,
-            glitch_sampler=val_glitch_sampler,
-            offset=0,
-            frac=-valid_frac,
-        )
+        raise ValueError
     else:
         valid_dataset = None
 
