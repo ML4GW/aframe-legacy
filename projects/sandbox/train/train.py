@@ -236,7 +236,8 @@ def main(
     # fit our waveform injector to this background
     # to facilitate the SNR remapping
     augmenter._modules["injector"].fit(H1=background[0], L1=background[1])
-    augmenter = augmenter.to(device)
+    for module in augmenter._modules.values():
+        module.to(device)
 
     # create full training dataloader
     train_dataset = BBHInMemoryDataset(
@@ -265,7 +266,8 @@ def main(
     # fit the whitening module to the background then
     # move eveyrthing to the desired device
     preprocessor._modules["whitener"].fit(background)
-    preprocessor = preprocessor.to(device)
+    for module in preprocessor._modules.values():
+        module.to(device)
 
     # deterministic validation glitch sampler
     if valid_frac is not None:
