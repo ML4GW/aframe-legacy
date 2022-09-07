@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from math import pi
 from pathlib import Path
 from typing import Optional
@@ -8,8 +9,8 @@ import torch
 
 from bbhnet.data.dataloader import BBHInMemoryDataset
 from bbhnet.data.distributions import Cosine, LogNormal, Uniform
-from bbhnet.data.glitch_sampler import GlitchSampler  # noqa
-from bbhnet.data.transforms import HighpassFilter, WhiteningTransform  # noqa
+from bbhnet.data.glitch_sampler import GlitchSampler
+from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
 from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
 from ml4gw.transforms import RandomWaveformInjection
@@ -27,6 +28,111 @@ class MultiInputSequential(torch.nn.Sequential):
 
 def split(X, frac, axis):
     return np.split(X, [int(frac * X.shape[axis])], axis=axis)
+
+
+def prepare_augmentation(
+    glitch_dataset: Path,
+    waveform_dataset: Path,
+    glitch_prob: float,
+    waveform_prob: float,
+    sample_rate: float,
+    highpass: float,
+    mean_snr: float,
+    std_snr: float,
+    min_snr: Optional[float] = None,
+    trigger_distance: float = 0,
+    valid_frac: Optional[float] = None,
+):
+    # build a glitch sampler from a pre-saved bank of
+    # glitches which will randomly insert them into
+    # either or both interferometer channels
+    with h5py.File(glitch_dataset, "r") as f:
+        h1_glitches = f["H1_glitches"][:]
+        l1_glitches = f["L1_glitches"][:]
+    glitch_inserter = GlitchSampler(
+        prob=glitch_prob,
+        max_offset=int(trigger_distance * sample_rate),
+        H1=h1_glitches,
+        L1=l1_glitches,
+    )
+
+    # initiate a waveform sampler from a pre-saved bank
+    # of GW waveform polarizations which will randomly
+    # project them to inteferometer responses and
+    # inject those resposnes into the input data
+    with h5py.File(waveform_dataset, "r") as f:
+        signals = f["signals"][:]
+        signals = np.roll(signals, -signals.shape[-1] // 2, axis=-1)
+        if valid_frac is not None:
+            raise ValueError
+            # signals, valid_signals = split(signals, 1 - valid_frac, 0)
+            # valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
+
+            # ra = f["ra"][-len(valid_signals):]
+            # dec = f["dec"][-len(valid_signals):]
+            # psi = f["psi"][-len(valid_signals):]
+            # snr = f["snr"][-len(valid_signals):]
+
+        plus, cross = signals.transpose(1, 0, 2)
+
+    # instantiate source parameters as callable
+    # distributions which will produce samples
+    injector = RandomWaveformInjection(
+        dec=Cosine(),
+        psi=Uniform(0, pi),
+        phi=Uniform(-pi, pi),
+        snr=LogNormal(mean_snr, std_snr, min_snr),
+        sample_rate=sample_rate,
+        highpass=highpass,
+        prob=waveform_prob,
+        trigger_offset=trigger_distance,
+        plus=plus,
+        cross=cross,
+    )
+
+    # stack glitch inserter and waveform sampler into
+    # a single random augmentation object which will
+    # be called at data-loading time (i.e. won't be
+    # used on validation data).
+    # TODO: return validation data if valid_frac not None
+    return MultiInputSequential(
+        OrderedDict(
+            [("glitch_inserter", glitch_inserter), ("injector", injector)]
+        )
+    )
+
+
+def prepare_preprocessor(
+    num_ifos: int,
+    sample_rate: float,
+    kernel_length: float,
+    fduration: float,
+    highpass: float,
+):
+    whitener = WhiteningTransform(
+        num_ifos,
+        sample_rate,
+        kernel_length,
+        highpass=highpass,
+        fduration=fduration,
+    )
+
+    hpf = HighpassFilter(highpass, sample_rate)
+    return torch.nn.Sequential(
+        OrderedDict([("whitener", whitener)("higpass", hpf)])
+    )
+
+
+def load_background(*backgrounds: Path):
+    # TODO: maybe package up hanford and livingston
+    # (or any arbitrary set of ifos) background files into one
+    # for simplicity
+    background = []
+    for fname in backgrounds:
+        with h5py.File(fname, "r") as f:
+            hoft = f["hoft"][:]
+        background.append(hoft)
+    return np.stack(background)
 
 
 # note that this function decorator acts both to
@@ -97,71 +203,35 @@ def main(
     # make out dir and configure logging file
     outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
-
     configure_logging(logdir / "train.log", verbose)
+
+    # build a torch module that we'll use for doing
+    # random augmentation at data-loading time
+    augmenter = prepare_augmentation(
+        glitch_dataset,
+        signal_dataset,
+        glitch_prob=glitch_frac,
+        waveform_prob=waveform_frac,
+        sample_rate=sample_rate,
+        highpass=highpass,
+        mean_snr=mean_snr,
+        std_snr=std_snr,
+        min_snr=min_snr,
+        trigger_distance=trigger_distance,
+        valid_frac=valid_frac,
+    )
 
     # TODO: maybe package up hanford and livingston
     # (or any arbitrary set of ifos) background files into one
     # for simplicity
-
+    background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
-        frac = 1 - valid_frac
-    else:
-        frac = None
+        background, valid_background = split(background, 1 - valid_frac, 1)
 
-    # initiate training glitch sampler
-    #     with h5py.File(glitch_dataset, "r") as f:
-    #         h1_glitches = f["H1_glitches"][:]
-    #         l1_glitches = f["L1_glitches"][:]
-    #     glitch_inserter = GlitchSampler(
-    #         prob=glitch_frac,
-    #         max_offset=int(trigger_distance * sample_rate),
-    #         H1=h1_glitches,
-    #         L1=l1_glitches,
-    #     )
-
-    # initiate training waveform sampler
-    with h5py.File(signal_dataset, "r") as f:
-        signals = f["signals"][:]
-        signals = np.roll(signals, -signals.shape[-1] // 2, axis=-1)
-        if frac is not None:
-            raise ValueError
-            # signals, valid_signals = split(signals, frac, 0)
-            # valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
-
-            # ra = f["ra"][-len(valid_signals):]
-            # dec = f["dec"][-len(valid_signals):]
-            # psi = f["psi"][-len(valid_signals):]
-            # snr = f["snr"][-len(valid_signals):]
-
-        plus, cross = signals.transpose(1, 0, 2)
-
-    injector = RandomWaveformInjection(
-        dec=Cosine(),
-        psi=Uniform(0, pi),
-        phi=Uniform(-pi, pi),
-        snr=LogNormal(mean_snr, std_snr, min_snr),
-        sample_rate=sample_rate,
-        highpass=highpass,
-        prob=waveform_frac,
-        trigger_offset=trigger_distance,
-        plus=plus,
-        cross=cross,
-    )
-    augmentation = MultiInputSequential(injector)  # glitch_inserter, injector)
-
-    background = []
-    for fname in [hanford_background, livingston_background]:
-        with h5py.File(fname, "r") as f:
-            hoft = f["hoft"][:]
-        background.append(hoft)
-    background = np.stack(background)
-
-    if frac is not None:
-        background, valid_background = split(background, frac, 1)
-    injector.fit(H1=background[0], L1=background[1])
-    injector = injector.to(device)
-    augmentation = augmentation.to(device)
+    # fit our waveform injector to this background
+    # to facilitate the SNR remapping
+    augmenter._modules["injector"].fit(H1=background[0], L1=background[1])
+    augmenter = augmenter.to(device)
 
     # create full training dataloader
     train_dataset = BBHInMemoryDataset(
@@ -170,7 +240,7 @@ def main(
         batch_size=batch_size,
         stride=1,
         batches_per_epoch=batches_per_epoch,
-        preprocessor=augmentation,
+        preprocessor=augmenter,
         coincident=False,
         shuffle=True,
         device=device,
@@ -179,14 +249,17 @@ def main(
     # TODO: hard-coding num_ifos into preprocessor. Should
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
-    whitener = WhiteningTransform(
-        2, sample_rate, kernel_length, highpass=highpass, fduration=fduration
+    preprocessor = prepare_preprocessor(
+        num_ifos=2,
+        sample_rate=sample_rate,
+        kernel_length=kernel_length,
+        highpass=highpass,
+        fduration=fduration,
     )
-    whitener.fit(background)
-    whitener = whitener.to(device)
 
-    hpf = HighpassFilter(highpass, sample_rate)
-    preprocessor = torch.nn.Sequential(whitener, hpf)
+    # fit the whitening module to the background then
+    # move eveyrthing to the desired device
+    preprocessor._modules["whitener"].fit(background)
     preprocessor = preprocessor.to(device)
 
     # deterministic validation glitch sampler
