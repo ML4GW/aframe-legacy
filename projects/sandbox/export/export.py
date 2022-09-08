@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -6,8 +7,30 @@ import torch
 
 import hermes.quiver as qv
 from bbhnet.architectures import architecturize
-from bbhnet.data.transforms import WhiteningTransform
+from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
 from bbhnet.logging import configure_logging
+
+
+# and find a home for this
+def prepare_preprocessor(
+    num_ifos: int,
+    sample_rate: float,
+    kernel_length: float,
+    fduration: float,
+    highpass: float,
+):
+    whitener = WhiteningTransform(
+        num_ifos,
+        sample_rate,
+        kernel_length,
+        highpass=highpass,
+        fduration=fduration,
+    )
+
+    hpf = HighpassFilter(highpass, sample_rate)
+    return torch.nn.Sequential(
+        OrderedDict([("whitener", whitener), ("higpass", hpf)])
+    )
 
 
 def scale_model(model, instances):
@@ -27,6 +50,8 @@ def export(
     kernel_length: float,
     inference_sampling_rate: float,
     sample_rate: float,
+    fduration: float,
+    highpass: float,
     batch_size: int,
     weights: Optional[Path] = None,
     streams_per_gpu: int = 1,
@@ -108,7 +133,10 @@ def export(
     nn = architecture(num_ifos)
 
     # hardcoding preprocessing, what's the best way to handle?
-    preprocessor = WhiteningTransform(num_ifos, sample_rate, kernel_length)
+    preprocessor = prepare_preprocessor(
+        num_ifos, sample_rate, kernel_length, fduration, highpass
+    )
+
     nn = torch.nn.Sequential(preprocessor, nn)
     nn.load_state_dict(torch.load(weights))
     nn.eval()
