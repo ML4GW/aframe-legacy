@@ -28,7 +28,11 @@ class MultiInputSequential(torch.nn.Sequential):
 
 
 def split(X, frac, axis):
-    return np.split(X, [int(frac * X.shape[axis])], axis=axis)
+    if isinstance(X, np.ndarray):
+        fn = np.split
+    else:
+        fn = torch.split
+    return fn(X, [int(frac * X.shape[axis])], axis=axis)
 
 
 def make_validation_dataset(
