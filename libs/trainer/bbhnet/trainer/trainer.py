@@ -74,6 +74,9 @@ def train_for_one_epoch(
         # higher precision?
         with torch.no_grad():
             for samples, targets in valid_dataset:
+                # TODO: this is bad but don't feel like dealing with it rn
+                samples = samples.to("cuda")
+                targets = targets.to("cuda")
 
                 predictions = torch.flatten(model(samples))
                 targets = torch.flatten(targets)

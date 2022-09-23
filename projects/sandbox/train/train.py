@@ -1,11 +1,12 @@
 from collections import OrderedDict
-from math import pi
+from math import ceil, pi
 from pathlib import Path
 from typing import Optional
 
 import h5py
 import numpy as np
 import torch
+from lal import GreenwichMeanSiderealTime
 
 from bbhnet.architecture import Preprocessor
 from bbhnet.data.dataloader import BBHInMemoryDataset
@@ -30,6 +31,65 @@ def split(X, frac, axis):
     return np.split(X, [int(frac * X.shape[axis])], axis=axis)
 
 
+def make_validation_dataset(
+    background,
+    glitch_sampler,
+    waveform_sampler,
+    kernel_length: float,
+    stride: float,
+    sample_rate: float,
+    glitch_frac: float,
+):
+    kernel_size = kernel_length * sample_rate
+    stride_size = stride * sample_rate
+    num_kernels = background.shape[-1] - kernel_size // stride_size + 1
+    unfold_op = torch.nn.Unfold((1, num_kernels), dilation=(1, stride_size))
+
+    background = background[:, : num_kernels * stride_size + kernel_size]
+    background = torch.Tensor(background)
+    background = unfold_op(background)
+
+    # construct a tensor of background with glitches inserted
+    # overlap glitch_frac fraction of them
+    h1_glitches, l1_glitches = glitch_sampler.glitches
+    h1_glitches, overlapping_h1 = split(h1_glitches, glitch_frac, axis=0)
+    l1_glitches, overlapping_l1 = split(l1_glitches, glitch_frac, axis=0)
+    overlapping = torch.stack([overlapping_h1, overlapping_l1], axis=1)
+
+    # if we need to create duplicates of some of our
+    # background to make this work, figure out how many
+    num_h1, num_l1 = len(h1_glitches), len(l1_glitches)
+    num_overlapping = len(overlapping)
+    num_glitches = num_h1 + num_l1 + num_overlapping
+    repeats = ceil(num_glitches / len(background))
+    glitch_background = background.repeat(repeats, 1, 1)
+    glitch_background = glitch_background[:num_glitches]
+
+    # now insert the glitches
+    start = h1_glitches.shape[-1] // 2 - kernel_size // 2
+    stop = start + kernel_size
+    glitch_background[:num_h1, 0] = h1_glitches[:, start:stop]
+    glitch_background[num_h1 : num_h1 + num_l1, 1] = l1_glitches[:, start:stop]
+    glitch_background[num_h1 + num_l1 :] = overlapping[:, :, start:stop]
+
+    # finally create a tensor of background with waveforms injected
+    waveforms, _ = waveform_sampler.sample(-1)
+    repeats = ceil(len(waveforms) / len(background))
+    waveform_background = background.repeat(repeats, 1, 1)
+    waveform_background = waveform_background[: len(waveforms)]
+
+    start = waveforms.shape[-1] // 2 - kernel_size // 2
+    stop = start + kernel_size
+    waveform_background += waveforms[:, :, start:stop]
+
+    # concatenate everything into a single tensor
+    # and create the associated labels
+    X = torch.concat([background, glitch_background, waveform_background])
+    y = torch.zeros((len(X),))
+    y[-len(waveform_background) :] = 1
+    return torch.utils.data.TensorDataset(X, y)
+
+
 def prepare_augmentation(
     glitch_dataset: Path,
     waveform_dataset: Path,
@@ -43,13 +103,23 @@ def prepare_augmentation(
     trigger_distance: float = 0,
     valid_frac: Optional[float] = None,
 ):
+    augmentation_layers = OrderedDict()
+
     # build a glitch sampler from a pre-saved bank of
     # glitches which will randomly insert them into
     # either or both interferometer channels
     with h5py.File(glitch_dataset, "r") as f:
         h1_glitches = f["H1_glitches"][:]
         l1_glitches = f["L1_glitches"][:]
-    glitch_inserter = GlitchSampler(
+
+    if valid_frac is not None:
+        h1_glitches, valid_h1_glitches = split(h1_glitches, 1 - valid_frac, 0)
+        l1_glitches, valid_l1_glitches = split(l1_glitches, 1 - valid_frac, 0)
+        valid_glitch_sampler = GlitchSampler(
+            prob=1, max_offset=0, H1=valid_h1_glitches, L1=valid_l1_glitches
+        )
+
+    augmentation_layers["glitch_inserter"] = GlitchSampler(
         prob=glitch_prob,
         max_offset=int(trigger_distance * sample_rate),
         H1=h1_glitches,
@@ -63,26 +133,37 @@ def prepare_augmentation(
     with h5py.File(waveform_dataset, "r") as f:
         signals = f["signals"][:]
 
-        # TODO: right now signals are prepared such that the
-        # coalescence time is at the end of the window, so roll
-        # them to put them in the middle as expected. Do we want
-        # to do this here or in the generate_waveforms project?
-        signals = np.roll(signals, -signals.shape[-1] // 2, axis=-1)
-        if valid_frac is not None:
-            raise ValueError
-            # signals, valid_signals = split(signals, 1 - valid_frac, 0)
-            # valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
+    # TODO: right now signals are prepared such that the
+    # coalescence time is at the end of the window, so roll
+    # them to put them in the middle as expected. Do we want
+    # to do this here or in the generate_waveforms project?
+    signals = np.roll(signals, -signals.shape[-1] // 2, axis=-1)
+    if valid_frac is not None:
+        signals, valid_signals = split(signals, 1 - valid_frac, 0)
+        valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
 
-            # ra = f["ra"][-len(valid_signals):]
-            # dec = f["dec"][-len(valid_signals):]
-            # psi = f["psi"][-len(valid_signals):]
-            # snr = f["snr"][-len(valid_signals):]
+        slc = slice(-len(valid_signals), None)
+        ra = f["ra"][slc]
+        gt = f["geocent_time"][slc]
+        gmst = [GreenwichMeanSiderealTime(i) % (2 * np.pi) for i in gt]
+        gmst = np.array(gmst)
+        valid_injector = RandomWaveformInjection(
+            dec=f["dec"][slc],
+            psi=f["psi"][slc],
+            phi=ra - gmst,
+            snr=f["snr"][slc],
+            sample_rate=sample_rate,
+            highpass=highpass,
+            trigger_offset=0,
+            plus=valid_plus,
+            cross=valid_cross,
+        )
 
-        plus, cross = signals.transpose(1, 0, 2)
+    plus, cross = signals.transpose(1, 0, 2)
 
     # instantiate source parameters as callable
     # distributions which will produce samples
-    injector = RandomWaveformInjection(
+    augmentation_layers["injector"] = RandomWaveformInjection(
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
@@ -99,12 +180,11 @@ def prepare_augmentation(
     # a single random augmentation object which will
     # be called at data-loading time (i.e. won't be
     # used on validation data).
-    # TODO: return validation data if valid_frac not None
-    return MultiInputSequential(
-        OrderedDict(
-            [("glitch_inserter", glitch_inserter), ("injector", injector)]
-        )
-    )
+    augmenter = MultiInputSequential(augmentation_layers)
+
+    if valid_frac is not None:
+        return augmenter, valid_glitch_sampler, valid_injector
+    return augmenter, None, None
 
 
 def load_background(*backgrounds: Path):
@@ -191,7 +271,7 @@ def main(
 
     # build a torch module that we'll use for doing
     # random augmentation at data-loading time
-    augmenter = prepare_augmentation(
+    augmenter, valid_glitch_sampler, valid_injector = prepare_augmentation(
         glitch_dataset,
         signal_dataset,
         glitch_prob=glitch_frac,
@@ -211,6 +291,7 @@ def main(
     background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
         background, valid_background = split(background, 1 - valid_frac, 1)
+        valid_injector.fit(H1=background[0], L1=background[1])
 
     # fit our waveform injector to this background
     # to facilitate the SNR remapping
@@ -249,7 +330,20 @@ def main(
 
     # deterministic validation glitch sampler
     if valid_frac is not None:
-        raise ValueError
+        valid_dataset = make_validation_dataset(
+            valid_background,
+            valid_glitch_sampler,
+            valid_injector,
+            kernel_length,
+            valid_stride,
+            sample_rate,
+            glitch_frac,
+        )
+        valid_dataset = torch.utils.data.DataLoader(
+            valid_dataset,
+            pin_memory=True,
+            batch_size=batch_size * 4,
+        )
     else:
         valid_dataset = None
 
