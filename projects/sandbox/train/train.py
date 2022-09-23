@@ -7,10 +7,10 @@ import h5py
 import numpy as np
 import torch
 
+from bbhnet.architecture import Preprocessor
 from bbhnet.data.dataloader import BBHInMemoryDataset
 from bbhnet.data.distributions import Cosine, LogNormal, Uniform
 from bbhnet.data.glitch_sampler import GlitchSampler
-from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
 from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
 from ml4gw.transforms import RandomWaveformInjection
@@ -19,7 +19,7 @@ from ml4gw.transforms import RandomWaveformInjection
 class MultiInputSequential(torch.nn.Sequential):
     def forward(self, *inputs):
         for module in self._modules.values():
-            if type(inputs) == tuple:
+            if isinstance(inputs, tuple):
                 inputs = module(*inputs)
             else:
                 inputs = module(inputs)
@@ -104,27 +104,6 @@ def prepare_augmentation(
         OrderedDict(
             [("glitch_inserter", glitch_inserter), ("injector", injector)]
         )
-    )
-
-
-def prepare_preprocessor(
-    num_ifos: int,
-    sample_rate: float,
-    kernel_length: float,
-    fduration: float,
-    highpass: float,
-):
-    whitener = WhiteningTransform(
-        num_ifos,
-        sample_rate,
-        kernel_length,
-        highpass=highpass,
-        fduration=fduration,
-    )
-
-    hpf = HighpassFilter(highpass, sample_rate)
-    return torch.nn.Sequential(
-        OrderedDict([("whitener", whitener), ("higpass", hpf)])
     )
 
 
@@ -255,19 +234,18 @@ def main(
     # TODO: hard-coding num_ifos into preprocessor. Should
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
-    preprocessor = prepare_preprocessor(
-        num_ifos=2,
-        sample_rate=sample_rate,
-        kernel_length=kernel_length,
+    preprocessor = Preprocessor(
+        2,
+        sample_rate,
+        kernel_length,
         highpass=highpass,
         fduration=fduration,
     )
 
     # fit the whitening module to the background then
     # move eveyrthing to the desired device
-    preprocessor._modules["whitener"].fit(background)
-    for module in preprocessor._modules.values():
-        module.to(device)
+    preprocessor.whitener.fit(background)
+    preprocessor.to(device)
 
     # deterministic validation glitch sampler
     if valid_frac is not None:
