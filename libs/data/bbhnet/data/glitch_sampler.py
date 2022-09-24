@@ -33,7 +33,7 @@ class GlitchSampler(Transform):
         for i, ifo in enumerate(self.glitches):
             mask = masks[i]
             N = mask.sum().item()
-            idx = torch.randint(len(X), size=(N,))
+            idx = torch.randint(len(ifo), size=(N,))
 
             glitches = ifo[idx]
             glitches = sample_kernels(

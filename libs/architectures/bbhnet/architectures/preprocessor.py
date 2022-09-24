@@ -3,7 +3,7 @@ import torch
 from bbhnet.data.transforms import WhiteningTransform
 
 
-class BBHNetPreprocessor(torch.nn.Module):
+class Preprocessor(torch.nn.Module):
     """
     Module for encoding BBHNet preprocessing procedure.
     Very simple wrapper for now, but encoding it this

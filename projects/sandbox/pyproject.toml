@@ -97,16 +97,16 @@ std_snr = 4
 min_snr = 2
 
 # optimization parameters
-batch_size = 512
-batches_per_epoch = 100
+batch_size = 64
+batches_per_epoch = 1600
 max_epochs = 200
 lr = 1e-3
 weight_decay = 1e-5
 patience = 10
 factor = 0.2
-early_stop = 100
-# valid_frac = 0.025
-# valid_stride = 0.0625
+early_stop = 20
+valid_frac = 0.25
+valid_stride = 0.0625
 
 # misc params
 device = "cuda"
