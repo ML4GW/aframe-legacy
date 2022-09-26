@@ -55,13 +55,12 @@ def make_validation_dataset(
     num_h1, num_l1 = len(h1_glitches), len(l1_glitches)
     num_glitches = num_h1 + num_l1
     num_coinc = int(glitch_frac * num_glitches / (1 + glitch_frac))
-    num_glitches -= 2 * num_coinc
-    num_h1 -= num_coinc
-    num_l1 -= num_coinc
 
     h1_coinc, h1_glitches = split(h1_glitches, num_coinc / num_h1, 0)
     l1_coinc, l1_glitches = split(l1_glitches, num_coinc / num_l1, 0)
     coinc = torch.stack([h1_coinc, l1_coinc], axis=1)
+    num_h1, num_l1 = len(h1_glitches), len(l1_glitches)
+    num_glitches = num_h1 + num_l1 + num_coinc
 
     # if we need to create duplicates of some of our
     # background to make this work, figure out how many

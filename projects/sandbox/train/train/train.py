@@ -206,7 +206,7 @@ def main(
     if valid_frac is not None:
         background, valid_background = split(background, 1 - valid_frac, 1)
         valid_injector.fit(H1=background[0], L1=background[1])
-        valid_waveforms = valid_injector.sample(-1)
+        valid_waveforms, _ = valid_injector.sample(-1)
 
     # fit our waveform injector to this background
     # to facilitate the SNR remapping
