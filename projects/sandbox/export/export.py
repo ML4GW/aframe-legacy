@@ -1,7 +1,9 @@
 import logging
+import shutil
 from pathlib import Path
 from typing import Callable, Optional
 
+import h5py  # noqa
 import torch
 
 import hermes.quiver as qv
@@ -121,12 +123,9 @@ def export(
     # instantiate a model repository at the
     # indicated location and see if a bbhnet
     # model already exists in this repository
-    repo = qv.ModelRepository(repository_directory)
     if clean:
-        logging.info(f"Cleaning model repository {repository_directory}")
-        for model in repo.models:
-            repo.remove(model)
-
+        shutil.rmtree(repository_directory)
+    repo = qv.ModelRepository(repository_directory)
     try:
         bbhnet = repo.models["bbhnet"]
     except KeyError:
