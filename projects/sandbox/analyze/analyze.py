@@ -1,5 +1,4 @@
 import logging
-import re
 from collections import defaultdict
 from concurrent.futures import FIRST_EXCEPTION, wait
 from pathlib import Path
@@ -207,9 +206,7 @@ def build_background(
                 except KeyError:
                     # otherwise create a new distribution
                     # and fit it from scratch
-                    background = ClusterDistribution(
-                        "integrated", ["H1", "L1"], t_clust
-                    )
+                    background = ClusterDistribution("integrated", t_clust)
                     backgrounds[norm] = background
                     warm_start = False
 
@@ -227,11 +224,7 @@ def build_background(
 
                 # fit background to integrated output
                 # in the main process
-                shifts = re.findall(r"(?<=[HLV])[0-9\.]+", shift)
-                shifts = list(map(float, shifts))
-                background.fit(
-                    (integrated, t), shifts=shifts, warm_start=warm_start
-                )
+                background.fit((integrated, t), warm_start=warm_start)
 
                 # submit the writing job to our thread pool and
                 # use a callback to keep track of all the filenames
@@ -464,6 +457,7 @@ def analyze_injections(
                 # get params file for injections for this timeshift
                 param_file = data_dir / shift / "injection" / "params.h5"
                 with h5py.File(param_file) as f:
+
                     event_times = f["geocent_time"][()]
                     event_mask = (event_times < event_window[1]) & (
                         event_times > event_window[0]
@@ -592,11 +586,11 @@ def main(
 
     # organize background and injection timeslides into segments
     background_segments = TimeSlide(
-        data_dir / "dt-H0.0-L0.0", field="background-out"
+        data_dir / "dt-0.0-0.0", field="background-out"
     ).segments
 
     injection_segments = TimeSlide(
-        data_dir / "dt-H0.0-L0.0", field="injection-out"
+        data_dir / "dt-0.0-0.0", field="injection-out"
     ).segments
 
     with thread_ex, process_ex:
