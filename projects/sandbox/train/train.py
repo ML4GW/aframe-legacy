@@ -59,7 +59,8 @@ def make_validation_dataset(
     background = background[:, : num_kernels * stride_size + kernel_size]
     background = torch.Tensor(background)[None, :, None]
     background = unfold_op(background)
-    background = background.reshape(num_kernels, num_ifos, kernel_size)
+    background = background.reshape(num_ifos, num_kernels, kernel_size)
+    background = background.transpose(1, 0)
 
     # construct a tensor of background with glitches inserted
     # overlap glitch_frac fraction of them
