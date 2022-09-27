@@ -24,6 +24,7 @@ def train_for_one_epoch(
     samples_seen = 0
     start_time = time.time()
     model.train()
+    device = next(model.parameters()).device
 
     for samples, targets in train_dataset:
         optimizer.zero_grad(set_to_none=True)  # reset gradient
@@ -31,8 +32,7 @@ def train_for_one_epoch(
         # do forward step in mixed precision
         # hard code false for now
         with torch.autocast("cuda", enabled=scaler is not None):
-            predictions = torch.flatten(model(samples))
-            targets = torch.flatten(targets)
+            predictions = model(samples)
             loss = criterion(predictions, targets)
         train_loss += loss.item()
         samples_seen += len(samples)
@@ -77,12 +77,8 @@ def train_for_one_epoch(
         # higher precision?
         with torch.no_grad():
             for samples, targets in valid_dataset:
-                # TODO: this is bad but don't feel like dealing with it rn
-                samples = samples.to("cuda")
-                targets = targets.to("cuda")
-
-                predictions = torch.flatten(model(samples))
-                targets = torch.flatten(targets)
+                samples, targets = samples.to(device), targets.to(device)
+                predictions = model(samples)
                 loss = criterion(predictions, targets)
 
                 valid_loss += loss.item()

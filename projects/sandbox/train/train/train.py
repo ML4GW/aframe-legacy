@@ -254,6 +254,7 @@ def main(
             sample_rate=sample_rate,
             batch_size=batch_size * 8,
             glitch_frac=glitch_prob,
+            device=device,
         )
     else:
         valid_dataset = None

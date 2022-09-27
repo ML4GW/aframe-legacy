@@ -16,6 +16,7 @@ def make_validation_dataset(
     sample_rate: float,
     batch_size: int,
     glitch_frac: float,
+    device: str,
 ):
     # redefine args in terms of number of samples, infer
     # some downstream parameters that depend on them
@@ -98,5 +99,8 @@ def make_validation_dataset(
     logging.info(f"    {len(waveforms)} injected waveforms")
     dataset = torch.utils.data.TensorDataset(X, y)
     return torch.utils.data.DataLoader(
-        dataset, pin_memory=True, batch_size=batch_size
+        dataset,
+        pin_memory=True,
+        batch_size=batch_size,
+        pin_memory_device=device,
     )
