@@ -12,20 +12,10 @@ def data_length():
     return 128
 
 
-@pytest.fixture(params=[True, False])
-def deterministic(request):
-    return request.param
-
-
 @pytest.fixture
 def offset():
     # TODO: explore more values
     return 0
-
-
-@pytest.fixture(params=[None, -0.2, 0.5, 1])
-def frac(request):
-    return request.param
 
 
 @pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.gpu)])

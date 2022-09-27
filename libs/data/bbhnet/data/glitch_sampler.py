@@ -29,7 +29,6 @@ class GlitchSampler(Transform):
             )
 
         masks = torch.rand(size=(len(self.glitches), len(X))) < self.prob
-        # masks = masks.to(X.device)
         for i, ifo in enumerate(self.glitches):
             mask = masks[i]
             N = mask.sum().item()
