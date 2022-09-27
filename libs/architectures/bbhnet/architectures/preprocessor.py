@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from bbhnet.data.transforms import WhiteningTransform
@@ -16,8 +18,8 @@ class Preprocessor(torch.nn.Module):
         num_ifos: int,
         sample_rate: float,
         kernel_length: float,
-        fduration: float,
-        highpass: float,
+        fduration: Optional[float] = None,
+        highpass: Optional[float] = None,
     ) -> None:
         super().__init__()
         self.whitener = WhiteningTransform(
