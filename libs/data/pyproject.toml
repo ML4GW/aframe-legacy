@@ -12,7 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 h5py = "^3.6"
-torchaudio = "^0.12"
+# torchaudio = "^0.12"
 
 "bbhnet.injection" = {path = "../injection", develop = true}
 "ml4gw" = {path = "../../ml4gw", develop = true}
