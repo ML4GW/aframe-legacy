@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
@@ -7,12 +7,45 @@ from ml4gw.dataloading import InMemoryDataset
 
 
 class BBHInMemoryDataset(InMemoryDataset):
+    """
+    Dataloader which samples batches of kernels
+    from a single timeseries array and prepares
+    corresponding target array of all 0s. Optionally
+    applies a preprocessing step to both the sampled
+    kernels and their targets.
+
+    Args:
+        X: Array containing multi-channel timeseries data
+        kernel_size:
+            The size of the kernels, in terms of number of
+            samples, to sample from the timeseries.
+        batch_size:
+            Number of kernels to produce at each iteration.
+            Represents the 0th dimension of the returned tensor.
+        batches_per_epoch:
+            Number of iterations dataset will perform before
+            raising a `StopIteration` exception.
+        preprocessor:
+            Optional preprocessing step to apply to both the
+            sampled kernels and their targets. If left as
+            `None`, the batches and targets will be returned
+            as-is.
+        coincident:
+            Whether to sample kernels from all channels using
+            the same timesteps, or whether to sample them
+            independently from across the whole timeseries.
+        shuffle:
+            Whether to samples kernels uniformly from the
+            timeseries, or iterate through them in order.
+        device:
+            Device on which to host the timeseries dataset.
+    """
+
     def __init__(
         self,
         X: np.ndarray,
         kernel_size: int,
         batch_size: int = 32,
-        stride: int = 1,
         batches_per_epoch: Optional[int] = None,
         preprocessor: Optional[Callable] = None,
         coincident: bool = True,
@@ -31,7 +64,7 @@ class BBHInMemoryDataset(InMemoryDataset):
         )
         self.preprocessor = preprocessor
 
-    def __next__(self):
+    def __next__(self) -> Tuple[torch.Tensor, torch.Tensor]:
         X = super().__next__()
         y = torch.zeros((len(X), 1)).to(X.device)
 
