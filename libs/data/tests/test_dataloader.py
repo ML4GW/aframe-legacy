@@ -11,8 +11,8 @@ def sample_rate():
 
 
 @pytest.fixture(params=[1, 4])
-def kernel_length():
-    return
+def kernel_length(request):
+    return request.param
 
 
 @pytest.fixture(params=[8, 32])
@@ -72,6 +72,8 @@ def test_bbhnet_in_memory_dataloader(
             start = sample[0, 0]
             expected = torch.arange(start, start + kernel_size)
             assert (sample[0] == expected).all().item()
+            if num_ifos == 1:
+                continue
 
             if coincident:
                 expected = expected + 128 * sample_rate

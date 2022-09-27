@@ -22,7 +22,10 @@ def test_uniform():
     # (within two standard deviations)
     samples = sampler(10000)
     mean = samples.mean().item()
-    assert abs(mean - 1) < (2 * (12 / 64 / 10000) ** 0.5)
+    variance = 64 / 12
+    sample_variance = variance / 10000
+    sample_std = sample_variance**0.5
+    assert abs(mean - 1) < (2 * sample_std)
 
 
 def test_cosine():

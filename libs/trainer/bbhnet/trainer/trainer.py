@@ -16,6 +16,7 @@ def train_for_one_epoch(
     valid_dataset: Iterable[Tuple[np.ndarray, np.ndarray]] = None,
     profiler: Optional[torch.profiler.profile] = None,
     scaler: Optional[torch.cuda.amp.GradScaler] = None,
+    scheduler: Optional[Callable] = None,
 ):
     """Run a single epoch of training"""
 
@@ -46,6 +47,8 @@ def train_for_one_epoch(
 
         if profiler is not None:
             profiler.step()
+        if scheduler is not None:
+            scheduler.step()
 
     if profiler is not None:
         profiler.stop()
@@ -105,9 +108,9 @@ def train(
     max_epochs: int = 40,
     init_weights: Optional[str] = None,
     lr: float = 1e-3,
+    min_lr: float = 1e-5,
+    decay_steps: int = 10000,
     weight_decay: float = 0.0,
-    patience: Optional[int] = None,
-    factor: float = 0.1,
     early_stop: int = 20,
     # misc params
     device: Optional[str] = None,
@@ -138,18 +141,12 @@ def train(
             that this directory contains a file called `weights.pt`.
         lr:
             Learning rate to use during training.
+        min_lr:
+            Minimum learning rate to decay to throughout training.
+        decay_steps:
+            The number of steps over which to decay from lr to min_lr.
         weight_decay:
             Amount of regularization to apply during training.
-        patience:
-            Number of epochs without improvement in validation
-            loss before learning rate is reduced. If left as
-            `None`, learning rate won't be scheduled. Ignored
-            if `valid_data is None`
-        factor:
-            Factor by which to reduce the learning rate after
-            `patience` epochs without improvement in validation
-            loss. Ignored if `valid_data is None` or
-            `patience is None`.
         early_stop:
             Number of epochs without improvement in validation
             loss before training terminates altogether. Ignored
@@ -209,23 +206,14 @@ def train(
     logging.info(model)
     logging.info("Initializing loss and optimizer")
 
-    # TODO: Allow different loss functions or
-    # optimizers to be passed?
-
+    # TODO: Allow different loss functions or optimizers to be passed?
     criterion = torch.nn.functional.binary_cross_entropy_with_logits
     optimizer = torch.optim.Adam(
         model.parameters(), lr=lr, weight_decay=weight_decay
     )
-
-    if patience is not None:
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            patience=patience,
-            factor=factor,
-            threshold=0.0001,
-            min_lr=lr * factor**2,
-            verbose=True,
-        )
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=decay_steps, eta_min=min_lr
+    )
 
     # start training
     torch.backends.cudnn.benchmark = True
@@ -263,6 +251,7 @@ def train(
             valid_dataset,
             profiler,
             scaler,
+            lr_scheduler,
         )
 
         history["train_loss"].append(train_loss)
@@ -274,8 +263,8 @@ def train(
 
             # update our learning rate scheduler if we
             # indicated a schedule with `patience`
-            if patience is not None:
-                lr_scheduler.step(valid_loss)
+            # if patience is not None:
+            #     lr_scheduler.step(valid_loss)
 
             # save this version of the model weights if
             # we achieved a new best loss, otherwise check
