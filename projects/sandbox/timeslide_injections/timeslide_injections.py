@@ -105,16 +105,6 @@ def inject_waveforms(
         # store snr
         parameters[f"{ifo}_snr"] = snr
 
-        # alternatively:
-        idx = np.arange(signals.shape[-1])[None]
-        idx = np.repeat(idx, len(signals), axis=0)
-        time_diffs = signal_times - times[0]
-        idx_diffs = (time_diffs / sample_rate).astype("int64")
-        idx += idx_diffs[:, None]
-        idx = idx.reshape(-1)
-        signals = signals.reshape(-1)
-        x[idx] += signals
-
         # loop over signals, injecting them into the raw strain
         for signal_start, signal in zip(signal_times, signals):
             signal_stop = signal_start + len(signal) * (1 / sample_rate)
