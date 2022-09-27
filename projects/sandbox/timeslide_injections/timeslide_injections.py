@@ -196,7 +196,7 @@ def main(
     tensors, vertices = get_ifo_geometry(*ifos)
 
     with process_pool, thread_pool:
-        for segment_start, segment_stop in segments:
+        for segment_start, segment_stop in intersection:
             if segment_stop - segment_start < min_segment_length:
                 continue
 
