@@ -16,14 +16,20 @@ def generate_gw(
 ):
     """Generate raw gravitational-wave signals, pre-interferometer projection.
     Args:
-        sample_params: dictionary of GW parameters
+        sample_params:
+            Dictionary of GW parameters where key is the parameter name
+            and value is a list of the parameters
         minimum_frequency:
-            minimum_frequency for generating waveform; not to be confused with
+            Minimum_frequency for generating waveform; not to be confused with
             highpass filter frequency
-        reference_frequency: reference frequency for generating waveform
-        sample_rate: rate at which to sample time series
-        waveform_duration: duration of waveform
-        waveform_approximant: name of waveform approximant to use.
+        reference_frequency:
+            Reference frequency for generating waveform
+        sample_rate:
+            Rate at which to sample time series
+        waveform_duration:
+            Duration of waveform
+        waveform_approximant:
+            Name of waveform approximant to use.
     Returns:
         An (n_samples, 2, waveform_size) array, containing both polarizations
         for each of the desired number of samples.
