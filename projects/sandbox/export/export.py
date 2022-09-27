@@ -1,36 +1,14 @@
 import logging
-from collections import OrderedDict
+import shutil
 from pathlib import Path
 from typing import Callable, Optional
 
+import h5py  # noqa
 import torch
 
 import hermes.quiver as qv
-from bbhnet.architectures import architecturize
-from bbhnet.data.transforms import HighpassFilter, WhiteningTransform
+from bbhnet.architectures import Preprocessor, architecturize
 from bbhnet.logging import configure_logging
-
-
-# and find a home for this
-def prepare_preprocessor(
-    num_ifos: int,
-    sample_rate: float,
-    kernel_length: float,
-    fduration: float,
-    highpass: float,
-):
-    whitener = WhiteningTransform(
-        num_ifos,
-        sample_rate,
-        kernel_length,
-        highpass=highpass,
-        fduration=fduration,
-    )
-
-    hpf = HighpassFilter(highpass, sample_rate)
-    return torch.nn.Sequential(
-        OrderedDict([("whitener", whitener), ("higpass", hpf)])
-    )
 
 
 def scale_model(model, instances):
@@ -50,9 +28,9 @@ def export(
     kernel_length: float,
     inference_sampling_rate: float,
     sample_rate: float,
-    fduration: float,
-    highpass: float,
     batch_size: int,
+    fduration: Optional[float] = None,
+    highpass: Optional[float] = None,
     weights: Optional[Path] = None,
     streams_per_gpu: int = 1,
     instances: Optional[int] = None,
@@ -131,41 +109,32 @@ def export(
     # its weights with the trained values
     logging.info(f"Creating model and loading weights from {weights}")
     nn = architecture(num_ifos)
-
-    # hardcoding preprocessing, what's the best way to handle?
-    preprocessor = prepare_preprocessor(
-        num_ifos, sample_rate, kernel_length, fduration, highpass
+    preprocessor = Preprocessor(
+        num_ifos,
+        sample_rate,
+        kernel_length,
+        fduration=fduration,
+        highpass=highpass,
     )
-
     nn = torch.nn.Sequential(preprocessor, nn)
     nn.load_state_dict(torch.load(weights))
     nn.eval()
 
     # instantiate a model repository at the
-    # indicated location and see if a deepclean
+    # indicated location and see if a bbhnet
     # model already exists in this repository
-    repo = qv.ModelRepository(repository_directory)
     if clean:
-        logging.info(f"Cleaning model repository {repository_directory}")
-        for model in repo.models:
-            logging.info(f"Removing model {model}")
-            repo.remove(model)
-
+        shutil.rmtree(repository_directory)
+    repo = qv.ModelRepository(repository_directory)
     try:
         bbhnet = repo.models["bbhnet"]
-
-        # if the model exists already and we specified
-        # a concurrent instance count, scale the existing
-        # instance group to this value
-        if instances is not None:
-            scale_model(bbhnet, instances)
     except KeyError:
-        # otherwise create the model using the indicated
-        # platform and set up an instance group with the
-        # indicated scale if one was provided
         bbhnet = repo.add("bbhnet", platform=platform)
-        if instances is not None:
-            scale_model(bbhnet, instances)
+
+    # if we specified a number of bbhnet instances
+    # we want per-gpu at inference time, scale it now
+    if instances is not None:
+        scale_model(bbhnet, instances)
 
     # export this version of the model (with its current
     # weights), to this entry in the model repository
@@ -251,7 +220,7 @@ def export(
     # keep snapshot states around for a long time in case there are
     # unexpected bottlenecks which throttle update for a few seconds
     snapshotter.config.sequence_batching.max_sequence_idle_microseconds = int(
-        6e9
+        6e10
     )
     snapshotter.config.write()
 
