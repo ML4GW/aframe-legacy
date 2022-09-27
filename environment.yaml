@@ -10,5 +10,4 @@ dependencies:
   - python-nds2-client
   - pytorch
   - torchvision
-  - torchaudio
   - cudatoolkit=11.3
