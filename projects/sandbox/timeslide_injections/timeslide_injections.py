@@ -111,7 +111,6 @@ def main(
     frame_type: str,
     channel: str,
     min_segment_length: Optional[float] = None,
-    max_segment_length: Optional[float] = None,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
@@ -187,7 +186,6 @@ def main(
     priors = bilby.gw.prior.BBHPriorDict(str(prior_file))
 
     min_segment_length = min_segment_length or 0
-    max_segment_length = max_segment_length or np.inf
     total_slides = n_slides ** (len([i for i in shifts if i]))
     max_shift = int(max(shifts) * n_slides * sample_rate)
 
@@ -196,23 +194,6 @@ def main(
 
     # get tensors and vertices for requested ifos
     tensors, vertices = get_ifo_geometry(*ifos)
-
-    # if segments are longer than max segment,
-    # split them up into max segment lengths
-    segments = []
-    for segment_start, segment_stop in intersection:
-        segment_length = segment_stop - segment_start
-        if segment_length > max_segment_length:
-            n_segments = np.ceil(segment_length / max_segment_length).astype(
-                int
-            )
-            for i in range(n_segments):
-                start = (max_segment_length * i) + segment_start
-                stop = min((start + max_segment_length), segment_stop)
-                segments.append([start, stop])
-        else:
-            segments.append([segment_start, segment_stop])
-    logging.info(segments)
 
     with process_pool, thread_pool:
         for segment_start, segment_stop in segments:
