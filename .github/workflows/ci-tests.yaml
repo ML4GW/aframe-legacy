@@ -27,7 +27,7 @@ jobs:
       fail-fast: true # is this desired behavior here?
       matrix:
         library: ${{ fromJSON(needs.changes.outputs.libraries) }}
-        args: ''
+        args: [""]
         include:
           library: '/libs/data'
           args: '-m "not gpu"'
