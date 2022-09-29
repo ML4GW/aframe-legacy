@@ -60,11 +60,9 @@ jobs:
         name: install gcc
         run: apt update && apt install -y build-essential
 
-
-      - 
+      - if: ${{matrix.library}} == "/libs/architectures/"
         name: build
         run: pinto -p $test_dir build -E wrapper
-        if: ${{matrix.library}} == "/libs/architectures/"
         
       # run tests
         
