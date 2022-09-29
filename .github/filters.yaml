@@ -15,9 +15,7 @@ workflow: &workflow
 # if workflow file is changed?
 
 # libraries
-/libs/base/:  
-  - *workflow
-  - 'libs/base/**'  
+
 /libs/io/:  
   - *workflow
   - 'libs/io/**' 
