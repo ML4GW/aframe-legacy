@@ -137,9 +137,6 @@ def test_infer(
     init_mock,
     run_mock,
     name_mock,
-    monitor_mock1,
-    monitor_mock2,
-    monitor_mock3,
     data_dir,
     tmpdir,
     fields,
@@ -183,4 +180,3 @@ def test_infer(
                 expected = np.arange(0, length, 1 / sample_rate)
                 expected = expected[:size:stride_size] + 1
                 assert (expected == y).all()
-            assert i == 1
