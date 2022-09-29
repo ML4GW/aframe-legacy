@@ -62,7 +62,7 @@ jobs:
 
       - if: ${{matrix.library}} == "/libs/architectures/"
         name: build
-        run: pinto -p $test_dir build -E wrapper
+        run: pinto -p $test_dir -E wrapper build
         
       # run tests
         
