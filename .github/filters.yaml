@@ -50,14 +50,7 @@ workflow: &workflow
 
 
 # projects
-projects/sandbox/analyze/:
-  - *workflow 
-  - 'projects/sandbox/analyze/**'
-  - 'libs/injection/**'
-  - 'libs/io/**'
-  - 'libs/logging/**'
-  - 'libs/parallelize/**'
-  - 'libs/analysis/**'
+
 projects/sandbox/export/:
   - *workflow 
   - 'projects/sandbox/export/**'
