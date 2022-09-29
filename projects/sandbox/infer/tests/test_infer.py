@@ -127,18 +127,6 @@ def data_dir(tmpdir, sample_rate, fields):
     return data_dir
 
 
-def fake_init(obj, *args, **kwargs):
-    obj._instance = MagicMock()
-    obj._thread = MagicMock()
-    obj._response_queue = MagicMock()
-
-
-SINGULARITY_INSTANCE = "hermes.aeriel.serve.SingularityInstance"
-
-
-@patch(SINGULARITY_INSTANCE + ".__init__", new=fake_init)
-@patch(SINGULARITY_INSTANCE + ".run")
-@patch(SINGULARITY_INSTANCE + ".name", return_value="FAKE")
 @patch(
     "tritonclient.grpc.InferenceServerClient.is_server_live", return_value=True
 )
