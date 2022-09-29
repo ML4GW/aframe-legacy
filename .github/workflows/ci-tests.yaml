@@ -18,7 +18,7 @@ jobs:
     - uses: dorny/paths-filter@v2
       id: filter 
       with:
-        filters: .github/filters.yaml
+        filters: /github/workspace/.github/filters.yaml
   
   tests:
     runs-on: ubuntu-latest
