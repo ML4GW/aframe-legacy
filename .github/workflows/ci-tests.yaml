@@ -66,8 +66,8 @@ jobs:
         env:
           test_dir: /github/workspace/${{ matrix.library }}
         
+        # build architecture library with extras
         run: |
-          # build architecture library with extras
           if [[ ${{matrix.library}} == "/libs/architectures/"]]; then
             pinto -p $test_dir build -E wrapper
           fi
