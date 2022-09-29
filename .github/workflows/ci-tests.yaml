@@ -58,11 +58,15 @@ jobs:
         run: apt update && apt install -y build-essential
 
       # run tests
+        
       -
         name: run tests 
         env:
           test_dir: /github/workspace/${{ matrix.library }}
+        
         run: |
+          # build architecture library with extras
+          if [[ ${{matrix.library}} == "/libs/architectures/"]]; then
+            pinto -p $test_dir build -E wrapper
           pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
-
-     
+        
