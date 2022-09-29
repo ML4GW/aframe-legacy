@@ -20,7 +20,7 @@ jobs:
       id: filter 
       with:
         filters: .github/filters.yaml
-  
+    if: github.event.pull_request.draft == false  
   tests:
     runs-on: ubuntu-latest
     needs: changes
