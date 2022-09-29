@@ -29,8 +29,8 @@ jobs:
         library: ${{ fromJSON(needs.changes.outputs.libraries) }}
         args: [""]
         include:
-          library: '/libs/data'
-          args: '-m "not gpu"'
+          - library: '/libs/data'
+            args: '-m "not gpu"'
          
          
            
