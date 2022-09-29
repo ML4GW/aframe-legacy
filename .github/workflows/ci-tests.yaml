@@ -55,6 +55,7 @@ jobs:
           submodules: recursive
 
       # install gcc for bilby build
+      # TODO: not every library/project needs this
       -
         name: install gcc
         run: apt update && apt install -y build-essential
@@ -68,8 +69,8 @@ jobs:
         
         # build architecture library with extras
         run: |
-          if [[ ${{matrix.library}} == "/libs/architectures/"]]; then
-            pinto -p $test_dir build -E wrapper
+          if [[ "${{matrix.library}}" == "/libs/architectures/"]]; then
+                pinto -p $test_dir build -E wrapper
           fi
           pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
         
