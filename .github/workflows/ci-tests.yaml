@@ -29,7 +29,7 @@ jobs:
         library: ${{ fromJSON(needs.changes.outputs.libraries) }}
         args: ''
         include:
-          library: data
+          library: '/libs/data'
           args: '-m "not gpu"'
          
          
@@ -59,10 +59,7 @@ jobs:
         name: run tests 
         env:
           test_dir: /github/workspace/${{ matrix.library }}
-        
-        - if: ${{ matrix.library }} = '/libs/architectures/'
-          run: pinto -p $test_dir build -E wrapper
-        - run: |
+        run: |
           pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
 
      
