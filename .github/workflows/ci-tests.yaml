@@ -32,6 +32,8 @@ jobs:
         include:
           - library: '/libs/data'
             args: '-m "not gpu"'
+        exclude:
+          - library: 'workflow'
          
          
            
