@@ -61,11 +61,6 @@ projects/sandbox/export/:
   - 'ml4gw/**'
   - 'hermes/hermes/hermes.quiver/**'
 
-projects/sandbox/generate_background/:
-  -  *workflow 
-  - 'projects/sandbox/generate_background/**'
-  - 'libs/logging/**'
-
 projects/sandbox/generate_glitches/:
   - *workflow
   - 'projects/sandbox/generate_glitches/**'
@@ -87,9 +82,3 @@ projects/sandbox/timeslide_injections/:
   - 'libs/logging/**' 
   - 'libs/parallelize/**'
   - 'ml4gw/**'
-projects/sandbox/train/:
-  - *workflow
-  - 'projects/sandbox/train/**'
-  - 'libs/data/**'
-  - 'libs/trainer/**'
-  - 'libs/logging/**'
