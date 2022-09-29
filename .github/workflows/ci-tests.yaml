@@ -20,7 +20,7 @@ jobs:
       id: filter 
       with:
         filters: .github/filters.yaml
-    if: github.event.pull_request.draft == false  
+    #if: github.event.pull_request.draft == false  
   tests:
     runs-on: ubuntu-latest
     needs: changes
@@ -29,10 +29,12 @@ jobs:
       matrix:
         library: ${{ fromJSON(needs.changes.outputs.libraries) }}
         args: [""]
+        # extra test flags for data library
         include:
           - library: '/libs/data'
             args: '-m "not gpu"'
         exclude:
+          # don't run non-existent .github/workflow tests
           - library: 'workflow'
          
          
