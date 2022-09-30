@@ -60,14 +60,16 @@ jobs:
         name: install gcc
         run: apt update && apt install -y build-essential
 
-      - if: ${{matrix.library}} == "/libs/architectures/"
-        name: build
-        run: pinto -p $test_dir -E wrapper build
         
       # run tests
         
       - name: run tests 
         env:
           test_dir: /github/workspace/${{ matrix.library }}
-        run: pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
+        run: |
+            if [[ "${{matrix.library}}" == "/libs/architectures/"]]; then
+                pinto -p $test_dir build -E wrapper
+            fi    
+            pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
+        shell: bash
         
