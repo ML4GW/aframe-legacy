@@ -16,32 +16,32 @@ workflow: &workflow
 
 # libraries
 
-/libs/io/:  
+libs/io/:  
   - *workflow
   - 'libs/io/**' 
-/libs/injection/:
+libs/injection/:
   - *workflow
   - 'libs/injection/**'
   - 'libs/base/**' 
-/libs/data/:
+libs/data/:
   - *workflow
   - 'libs/data/**'
   - 'libs/injection/**'
   - 'ml4gw/**' 
-/libs/architectures/:
+libs/architectures/:
   - *workflow
   - 'libs/architectures/**'
   - 'libs/data/**'
-/libs/analysis:
+libs/analysis:
   - *workflow
   - 'libs/analysis/**'
   - 'libs/io/**'
   - 'libs/parallelize/**'
   - 'libs/base/**'
-/libs/parallelize/:
+libs/parallelize/:
   - *workflow
   - 'libs/parallelize/**'
-/libs/trainer/:
+libs/trainer/:
   - *workflow
   - 'libs/trainer/**'
   - 'libs/data/**'   

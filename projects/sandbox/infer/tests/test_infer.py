@@ -127,9 +127,18 @@ def data_dir(tmpdir, sample_rate, fields):
     return data_dir
 
 
-@patch(
-    "hermes.aerial.serve.SingularityClient.instance", return_value=MagicMock()
-)
+def fake_init(obj, *args, **kwargs):
+    obj._instance = MagicMock()
+    obj._thread = MagicMock()
+    obj._response_queue = MagicMock()
+
+
+SINGULARITY_INSTANCE = "hermes.aeriel.serve.SingularityInstance"
+
+
+@patch(SINGULARITY_INSTANCE + ".__init__", new=fake_init)
+@patch(SINGULARITY_INSTANCE + ".run")
+@patch(SINGULARITY_INSTANCE + ".name", return_value="FAKE")
 @patch(
     "tritonclient.grpc.InferenceServerClient.is_server_live", return_value=True
 )
@@ -137,7 +146,9 @@ def data_dir(tmpdir, sample_rate, fields):
 @patch("hermes.stillwater.monitor.ServerMonitor.__enter__")
 @patch("hermes.stillwater.monitor.ServerMonitor.__exit__")
 def test_infer(
-    instance_mock,
+    init_mock,
+    run_mock,
+    name_mock,
     monitor_mock1,
     monitor_mock2,
     monitor_mock3,
@@ -184,3 +195,4 @@ def test_infer(
                 expected = np.arange(0, length, 1 / sample_rate)
                 expected = expected[:size:stride_size] + 1
                 assert (expected == y).all()
+            assert i == 1
