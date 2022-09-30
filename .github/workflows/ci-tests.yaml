@@ -71,10 +71,6 @@ jobs:
             if [[ "${{matrix.library}}" == "libs/architectures/" ]]; then
                 pinto -p $test_dir build -E wrapper
             fi    
-            if [[ "${{matrix.args}}" ]]; then
-                pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
-            else 
-                pinto -p $test_dir run pytest $test_dir/tests
-            fi
+            pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
         shell: bash
         
