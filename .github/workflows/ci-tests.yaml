@@ -33,7 +33,7 @@ jobs:
         args: [""]
         # extra test flags for data library
         include:
-          - library: '/libs/data'
+          - library: 'libs/data'
             args: '-m "not gpu"'
         exclude:
           # don't run non-existent .github/workflow tests
