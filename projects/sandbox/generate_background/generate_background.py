@@ -63,9 +63,11 @@ def main(
         stop,
     )
 
+    print(segments)
     # create copy of first ifo segment list to start
     intersection = segments[f"{ifos[0]}:{state_flag}"].active.copy()
 
+    print(intersection)
     # loop over ifos finding segment intersection
     for ifo in ifos:
         intersection &= segments[f"{ifo}:{state_flag}"].active
@@ -89,6 +91,7 @@ def main(
         "from {} to {}".format(*segment)
     )
 
+    print(segment)
     for ifo in ifos:
 
         # find frame files
@@ -114,3 +117,5 @@ def main(
         with h5py.File(datadir / f"{ifo}_background.h5", "w") as f:
             f.create_dataset("hoft", data=data)
             f.create_dataset("t0", data=float(segment[0]))
+
+    return datadir
