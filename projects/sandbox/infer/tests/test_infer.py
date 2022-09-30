@@ -128,15 +128,19 @@ def data_dir(tmpdir, sample_rate, fields):
 
 
 @patch(
+    "hermes.aerial.serve.SingularityClient.instance", return_value=MagicMock()
+)
+@patch(
     "tritonclient.grpc.InferenceServerClient.is_server_live", return_value=True
 )
 @patch("hermes.stillwater.monitor.ServerMonitor.__init__", return_value=None)
 @patch("hermes.stillwater.monitor.ServerMonitor.__enter__")
 @patch("hermes.stillwater.monitor.ServerMonitor.__exit__")
 def test_infer(
-    init_mock,
-    run_mock,
-    name_mock,
+    instance_mock,
+    monitor_mock1,
+    monitor_mock2,
+    monitor_mock3,
     data_dir,
     tmpdir,
     fields,
