@@ -65,6 +65,7 @@ class VizApp:
             freq_high=300,
             **backgrounds,
         )
+
         self.background_plot = BackgroundPlot(500, 600, self.event_inspector)
 
         self.layout = column(

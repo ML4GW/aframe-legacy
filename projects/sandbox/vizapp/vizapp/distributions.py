@@ -48,6 +48,7 @@ class Foreground:
     shifts: np.ndarray
     fars: np.ndarray
     snrs: np.ndarray
+    distances: np.ndarray
     m1s: np.ndarray
     m2s: np.ndarray
     time_deltas: np.ndarray
@@ -76,6 +77,7 @@ def get_foreground(
             l1_snrs = f["L1_snr"][:]
             m1s = f["mass_1"][:]
             m2s = f["mass_2"][:]
+            distances = f["luminosity_distance"][:]
             network_snrs = (h1_snrs**2 + l1_snrs**2) ** 0.5
 
         if norm is not None:
@@ -117,6 +119,7 @@ def get_foreground(
             m1 = m1s[i]
             m2 = m2s[i]
             snr = network_snrs[i]
+            distance = distances[i]
 
             events["detection_statistics"].append(event)
             events["time_deltas"].append(diff)
@@ -126,6 +129,7 @@ def get_foreground(
             events["snrs"].append(snr)
             events["m1s"].append(m1)
             events["m2s"].append(m2)
+            events["distances"].append(distance)
 
     events = {k: np.array(v) for k, v in events.items()}
     return Foreground(**events)
