@@ -41,5 +41,5 @@ class GlitchSampler(Transform):
                 kernel_size=X.shape[-1],
                 max_center_offset=self.max_offset,
             )
-            X[mask] = glitches
+            X[mask, i] = glitches
         return X, y
