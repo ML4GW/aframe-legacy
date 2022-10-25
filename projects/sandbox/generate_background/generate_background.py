@@ -35,7 +35,6 @@ def main(
         ifos: which ifos to query data for
         outdir: where to store data
     """
-
     # make logdir dir
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
