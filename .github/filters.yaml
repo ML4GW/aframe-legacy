@@ -76,6 +76,8 @@ projects/sandbox/generate_waveforms/:
 projects/sandbox/generate_background/:
   - *workflow
   - 'projects/sandbox/generate_background/**'
+  - 'libs/logging/**'
+  - 'libs/base/**'
 
 projects/sandbox/infer/:
   - *workflow
