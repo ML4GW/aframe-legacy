@@ -79,12 +79,12 @@ def test_generate_gw(
     )
 
 
-def test_inject_waveforms():
-    times = np.arange(1000)
+def test_inject_waveforms(sample_rate):
+    times = np.arange(sample_rate * 10)
     background = np.zeros_like(times, dtype=np.float32)
 
     waveform_size = 4
-    signal_times = np.arange(3, 1000, 10)
+    signal_times = np.arange(3, 10, 0.5)
     n_waveforms = len(signal_times)
     waveforms = np.ones((n_waveforms, waveform_size), dtype=np.float32)
 
@@ -94,6 +94,17 @@ def test_inject_waveforms():
 
     assert len(background) == len(injected)
 
-    for i in range(n_waveforms):
-        slc = slice(1 + i * 10, (i * 10) + waveform_size + 1)
-        assert (injected[slc] == np.ones(waveform_size)).all()
+    for i in range(len(background)):
+        if i / sample_rate < 3:
+            # no signals in first 3 seconds
+            assert injected[i] == 0, i
+            continue
+
+        # check if this sample is supposed to be in a waveform
+        for j in range(waveform_size):
+            if (i - j) % (sample_rate // 2) == 0:
+                assert injected[i] == 1, (i, j)
+                break
+        else:
+            # otherwise make sure it's still 0
+            assert injected[i] == 0, i
