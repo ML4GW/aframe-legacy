@@ -63,11 +63,9 @@ def main(
         stop,
     )
 
-    print(segments)
     # create copy of first ifo segment list to start
     intersection = segments[f"{ifos[0]}:{state_flag}"].active.copy()
 
-    print(intersection)
     # loop over ifos finding segment intersection
     for ifo in ifos:
         intersection &= segments[f"{ifo}:{state_flag}"].active
@@ -91,7 +89,6 @@ def main(
         "from {} to {}".format(*segment)
     )
 
-    print(segment)
     for ifo in ifos:
 
         # find frame files
