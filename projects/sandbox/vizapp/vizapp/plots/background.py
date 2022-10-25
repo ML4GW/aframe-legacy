@@ -1,5 +1,5 @@
 import numpy as np
-from bokeh.layouts import column
+from bokeh.layouts import row
 from bokeh.models import (
     BoxSelectTool,
     ColumnDataSource,
@@ -39,26 +39,26 @@ class BackgroundPlot:
         self.event_inspector = event_inspector
 
     def configure_plots(self, height: int, width: int):
+        bckgd_color = palette[4]
+        frgd_color = palette[2]
+
         self.distribution_plot = figure(
-            height=height // 2,
-            width=width,
+            height=height,
+            width=int(width * 0.55),
             y_axis_type="log",
             x_axis_label="Detection statistic",
-            y_axis_label="Survival function",
-            # dummy range values to allow
-            # updating later
-            y_range=(0, 1),
+            y_axis_label="Background survival function",
+            y_range=(0, 1),  # set dummy values to allow updating later
             tools="box_zoom,reset",
         )
-        # self.distribution_plot.toolbar.autohide = True
-        self.distribution_plot.yaxis.axis_label_text_color = palette[0]
+        self.distribution_plot.yaxis.axis_label_text_color = bckgd_color
 
         self.distribution_plot.vbar(
             "center",
             top="top",
             bottom=0.1,
             width="width",
-            fill_color=palette[0],
+            fill_color=bckgd_color,
             line_color="#000000",
             fill_alpha=0.4,
             line_alpha=0.6,
@@ -67,18 +67,18 @@ class BackgroundPlot:
             selection_line_alpha=0.8,
             nonselection_fill_alpha=0.2,
             nonselection_line_alpha=0.3,
-            legend_label="Background",
             source=self.bar_source,
         )
 
         box_select = BoxSelectTool(dimensions="width")
         self.distribution_plot.add_tools(box_select)
+        self.distribution_plot.toolbar.active_drag = box_select
         self.bar_source.selected.on_change("indices", self.update_background)
 
         self.distribution_plot.extra_y_ranges = {"SNR": Range1d(1, 10)}
         axis = LogAxis(
-            axis_label="SNR",
-            axis_label_text_color=palette[1],
+            axis_label="Injected Event SNR",
+            axis_label_text_color=frgd_color,
             y_range_name="SNR",
         )
         self.distribution_plot.add_layout(axis, "right")
@@ -87,8 +87,8 @@ class BackgroundPlot:
             "detection_statistic",
             "snr",
             size="size",
-            fill_color=palette[1],
-            line_color=palette[1],
+            fill_color=frgd_color,
+            line_color=frgd_color,
             line_width=0.5,
             fill_alpha=0.2,
             line_alpha=0.4,
@@ -97,7 +97,6 @@ class BackgroundPlot:
             nonselection_fill_alpha=0.2,
             nonselection_line_alpha=0.3,
             y_range_name="SNR",
-            legend_label="Events",
             source=self.foreground_source,
         )
 
@@ -120,14 +119,13 @@ class BackgroundPlot:
         self.distribution_plot.add_tools(tap)
 
         self.background_plot = figure(
-            height=height // 2,
-            width=width,
+            height=height,
+            width=int(width * 0.45),
             title="",
             x_axis_label="GPS Time [s]",
             y_axis_label="Detection statistic",
             tools="box_zoom,reset",
         )
-        # self.background_plot.toolbar.autohide = True
 
         self.background_plot.circle(
             "x",
@@ -161,7 +159,7 @@ class BackgroundPlot:
         )
         self.background_plot.add_tools(tap)
 
-        self.layout = column([self.distribution_plot, self.background_plot])
+        self.layout = row([self.distribution_plot, self.background_plot])
 
     def configure_sources(self):
         self.bar_source = ColumnDataSource(dict(center=[], top=[], width=[]))
@@ -198,9 +196,8 @@ class BackgroundPlot:
         self.norm = norm
 
         title = (
-            "Distribution of {} background events from "
-            "{:0.2f} days worth of data; SNR vs. detection "
-            "statistic of {} injections overlayed"
+            "{} background events from {:0.2f} "
+            "days worth of data; {} injections overlayed"
         ).format(
             len(background.events),
             background.Tb / 3600 / 24,
@@ -249,8 +246,13 @@ class BackgroundPlot:
             shift=[],
             size=[],
         )
+
+        self.bar_source.selected.indices = []
+        self.foreground_source.selected.indices = []
+        self.background_source.selected.indices = []
+
         self.background_plot.title.text = (
-            "Select detection characteristic range above"
+            "Select detection characteristic range at left"
         )
         self.background_plot.xaxis.axis_label = "GPS Time [s]"
 
@@ -301,6 +303,7 @@ class BackgroundPlot:
             shift=shifts,
             size=2 * (counts**0.8),
         )
+        self.background_source.selected.indices = []
 
     def inspect_event(self, attr, old, new):
         if len(new) != 1:

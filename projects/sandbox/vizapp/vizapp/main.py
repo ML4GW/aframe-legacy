@@ -1,20 +1,33 @@
 from pathlib import Path
 
-from bokeh.plotting import curdoc
+from bokeh.server.server import Server
+
+from hermes.typeo import typeo
 
 from .app import VizApp
 
-BBHNET_DIR = Path("/home/alec.gunny/bbhnet")
-app = VizApp(
-    timeslides_dir=(
-        BBHNET_DIR
-        / "results"
-        / "faster-training-cleaned-up"
-        / "timeslide_injections"
-    ),
-    data_dir=BBHNET_DIR / "data",
-    sample_rate=4096,
-    fduration=1,
-    valid_frac=0.25,
-)
-curdoc().add_root(app.layout)
+
+@typeo
+def main(
+    timeslides_dir: Path,
+    data_dir: Path,
+    sample_rate: float,
+    fduration: float,
+    valid_frac: float,
+    port: int = 5005,
+) -> None:
+    bkapp = VizApp(
+        timeslides_dir=timeslides_dir,
+        data_dir=data_dir,
+        sample_rate=sample_rate,
+        fduration=fduration,
+        valid_frac=valid_frac,
+    )
+
+    server = Server({"/": bkapp}, num_procs=1, port=port, address="0.0.0.0")
+    server.start()
+    server.run_until_shutdown()
+
+
+if __name__ == "__main__":
+    main()

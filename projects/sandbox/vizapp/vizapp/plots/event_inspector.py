@@ -3,7 +3,13 @@ from typing import Optional, Tuple
 
 import h5py
 import numpy as np
-from bokeh.models import ColumnDataSource, HoverTool, LinearAxis, Range1d
+from bokeh.models import (
+    ColumnDataSource,
+    HoverTool,
+    Legend,
+    LinearAxis,
+    Range1d,
+)
 from bokeh.plotting import figure
 from gwpy.timeseries import TimeSeries
 from scipy.signal import butter, sosfiltfilt, windows
@@ -108,19 +114,22 @@ class EventInspectorPlot:
             x_range=(-3, 3),
             x_axis_label="Time [s]",
             y_axis_label="Strain [unitless]",
+            tools="",
         )
+        self.timeseries_plot.toolbar.autohide = True
 
-        self.strain_renderers = []
+        items, self.strain_renderers = [], []
         for i, ifo in enumerate(["H1", "L1"]):
             r = self.timeseries_plot.line(
                 x="t",
                 y=ifo,
                 line_color=palette[i],
                 line_alpha=0.6,
-                legend_label=ifo,
+                # legend_label=ifo,
                 source=self.strain_source,
             )
             self.strain_renderers.append(r)
+            items.append((ifo, [r]))
 
         self.timeseries_plot.extra_y_ranges = {"nn": Range1d(-1, 10)}
         self.timeseries_plot.add_layout(
@@ -139,11 +148,15 @@ class EventInspectorPlot:
                 line_color=palette[2 + i],
                 line_width=2,
                 line_alpha=0.8,
-                legend_label=label,
+                # legend_label=label,
                 source=self.response_source,
                 y_range_name="nn",
             )
             self.output_renderers.append(r)
+            items.append((label, [r]))
+
+        legend = Legend(items=items, orientation="horizontal")
+        self.timeseries_plot.add_layout(legend, "below")
 
         hover = HoverTool(
             renderers=[r],

@@ -1,6 +1,6 @@
 import numpy as np
-from bokeh.layouts import column
-from bokeh.models import ColumnDataSource, Select
+from bokeh.layouts import column, row
+from bokeh.models import ColumnDataSource, Legend, Select
 from bokeh.plotting import figure
 from vizapp import palette
 
@@ -27,15 +27,16 @@ class PerfSummaryPlot:
             title="Efficiency vs. FAR",
             height=int(0.9 * height),
             width=width,
-            x_axis_label="False Alarrm rate [yr\u207B\xB9]",
+            x_axis_label="False Alarm rate [yr\u207B\xB9]",
             y_axis_label="Fraction of true positives",
             x_axis_type="log",
-            # dummy values here
-            # to allow ranges to be updated
-            x_range=(0, 1),
-            y_range=(0, 1),
+            x_range=(0, 1),  # use dummy values so that the
+            y_range=(0, 1),  # ranges can be updated later
+            tools="",
         )
+        self.p.toolbar.autohide = True
 
+        self.p.add_layout(Legend(), "right")
         self.p.multi_line(
             "x",
             "efficiency",
@@ -46,10 +47,8 @@ class PerfSummaryPlot:
             source=self.source,
         )
 
-        self.p.legend.location = "top_left"
-        self.p.toolbar.autohide = True
-
-        self.layout = column(self.x_axis_select, self.hist_type_select, self.p)
+        widgets = column(self.x_axis_select, self.hist_type_select)
+        self.layout = row(widgets, self.p)
         self.fars = self.snrs = self.distances = None
 
     def update(self, foreground):
@@ -59,7 +58,6 @@ class PerfSummaryPlot:
         self.switch_x_axis(None, None, self.x_axis_select.value)
 
     def calc_efficiencies(self, hist_type: str, x_axis_type: str):
-
         xs, efficiencies, colors, labels = [], [], [], []
 
         snrs = self.snrs
@@ -153,7 +151,6 @@ class PerfSummaryPlot:
         }
 
     def switch_x_axis(self, attr, old, new):
-
         if new == "FAR":
             self.p.title.text = "Efficiency vs. FAR (Cumulative)"
             self.p.xaxis.axis_label = "False Alarm Rate [yr^-1]"

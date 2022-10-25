@@ -32,6 +32,7 @@ reference_frequency = 50
 highpass = 32
 prior_file = "priors/nonspin_BBH.prior"
 fduration = 1
+valid_frac = 0.25
 
 [tool.typeo.scripts.generate-background]
 datadir = "${base.datadir}"
@@ -111,7 +112,7 @@ min_lr = 1e-5
 decay_steps = 10000
 weight_decay = 1e-5
 early_stop = 20
-valid_frac = 0.25
+valid_frac = "${base.valid_frac}"
 valid_stride = 0.0625
 
 # misc params
@@ -207,3 +208,10 @@ max_tb = 604800
 force = false
 log_file = "${base.logdir}/analyze.log"
 verbose = false
+
+[tool.typeo.scripts.vizapp]
+timeslides_dir = "${base.basedir}/timeslide_injections/"
+data_dir = "${base.datadir}"
+sample_rate = "${base.sample_rate}"
+fduration = "${base.fduration}"
+valid_frac = "${base.valid_frac}"
