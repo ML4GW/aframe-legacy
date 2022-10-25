@@ -80,7 +80,7 @@ def test_generate_gw(
 
 
 def test_inject_waveforms(sample_rate):
-    times = np.arange(sample_rate * 10)
+    times = np.arange(0, 10, 1 / sample_rate)
     background = np.zeros_like(times, dtype=np.float32)
 
     waveform_size = 4
@@ -91,18 +91,22 @@ def test_inject_waveforms(sample_rate):
     injected = bbhnet.injection.injection.inject_waveforms(
         (times, background), waveforms, signal_times
     )
-
     assert len(background) == len(injected)
 
     for i in range(len(background)):
-        if i / sample_rate < 3:
+        # account for offset from center of waveform to
+        # get to first sample of waveform
+        if (i + waveform_size // 2) / sample_rate < 3:
             # no signals in first 3 seconds
             assert injected[i] == 0, i
             continue
 
         # check if this sample is supposed to be in a waveform
         for j in range(waveform_size):
-            if (i - j) % (sample_rate // 2) == 0:
+            # include check on divisor since the modulo would be zero
+            # for a signal at 10s, but we don't have one there
+            div, mod = divmod(i + waveform_size // 2 - j, sample_rate // 2)
+            if mod == 0 and div < 20:
                 assert injected[i] == 1, (i, j)
                 break
         else:
