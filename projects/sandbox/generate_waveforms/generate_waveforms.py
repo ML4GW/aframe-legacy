@@ -1,19 +1,16 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import logging
 from pathlib import Path
 
 import bilby
 import h5py
 import numpy as np
+from typeo import scriptify
 
 from bbhnet.injection import generate_gw
 from bbhnet.logging import configure_logging
-from hermes.typeo import typeo
 
 
-@typeo
+@scriptify
 def main(
     prior_file: Path,
     n_samples: int,
@@ -41,8 +38,6 @@ def main(
         waveform_approximant: which lalsimulation waveform approximant to use
         force_generation: if True, generate signals even if path already exists
         verbose: log verbosely
-    Returns:
-        path to h5 output file containing signals
     """
 
     # make dirs
@@ -73,7 +68,7 @@ def main(
     logging.info("Prior file            : {}".format(prior_file))
 
     # sample gw parameters from prior distribution
-    priors = bilby.gw.prior.PriorDict(str(prior_file))
+    priors = bilby.gw.prior.ConditionalPriorDict(str(prior_file))
     sample_params = priors.sample(n_samples)
 
     signals = generate_gw(
