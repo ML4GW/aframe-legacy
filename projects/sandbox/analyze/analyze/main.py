@@ -48,11 +48,12 @@ def integrate_segments(
     shift: str,
     t_clust: float,
     window_length: float,
-    norm: float,
+    norm: Optional[float],
 ):
     shift_values = list(map(float, shift_pattern.findall(shift)))
 
     # build a normalizer for the given normalization window length
+    norm = norm or None
     if norm is not None:
         sample_rate = 1 / (t[1] - t[0])
         normalizer = GaussianNormalizer(norm * sample_rate)
@@ -74,8 +75,10 @@ def integrate_segments(
 
     # write the integrated timeseries in this process
     field = get_write_field("background", norm)
+    field_dir = write_dir / shift / field
+    field_dir.mkdir(parents=True, exist_ok=True)
     write_timeseries(
-        write_dir / shift / field,
+        field_dir,
         prefix="integrated",
         t=tb,
         y=yb,
@@ -91,8 +94,10 @@ def integrate_segments(
             fit_distribution, yf, tf, shift_values, t_clust
         )
         field = get_write_field("foreground", norm)
+        field_dir = write_dir / shift / field
+        field_dir.mkdir(parents=True, exist_ok=True)
         write_timeseries(
-            write_dir / shift / field,
+            field_dir,
             prefix="integrated",
             t=tf,
             y=yf,
@@ -116,6 +121,11 @@ def aggregate_distributions(
     distributions = defaultdict(distribution_factory)
     for norm, mini_dist in as_completed(futures):
         distribution = distributions[norm]
+
+        # update all the attributes of the global
+        # distribution for this normalization value
+        # with the attributes for one of the sub-
+        # distributions fit on a single segment
         distribution.Tb += mini_dist.Tb
         distribution.events = np.append(distribution.events, mini_dist.events)
         distribution.event_times = np.append(
@@ -209,12 +219,12 @@ def fit_distributions(
                     norm=norm,
                 )
                 background_future.add_done_callback(analyze_cb)
-                fit_futures["background"][norm].append(future)
+                fit_futures["background"][norm].append(background_future)
                 pbar.update(write_task_id, advance=1)
 
                 if foreground_future is not None:
                     foreground_future.add_done_callback(analyze_cb)
-                    fit_futures["foreground"][norm].append(future)
+                    fit_futures["foreground"][norm].append(foreground_future)
                     pbar.update(write_task_id, advance=1)
 
             advance = t[-1] - t[0] + t[1] - t[0]

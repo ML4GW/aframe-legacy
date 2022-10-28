@@ -119,6 +119,8 @@ def generate_glitch_dataset(
         mask = (times > start) & (times < stop)
         mask &= triggers["snr"][()] > snr_thresh
         triggers = triggers[mask]
+    if len(triggers) == 0:
+        return None, None
 
     # if passed, apply vetos
     if vetoes is not None:
@@ -243,7 +245,7 @@ def omicron_main_wrapper(
         "--ifo",
         ifo,
         "-c",
-        "request_disk=100",
+        "request_disk=1000",
         "--output-dir",
         str(run_dir),
         "--skip-ligolw_add",
@@ -251,7 +253,10 @@ def omicron_main_wrapper(
     ]
 
     # create and launch omicron dag
-    omicron_main(omicron_args)
+    try:
+        omicron_main(omicron_args)
+    except RuntimeError as e:
+        logging.warning(f"Omicron error:\n{e}")
 
 
 @scriptify
@@ -380,21 +385,26 @@ def main(
 
             # get the path to the omicron triggers
             trigger_dir = run_dir / "triggers" / f"{ifo}:{channel}"
-            trigger_file = list(trigger_dir.glob("*.h5"))[0]
-
-            # generate glitches
-            glitches, snrs = generate_glitch_dataset(
-                ifo,
-                snr_thresh,
-                start,
-                stop,
-                window,
-                sample_rate,
-                channel,
-                frame_type,
-                trigger_file,
-                vetoes=vetoes,
-            )
+            glitches, snrs = [], []
+            for trigger_file in trigger_dir.glob("*.h5"):
+                # generate glitches
+                glitch, snr = generate_glitch_dataset(
+                    ifo,
+                    snr_thresh,
+                    start,
+                    stop,
+                    window,
+                    sample_rate,
+                    channel,
+                    frame_type,
+                    trigger_file,
+                    vetoes=vetoes,
+                )
+                if glitch is not None:
+                    glitches.append(glitch)
+                    snrs.append(snr)
+            glitches = np.concatenate(glitches, axis=0)
+            snrs = np.concatenate(snrs, axis=0)
 
             if np.isnan(glitches).any():
                 raise ValueError("The glitch data contains NaN values")
