@@ -90,6 +90,7 @@ def prepare_augmentation(
 
             slc = slice(-len(valid_signals), None)
             valid_injector = BBHNetWaveformInjection(
+                ifos=["H1", "L1"],
                 dec=f["dec"][slc],
                 psi=f["psi"][slc],
                 phi=f["ra"][slc],  # no geocent_time recorded, so just use ra
@@ -106,6 +107,7 @@ def prepare_augmentation(
     # instantiate source parameters as callable
     # distributions which will produce samples
     augmentation_layers["injector"] = BBHNetWaveformInjection(
+        ifos=["H1", "L1"],
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
