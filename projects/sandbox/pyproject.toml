@@ -150,7 +150,7 @@ commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.timeslide_injections]
 # paths and what not
-datadir = "${base.basedir}/timeslide_injections/"
+datadir = "${base.datadir}/timeslide_injections/"
 logdir = "${base.logdir}"
 
 # background parameters

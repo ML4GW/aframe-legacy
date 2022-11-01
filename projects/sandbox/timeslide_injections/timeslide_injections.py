@@ -41,8 +41,9 @@ class Shift:
         return self
 
     def __next__(self):
-        if (self._i + 1) >= len(self.ifos):
+        if self._i >= len(self.ifos):
             raise StopIteration
+
         ifo, shift = self.ifos[self._i], self.shifts[self._i]
         self._i += 1
         return ifo, shift
@@ -56,7 +57,7 @@ def make_shifts(
 ) -> List[Shift]:
     ranges = [range(n_slides) for i in shifts if i]
     shift_objs = []
-    for rng in itertools.product(ranges):
+    for rng in itertools.product(*ranges):
         it = iter(rng)
         shift = []
         for i in shifts:
@@ -160,6 +161,10 @@ def generate_waveforms(
     return signals, parameters
 
 
+def intify(x: float):
+    return int(x) if int(x) == x else x
+
+
 def check_segment(
     shifts: List[Shift],
     datadir: Path,
@@ -173,9 +178,12 @@ def check_segment(
     if min_segment_length is not None and dur < min_segment_length:
         return None
 
+    segment_start = intify(segment_start)
+    dur = intify(dur)
+
     # then check if _all_ data for this segment
     # exists in each shift separately
-    fields, prefixes = ["background", "injection"], ["out", "inj"]
+    fields, prefixes = ["background", "injection"], ["raw", "inj"]
     segment_shifts = []
     for shift in shifts:
         for field, prefix in zip(fields, prefixes):
