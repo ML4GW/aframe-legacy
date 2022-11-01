@@ -1,13 +1,13 @@
 [tool.pinto]
 steps = [
-    "generate_background:generate-background",
-    "generate_waveforms:generate-waveforms",
+    #"generate_background:generate-background",
+    #"generate_waveforms:generate-waveforms",
     "generate_glitches:generate-glitches",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "timeslide_injections:timeslide_injections",
-    "infer:infer",
-    "analyze:analyze"
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"timeslide_injections:timeslide_injections",
+    #"infer:infer",
+    #"analyze:analyze"
 ]
 
 [tool.typeo.base]
@@ -18,7 +18,7 @@ sample_rate = 2048
 ifos = ['H1', 'L1']
 start = 1262607622
 stop = 1262620622
-test_stop = 1262751694
+test_stop = 1262620622 #1262751694  
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -216,5 +216,5 @@ data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "${base.basedir}"
+logdir = "/home/ethan.marx/public_html/forks/"#"${base.basedir}"
 verbose = true
