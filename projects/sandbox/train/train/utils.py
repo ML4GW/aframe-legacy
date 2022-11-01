@@ -9,7 +9,7 @@ import torch
 
 from bbhnet.data.distributions import Cosine, LogNormal, Uniform
 from bbhnet.data.glitch_sampler import GlitchSampler
-from ml4gw.transforms import RandomWaveformInjection
+from bbhnet.data.waveform_injection import BBHNetWaveformInjection
 
 Tensor = TypeVar("T", np.ndarray, torch.Tensor)
 
@@ -89,7 +89,7 @@ def prepare_augmentation(
             valid_plus, valid_cross = valid_signals.transpose(1, 0, 2)
 
             slc = slice(-len(valid_signals), None)
-            valid_injector = RandomWaveformInjection(
+            valid_injector = BBHNetWaveformInjection(
                 dec=f["dec"][slc],
                 psi=f["psi"][slc],
                 phi=f["ra"][slc],  # no geocent_time recorded, so just use ra
@@ -105,7 +105,7 @@ def prepare_augmentation(
 
     # instantiate source parameters as callable
     # distributions which will produce samples
-    augmentation_layers["injector"] = RandomWaveformInjection(
+    augmentation_layers["injector"] = BBHNetWaveformInjection(
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
