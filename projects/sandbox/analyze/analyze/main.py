@@ -70,7 +70,7 @@ def integrate_segments(
     # do the background fitting in parallel since
     # this will take the longest
     background_future = pool.submit(
-        fit_distribution, yb, tb, shift_values, t_clust
+        fit_distribution, integrated, tb, shift_values, t_clust
     )
 
     # write the integrated timeseries in this process
@@ -91,7 +91,7 @@ def integrate_segments(
             yf, t, window_length=window_length, normalizer=normalizer
         )
         foreground_future = pool.submit(
-            fit_distribution, yf, tf, shift_values, t_clust
+            fit_distribution, integrated, tf, shift_values, t_clust
         )
         field = get_write_field("foreground", norm)
         field_dir = write_dir / shift / field
