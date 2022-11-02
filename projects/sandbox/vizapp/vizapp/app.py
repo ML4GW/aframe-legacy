@@ -14,7 +14,6 @@ class VizApp:
         timeslides_results_dir: Path,
         timeslides_strain_dir: Path,
         train_data_dir: Path,
-        strain_dir: Path,
         sample_rate: float,
         fduration: float,
         valid_frac: float,
@@ -26,7 +25,9 @@ class VizApp:
         self.logger.debug("Structuring distribution events")
         self.foregrounds = {}
         for norm, results in self.distributions.items():
-            foreground = get_foreground(results, timeslides_results_dir, norm)
+            foreground = get_foreground(
+                results, timeslides_strain_dir, timeslides_results_dir, norm
+            )
             self.foregrounds[norm] = foreground
 
         self.logger.debug("Configuring plots")
