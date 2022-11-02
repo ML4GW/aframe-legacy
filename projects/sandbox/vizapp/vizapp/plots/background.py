@@ -314,8 +314,14 @@ class BackgroundPlot:
         shift = self.foreground_source.data["shift"][idx]
         snr = self.foreground_source.data["snr"][idx]
         chirp_mass = self.foreground_source.data["chirp_mass"][idx]
+
+        # subtract one from the event time since the event
+        # itself will occur one second before when it gets
+        # recorded in the distribution due to integration
+        # TODO: this is hardcoded to a kernel length of 1,
+        # make it more general
         self.event_inspector.update(
-            event_time,
+            event_time - 1,
             "foreground",
             shift,
             norm=self.norm,
