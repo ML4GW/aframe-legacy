@@ -216,5 +216,5 @@ data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "/home/ethan.marx/public_html/forks/"#"${base.basedir}"
+logdir = "${base.basedir}"
 verbose = true
