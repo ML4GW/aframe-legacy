@@ -1,12 +1,9 @@
 import itertools
 import logging
-import time
-from concurrent.futures import Future, TimeoutError
+from concurrent.futures import Future
 from dataclasses import dataclass
-from multiprocessing import Queue
 from pathlib import Path
-from queue import Empty, Full
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import bilby
 import gwdatafind
@@ -70,55 +67,24 @@ class WaveformGenerator:
         )
 
 
-def _waveform_iterator(sampler, generator, n_slides):
-    for _ in range(n_slides):
-        params = sampler(generator.waveform_duration)
-        waveforms = generator(params)
+def _generate_waveforms(sampler, generator):
+    params = sampler(generator.waveform_duration)
+    waveforms = generator(params)
+    return waveforms, params
+
+
+def waveform_iterator(
+    pool: AsyncExecutor,
+    sampler: Sampler,
+    generator: WaveformGenerator,
+    n_slides: int,
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+    future = pool.submit(_generate_waveforms, sampler, generator)
+    for _ in range(n_slides - 1):
+        waveforms, params = future.result()
+        future = pool.submit(_generate_waveforms, sampler, generator)
         yield waveforms, params
-
-
-class WaveformIterator:
-    def __init__(
-        self,
-        pool: AsyncExecutor,
-        sampler: Sampler,
-        generator: WaveformGenerator,
-        n_slides: int,
-    ) -> None:
-        self.sampler = sampler
-        self.generator = generator
-        self.n_slides = n_slides
-
-        self._q = Queue(maxsize=1)
-        self.future = pool.submit(self)
-
-    def __call__(self):
-        it = _waveform_iterator(self.sampler, self.generator, self.n_slides)
-        for waveforms, params in it:
-            while True:
-                try:
-                    self._q.put((waveforms, params))
-                except Full:
-                    if self.stopped:
-                        return
-                    time.sleep(1e-3)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while True:
-            try:
-                waveforms, params = self._q.get_nowait()
-            except Empty:
-                try:
-                    self.future.result(timeout=1e-3)
-                except TimeoutError:
-                    continue
-                else:
-                    raise StopIteration
-            else:
-                return waveforms, params
+    yield future.result()
 
 
 @dataclass

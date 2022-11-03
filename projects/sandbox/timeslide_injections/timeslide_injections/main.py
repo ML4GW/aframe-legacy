@@ -15,11 +15,11 @@ from gwpy.segments import (
 from timeslide_injections.utils import (
     Sampler,
     WaveformGenerator,
-    WaveformIterator,
     check_segment,
     download_data,
     make_shifts,
     submit_write,
+    waveform_iterator,
 )
 from typeo import scriptify
 
@@ -173,7 +173,7 @@ def main(
                 spacing,
                 jitter,
             )
-            waveform_it = WaveformIterator(
+            waveform_it = waveform_iterator(
                 pool, sampler, waveform_generator, num_shifts
             )
 
