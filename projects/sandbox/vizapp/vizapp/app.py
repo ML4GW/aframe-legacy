@@ -1,8 +1,10 @@
+import itertools
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
 import h5py
+import numpy as np
 from bokeh.layouts import column, row
 from bokeh.models import Div, MultiChoice, Panel, Select, Tabs
 from vizapp.distributions import get_foreground, load_results
@@ -32,9 +34,6 @@ class VizApp:
         # load in foreground and background distributions
         self.distributions = load_results(timeslides_results_dir)
 
-        # create version with vetoes
-        self.vetoed_distributions = load_results(timeslides_results_dir)
-
         self.logger.debug("Structuring distribution events")
         self.foregrounds = {}
         for norm, results in self.distributions.items():
@@ -46,6 +45,11 @@ class VizApp:
 
         self.logger.debug("Configuring widgets")
         self.configure_widgets()
+
+        # create version with vetoes
+        self.logger.debug("Calculating all vetoe combinations")
+        self.calculate_vetoe_distributions()
+
         self.logger.debug("Configuring plots")
         self.configure_plots(
             sample_rate,
@@ -77,11 +81,46 @@ class VizApp:
         )
         self.norm_select.on_change("value", self.update_norm)
 
-        self.vetoe_labels = ["CAT1", "CAT2", "CAT3", "GATES"]
+        self.vetoe_labels = ["CAT2", "GATES"]
         self.vetoe_choices = MultiChoice(value=[], options=self.vetoe_labels)
         self.vetoe_choices.on_change("value", self.update_vetoes)
 
         self.widgets = row(header, self.norm_select, self.vetoe_choices)
+
+    # TODO: This could also probably be a part of the
+    # analysis project, and just loaded in here.
+    def calculate_vetoe_distributions(self):
+
+        self.vetoed_distributions = {}
+        self.vetoed_foregrounds = {}
+
+        # create all combos of vetoes
+        for n in range(len(self.vetoe_labels) + 1):
+            combos = list(itertools.combinations(self.vetoe_labels, n))
+            for combo in combos:
+                # sort vetoes and join to create label
+                vetoe_label = "_".join(sorted(combo))
+                self.logger.debug(f"Calculating vetoe comboe {vetoe_label}")
+                # create vetoed foreground and background distributions
+                self.vetoed_distributions[vetoe_label] = {}
+                self.vetoed_foregrounds[vetoe_label] = {}
+                # calculate this vetoe combo for each norm and store
+                for norm, result in self.distributions.items():
+
+                    background = result.background.copy()
+                    for category in combo:
+
+                        vetoes = self.vetoe_parser.get_vetoes(category)
+                        background.apply_vetoes(**vetoes)
+
+                    foreground = self.foregrounds[norm].copy()
+
+                    foreground.fars = background.far(
+                        foreground.detection_statistics
+                    )
+                    self.logger.debug(f"{np.mean(foreground.fars)}")
+                    self.vetoed_foregrounds[vetoe_label][norm] = foreground
+                    self.vetoed_distributions[vetoe_label][norm] = background
 
     def configure_plots(
         self,
@@ -127,64 +166,34 @@ class VizApp:
         self.layout = column(self.widgets, tabs)
 
     def update_norm(self, attr, old, new):
+        current_vetoe_label = "_".join(sorted(self.vetoe_choices.value))
         norm = None if new == "None" else float(new)
 
         self.logger.debug(f"Updating plots with normalization value {norm}")
-        foreground = self.foregrounds[norm]
-        background = self.vetoed_distributions[norm].background
+        background = self.vetoed_distributions[current_vetoe_label][norm]
+        foreground = self.vetoed_foregrounds[current_vetoe_label][norm]
 
         self.perf_summary_plot.update(foreground)
         self.background_plot.update(foreground, background, norm)
 
     def update_vetoes(self, attr, old, new):
 
-        # apply requested vetoes for each norm window
-        if len(new) > 0:
+        # retrieve the current normalization value
+        current_norm = float(self.norm_select.value)
 
-            self.logger.debug(f"Active vetoes: {new}")
-            for norm, results in self.distributions.items():
-                background = results.background.copy()
-                self.logger.debug(
-                    f"{len(background.events)} events for norm {norm} pre veto"
-                )
-                for category in new:
-                    vetoes = self.vetoe_parser.get_vetoes(category)
-                    background.apply_vetoes(**vetoes)
-                self.logger.debug(
-                    f"{len(background.events)} events "
-                    f"for norm {norm} post veto"
-                )
+        # calculate vetoe label for this combo
+        vetoe_label = "_".join(sorted(new))
+        self.logger.debug(f"Applying vetoe comboe {vetoe_label}")
 
-                self.vetoed_distributions[norm].background = background
-                # update fars of foreground based on new background
-                foreground = self.foregrounds[norm]
-                foreground.fars = background.far(
-                    foreground.detection_statistics
-                )
-                self.foregrounds[norm] = foreground
-        else:
-            # remove vetoes by referring back to non-vetoe distributions
-            self.logger.debug("Removing all vetoes")
-            for norm, results in self.distributions.items():
-                background = results.background
-                self.vetoed_distributions[norm].background = background
-                foreground = self.foregrounds[norm]
-                foreground.fars = background.far(
-                    foreground.detection_statistics
-                )
-                self.foregrounds[norm] = foreground
-
-        # now that vetoes have been applied for all norms,
-        # select the foreground and background for the currently selected norm
-        current_norm = self.norm_select.value
-        foreground = self.foregrounds[float(current_norm)]
-        background = self.vetoed_distributions[float(current_norm)].background
-
-        # update plots with
+        # get background and foreground for this vetoe label
+        background = self.vetoed_distributions[vetoe_label][current_norm]
+        foreground = self.vetoed_foregrounds[vetoe_label][current_norm]
+        self.logger.debug(f"{np.mean(foreground.fars)}")
+        # update plots
         self.logger.debug(
             "Updating plots with new distributions after changing vetoes"
         )
-
+        # update plots
         self.perf_summary_plot.update(foreground)
         self.background_plot.update(foreground, background, current_norm)
         self.event_inspector.reset()
