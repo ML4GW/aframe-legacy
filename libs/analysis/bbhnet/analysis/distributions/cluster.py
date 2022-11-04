@@ -99,3 +99,11 @@ class ClusterDistribution(Distribution):
         else:
             nb = np.sum(self.events >= threshold)
         return np.array(nb)
+
+    def copy(self):
+        new = ClusterDistribution(self.dataset, self.ifos, self.t_clust)
+        new.event_times = self.event_times
+        new.events = self.events
+        new.shifts = self.shifts
+        new.Tb = self.Tb
+        return new

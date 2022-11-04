@@ -77,8 +77,8 @@ def get_foreground(
 
         with h5py.File(shift / "injection" / "params.h5") as f:
             event_times = f["geocent_time"][:]
-            h1_snrs = f["H1_snr"][:]
-            l1_snrs = f["L1_snr"][:]
+            h1_snrs = np.sqrt(f["H1_snr"][:])
+            l1_snrs = np.sqrt(f["L1_snr"][:])
             m1s = f["mass_1"][:]
             m2s = f["mass_2"][:]
             distances = f["luminosity_distance"][:]

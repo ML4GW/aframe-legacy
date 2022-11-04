@@ -115,6 +115,7 @@ class Distribution:
             vetoes:
                 np.ndarray of shape (n_segments, 2) corresponding to segments
                 that should be vetoed.
+
         """
 
         for ifo, vetoes in vetoes.items():
@@ -135,9 +136,13 @@ class Distribution:
                 mask &= (t0 >= times) | (times >= tf)
 
             # apply mask
-            self.event_times = self.event_times[mask]
-            self.shifts = self.shifts[mask]
-            self.events = self.events[mask]
+            event_times = self.event_times[mask]
+            shifts = self.shifts[mask]
+            events = self.events[mask]
+
+            self.event_times = event_times
+            self.shifts = shifts
+            self.events = events
 
     def __str__(self):
         return f"{self.__class__.__name__}('{self.dataset}', Tb={self.Tb})"
