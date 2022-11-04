@@ -8,7 +8,6 @@ from bokeh.models import (
     HoverTool,
     LogAxis,
     Range1d,
-    Select,
     TapTool,
 )
 from bokeh.plotting import figure
@@ -38,23 +37,10 @@ class BackgroundPlot:
         event_inspector,
     ) -> None:
         self.configure_sources()
-        self.configure_widgets()
         self.configure_plots(height, width)
 
         self.event_inspector = event_inspector
         self.logger = logging.getLogger("Background Plot")
-
-    def configure_widgets(self):
-        self.attribute_select = Select(
-            width=100,
-            title="Injection attribute",
-            value="snr",
-            options=["snr", "chirp_mass", "m1s", "m2s", "distances"],
-        )
-
-        self.attribute_select.on_change(
-            "value", self.update_injection_plot_attribute
-        )
 
     def configure_plots(self, height: int, width: int):
         bckgd_color = palette[4]
@@ -177,13 +163,7 @@ class BackgroundPlot:
         )
         self.background_plot.add_tools(tap)
 
-        self.layout = row(
-            [
-                self.attribute_select,
-                self.distribution_plot,
-                self.background_plot,
-            ]
-        )
+        self.layout = row(self.distribution_plot, self.background_plot)
 
     def configure_sources(self):
         self.bar_source = ColumnDataSource(dict(center=[], top=[], width=[]))
@@ -215,10 +195,6 @@ class BackgroundPlot:
                 size=[],
             )
         )
-
-    def update_injection_plot_attribute(self, attr, old, new):
-
-        self.injection_renderer.glyph.y = new
 
     def update_source(self, source, **kwargs):
         source.data = kwargs

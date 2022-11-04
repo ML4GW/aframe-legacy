@@ -81,11 +81,16 @@ class VizApp:
         )
         self.norm_select.on_change("value", self.update_norm)
 
-        self.vetoe_labels = ["CAT2", "GATES"]
-        self.vetoe_choices = MultiChoice(value=[], options=self.vetoe_labels)
+        self.vetoe_labels = ["CAT1", "CAT2", "CAT3", "GATES"]
+        self.vetoe_choices = MultiChoice(
+            title="Applied Vetoes", value=[], options=self.vetoe_labels
+        )
         self.vetoe_choices.on_change("value", self.update_vetoes)
 
         self.widgets = row(header, self.norm_select, self.vetoe_choices)
+
+    # Calculate all combinations of vetoes for each norm up front
+    # so changing vetoe configurations in app is faster
 
     # TODO: This could also probably be a part of the
     # analysis project, and just loaded in here.
@@ -100,7 +105,9 @@ class VizApp:
             for combo in combos:
                 # sort vetoes and join to create label
                 vetoe_label = "_".join(sorted(combo))
-                self.logger.debug(f"Calculating vetoe comboe {vetoe_label}")
+                self.logger.debug(
+                    f"Calculating vetoe comboe {vetoe_label} for all norms"
+                )
                 # create vetoed foreground and background distributions
                 self.vetoed_distributions[vetoe_label] = {}
                 self.vetoed_foregrounds[vetoe_label] = {}
@@ -118,7 +125,6 @@ class VizApp:
                     foreground.fars = background.far(
                         foreground.detection_statistics
                     )
-                    self.logger.debug(f"{np.mean(foreground.fars)}")
                     self.vetoed_foregrounds[vetoe_label][norm] = foreground
                     self.vetoed_distributions[vetoe_label][norm] = background
 
@@ -175,6 +181,7 @@ class VizApp:
 
         self.perf_summary_plot.update(foreground)
         self.background_plot.update(foreground, background, norm)
+        self.event_inspector.reset()
 
     def update_vetoes(self, attr, old, new):
 
