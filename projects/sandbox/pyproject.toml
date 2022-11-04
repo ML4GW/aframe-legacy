@@ -1,7 +1,7 @@
 [tool.pinto]
 steps = [
-    #"generate_background:generate-background",
-    #"generate_waveforms:generate-waveforms",
+    "generate_background:generate-background",
+    "generate_waveforms:generate-waveforms",
     "generate_glitches:generate-glitches",
     "train:train:resnet",
     "export:export-model:resnet",
@@ -216,11 +216,11 @@ timeslides_strain_dir = "${base.datadir}/timeslide_injections"
 ifos = "${base.ifos}"
 start = "${base.stop}"
 stop = "${base.test_stop}"
-veto_definer_file = "${VETO_DEF}"
-gate_paths = {"H1" = "/home/ethan.marx/public_html/forks/BBHNet/projects/sandbox/vizapp/veto-definitions/cbc/O3/H1-O3_GATES_1238166018-31197600.txt" , "L1" = "/home/ethan.marx/public_html/forks/BBHNet/projects/sandbox/vizapp/veto-definitions/cbc/O3/L1-O3_GATES_1238166018-31197600.txt"}
+veto_definer_file = "./vetoes/H1L1-HOFT_C01_O3_CBC.xml"
+gate_paths = {"H1" = "./vetoes/H1-O3_GATES_1238166018-31197600.txt" , "L1" = "./vetoes/L1-O3_GATES_1238166018-31197600.txt"}
 train_data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "./" #"${base.basedir}"
+logdir = "${base.basedir}"
 verbose = true

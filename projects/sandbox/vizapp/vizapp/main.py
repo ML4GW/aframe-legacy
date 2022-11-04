@@ -30,6 +30,13 @@ def main(
 
     configure_logging(logdir / "vizapp.log", verbose)
 
+    if not veto_definer_file.is_absolute():
+        veto_definer_file = Path(__file__).resolve().parent / veto_definer_file
+
+    for ifo in ifos:
+        if not gate_paths[ifo].is_absolute():
+            gate_paths[ifo] = Path(__file__).resolve().parent / gate_paths[ifo]
+
     vetoe_parser = VetoeParser(
         veto_definer_file,
         gate_paths,
