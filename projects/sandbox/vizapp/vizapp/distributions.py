@@ -58,21 +58,6 @@ class Foreground:
     def chirps(self) -> np.ndarray:
         return (self.m1s * self.m2s) ** 0.6 / (self.m1s + self.m2s) ** 0.2
 
-    def copy(self):
-        new = Foreground(
-            self.injection_times,
-            self.detection_statistics,
-            self.event_times,
-            self.shifts,
-            self.fars,
-            self.snrs,
-            self.distances,
-            self.m1s,
-            self.m2s,
-            self.time_deltas,
-        )
-        return new
-
 
 def get_foreground(
     results: AnalysisResults,
