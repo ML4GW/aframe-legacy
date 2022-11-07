@@ -87,7 +87,7 @@ class BackgroundPlot:
         )
         self.distribution_plot.add_layout(axis, "right")
 
-        self.injection_renderer = self.distribution_plot.circle(
+        injection_renderer = self.distribution_plot.circle(
             x="detection_statistic",
             y="snr",
             size="size",
@@ -112,7 +112,7 @@ class BackgroundPlot:
                 ("Detection statistic", "@{detection_statistic}"),
                 ("Chirp Mass", "@{chirp_mass}"),
             ],
-            renderers=[self.injection_renderer],
+            renderers=[injection_renderer],
         )
         self.distribution_plot.add_tools(hover)
 

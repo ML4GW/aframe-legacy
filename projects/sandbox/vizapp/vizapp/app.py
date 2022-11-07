@@ -1,3 +1,4 @@
+import copy
 import itertools
 import logging
 from pathlib import Path
@@ -114,13 +115,13 @@ class VizApp:
                 # calculate this vetoe combo for each norm and store
                 for norm, result in self.distributions.items():
 
-                    background = result.background.copy()
+                    background = copy.deepcopy(result.background)
                     for category in combo:
 
                         vetoes = self.vetoe_parser.get_vetoes(category)
                         background.apply_vetoes(**vetoes)
 
-                    foreground = self.foregrounds[norm].copy()
+                    foreground = copy.deepcopy(self.foregrounds[norm])
 
                     foreground.fars = background.far(
                         foreground.detection_statistics
