@@ -29,7 +29,7 @@ def gates_to_veto_segments(path: Path):
 
 
 @dataclass
-class VetoeParser:
+class VetoParser:
     veto_definer_file: Path
     gate_paths: Dict[str, Path]
     start: float
@@ -41,14 +41,14 @@ class VetoeParser:
             self.veto_definer_file
         )
         self.vetoes.populate(segments=[[self.start, self.stop]], verbose=False)
-        self.vetoe_cache = {}
+        self.veto_cache = {}
 
     def get_vetoes(self, category: str):
         try:
-            vetoes = self.vetoe_cache[category]
+            vetoes = self.veto_cache[category]
         except KeyError:
             vetoes = self._query_vetoes(category)
-            self.vetoe_cache[category] = vetoes
+            self.veto_cache[category] = vetoes
 
         return vetoes
 
