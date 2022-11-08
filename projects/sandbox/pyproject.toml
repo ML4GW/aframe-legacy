@@ -19,9 +19,9 @@ ifos = ['H1', 'L1']
 start = 1262607622
 stop = 1262620622
 test_stop = 1262751694  
-channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+channels = ["H1:DCS-CALIB_STRAIN_CLEAN_C01", "L1:DCS-CALIB_STRAIN_CLEAN_C01""]
 frame_type = "HOFT_C01"
-state_flag = "DCS-ANALYSIS_READY_C01:1"
+state_flags = ["H1:DCS-ANALYSIS_READY_C01:1", "L1:DCS-ANALYSIS_READY_C01:1"]
 resnet = {layers = [3, 3, 3]}
 repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
@@ -38,12 +38,10 @@ valid_frac = 0.25
 [tool.typeo.scripts.generate-background]
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
-channel = "${base.channel}"
-frame_type = "${base.frame_type}"
-state_flag = "${base.state_flag}"
+channels = "${base.channels}"
+state_flags = "${base.state_flags}"
 start = "${base.start}" 
 stop = "${base.stop}" 
-ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
 minimum_length = 8000
 force_generation = "${base.force_generation}"

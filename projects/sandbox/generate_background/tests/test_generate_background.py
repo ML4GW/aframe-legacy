@@ -3,12 +3,10 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-import gwpy
 import h5py
 import numpy as np
 import pytest
 from generate_background import main as generate_background
-from gwpy.segments import DataQualityDict, DataQualityFlag
 from gwpy.timeseries import TimeSeries
 
 
@@ -40,7 +38,7 @@ def sample_rate(request):
     return request.param
 
 
-@patch.object(gwpy.segments.DataQualityDict, "query_dqsegdb")
+@patch("generate_background.query_segments")
 def test_generate_background(
     mock_query,
     datadir,
@@ -52,17 +50,10 @@ def test_generate_background(
     start = 1234567890
     stop = 1234577890
 
-    # construct mock DataQualityDict
-    # object that just contains the full
-    # start to stop as its only segment
-    state_flag = "DCS-ANALYSIS_READY_C01:1"
-    segments = DataQualityFlag(active=[[start, stop]])
-    segment_list = DataQualityDict()
-    for ifo in ifos:
-        segment_list[f"{ifo}:{state_flag}"] = segments
-
+    segment_list = [[start, stop]]
     mock_query.return_value = segment_list
 
+    state_flag = "DCS-ANALYSIS_READY_C01:1"
     minimum_length = 10
     channel = "DCS-CALIB_STRAIN_CLEAN_C01"
     frame_type = "HOFT_C01"
@@ -75,7 +66,7 @@ def test_generate_background(
     mock_datafind = patch("generate_background.find_urls", return_value=None)
 
     with mock_ts, mock_datafind:
-        datadir = generate_background(
+        path = generate_background(
             start,
             stop,
             ifos,
@@ -88,8 +79,9 @@ def test_generate_background(
             logdir,
         )
 
-    for ifo in ifos:
-        background_path = datadir / f"{ifo}_background.h5"
-        with h5py.File(background_path) as f:
-            assert (f["hoft"] == ts.value).all()
-            assert f["t0"][()] == start
+    with h5py.File(path) as f:
+        print(f.keys())
+        print(f.attrs.keys())
+        for ifo in ifos:
+            assert (f[f"{ifo}:{channel}"] == ts.value).all()
+            # assert f["t0"][()] == start
