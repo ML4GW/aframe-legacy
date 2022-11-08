@@ -19,6 +19,7 @@ h5py = "^3.5"
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 "bbhnet.base" = {path = "../../../libs/base", develop = true, extras = ["numpy", "gwpy"]}
 lalsuite = "^7.10"
+python-ligo-lw = "<1.8"
 
 [build-system]
 requires = ["poetry-core"]

@@ -119,15 +119,16 @@ class Distribution:
         """
 
         for ifo, vetoes in vetoes.items():
-            if ifo not in self.ifos:
+
+            # find shifts corresponding to this ifo
+            # and calculate event times for this ifo
+            try:
+                shift_arg = self.ifos.index(ifo)
+            except ValueError:
                 raise ValueError(
                     f"Attempting to apply vetoes to ifo {ifo},"
                     f"but {ifo} is not an ifo in this distribution"
                 )
-
-            # find shifts corresponding to this ifo
-            # and calculate event times for this ifo
-            shift_arg = np.where(np.array(self.ifos) == ifo)[0][0]
             times = self.event_times - self.shifts[:, shift_arg]
 
             # determine event times that are in vetoed segments

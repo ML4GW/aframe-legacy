@@ -7,7 +7,7 @@ from bbhnet.logging import configure_logging
 from hermes.typeo import typeo
 
 from .app import VizApp
-from .vetoes import VetoeParser
+from .vetoes import VetoParser
 
 
 @typeo
@@ -37,7 +37,7 @@ def main(
         if not gate_paths[ifo].is_absolute():
             gate_paths[ifo] = Path(__file__).resolve().parent / gate_paths[ifo]
 
-    vetoe_parser = VetoeParser(
+    veto_parser = VetoParser(
         veto_definer_file,
         gate_paths,
         start,
@@ -49,7 +49,7 @@ def main(
         timeslides_results_dir=timeslides_results_dir,
         timeslides_strain_dir=timeslides_strain_dir,
         train_data_dir=train_data_dir,
-        vetoe_parser=vetoe_parser,
+        veto_parser=veto_parser,
         ifos=ifos,
         sample_rate=sample_rate,
         fduration=fduration,
