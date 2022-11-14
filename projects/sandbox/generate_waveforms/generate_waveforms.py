@@ -27,14 +27,14 @@ def main(
     """Simulates a set of raw BBH signals and saves them to an output file.
 
     Args:
-        prior_file: prior file for bilby to sample from
-        n_samples: number of signal to inject
+        prior: function returning a bilby PriorDict for bilby to sample from
+        n_samples: number of signals to simulate
         logdir: directory where log file will be written
         datadir: output directory to which signals will be written
         reference_frequency: reference frequency for waveform generation
         minimum_frequency: minimum_frequency for waveform generation
         sample_rate: rate at which to sample waveforms
-        waveform_duration: length of injected waveforms
+        waveform_duration: length of injected waveforms in seconds
         waveform_approximant: which lalsimulation waveform approximant to use
         force_generation: if True, generate signals even if path already exists
         verbose: log verbosely
