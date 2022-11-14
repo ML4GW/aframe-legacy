@@ -190,6 +190,8 @@ def check_segment(
     # this segment to be worth working with
     if min_segment_length is not None and dur < min_segment_length:
         return None
+    if dur > 30000:
+        return None
 
     segment_start = intify(segment_start)
     dur = intify(dur)

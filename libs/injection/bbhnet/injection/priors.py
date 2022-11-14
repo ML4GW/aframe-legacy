@@ -86,3 +86,34 @@ def end_o3_ratesandpops():
     prior_dict["phi_jl"] = 0
 
     return prior_dict
+
+
+def bns_ratesandpops():
+
+    prior_dict = PriorDict()
+    prior_dict["mass_1"] = Uniform(
+        name="mass_1", minimum=5, maximum=100, unit=r"$M_{\odot}$"
+    )
+    prior_dict["mass_2"] = Uniform(
+        name="mass_2", minimum=5, maximum=100, unit=r"$M_{\odot}$"
+    )
+    prior_dict["luminosity_distance"] = UniformComovingVolume(
+        name="luminosity_distance", minimum=100, maximum=750, unit="Mpc"
+    )
+    prior_dict["dec"] = Cosine(name="dec")
+    prior_dict["ra"] = Uniform(
+        name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
+    )
+    prior_dict["theta_jn"] = 0
+    prior_dict["psi"] = 0
+    prior_dict["phase"] = 0
+    prior_dict["a_1"] = Uniform(name="a_1", minimum=0, maximum=0.4)
+    prior_dict["a_2"] = Uniform(name="a_2", minimum=0, maximum=0.4)
+    prior_dict["tilt_1"] = Sine(name="tilt_1", unit="rad")
+    prior_dict["tilt_2"] = Sine(name="tilt_2", unit="rad")
+    prior_dict["phi_12"] = Uniform(
+        name="phi_12", minimum=0, maximum=2 * np.pi, boundary="periodic"
+    )
+    prior_dict["phi_jl"] = 0
+
+    return prior_dict

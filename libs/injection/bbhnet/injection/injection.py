@@ -1,8 +1,11 @@
 from typing import Dict, List, Tuple
 
 import numpy as np
-from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
-from bilby.gw.source import lal_binary_black_hole
+from bilby.gw.conversion import (
+    convert_to_lal_binary_black_hole_parameters,
+    convert_to_lal_binary_neutron_star_parameters,
+)
+from bilby.gw.source import lal_binary_black_hole, lal_binary_neutron_star
 from bilby.gw.waveform_generator import WaveformGenerator
 
 
@@ -46,8 +49,8 @@ def generate_gw(
     waveform_generator = WaveformGenerator(
         duration=waveform_duration,
         sampling_frequency=sample_rate,
-        frequency_domain_source_model=lal_binary_black_hole,
-        parameter_conversion=convert_to_lal_binary_black_hole_parameters,
+        frequency_domain_source_model=lal_binary_neutron_star,
+        parameter_conversion=convert_to_lal_binary_neutron_star_parameters,
         waveform_arguments={
             "waveform_approximant": waveform_approximant,
             "reference_frequency": reference_frequency,

@@ -48,6 +48,7 @@ def main(
 
     # spin up a triton server and don't move on until it's ready
     with serve(model_repo_dir, wait=True, log_file=server_log_file):
+        print(model_repo_dir)
         client = InferenceClient("localhost:8001", model_name, model_version)
         manager = SequenceManager(
             data_dir,

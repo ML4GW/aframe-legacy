@@ -31,7 +31,7 @@ inference_batch_size = 128
 minimum_frequency = 20
 reference_frequency = 50
 highpass = 32
-prior = "bbhnet.injection.priors.nonspin_bbh"
+prior = "bbhnet.injection.priors.bns_ratesandpops"
 fduration = 1
 valid_frac = 0.25
 
