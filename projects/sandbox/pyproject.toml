@@ -224,5 +224,5 @@ train_data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "${base.basedir}"
+logdir = "${base.logdir}"
 verbose = true
