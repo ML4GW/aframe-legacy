@@ -218,7 +218,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "typeo"
-version = "0.1.5"
+version = "0.1.6"
 description = "Utilities for running functions as scripts"
 category = "main"
 optional = false
@@ -232,7 +232,7 @@ toml = "^0.10.2"
 type = "git"
 url = "https://github.com/ML4GW/typeo.git"
 reference = "HEAD"
-resolved_reference = "17376420b1a92ea12cbdfa884192aa0150f70b55"
+resolved_reference = "bd2429d484a3c4c3d49bfab62811b57f905573f1"
 
 [metadata]
 lock-version = "1.1"

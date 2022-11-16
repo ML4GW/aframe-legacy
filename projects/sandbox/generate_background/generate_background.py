@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-from mldatafind.find import data_generator
+from mldatafind.find import find_data
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -21,24 +21,36 @@ def main(
     force_generation: bool = False,
     verbose: bool = False,
 ):
-    """
-    Finds the first contiguous, coincident segments ifos`
+    """Generate background strain for training BBHnet
+
+    Finds the first contiguous, coincident segment
     consistent with `segment_names`, and `minimum_length`,
-    and queries strain data from `channels` training BBHnet.
+    and queries strain data from `channels`
 
     Args:
-        start: start gpstime
-        stop: stop gpstime
-        sample_rate: Rate to sample strain data
-        channels: Strain channels to query
-        state_flags: Name of segments to query
-        minimum_length: minimum segment length
-        datadir: Directory to store data
-        logdir: Directory to store log file
-        force_generation: Force data to be generated even if path exists
-        verbose: log verbosely
+        start:
+            Start gpstime
+        stop:
+            Stop gpstime
+        sample_rate:
+            Rate to sample strain data
+        channels:
+            Strain channels to query
+        state_flags:
+            Name of segments
+        minimum_length:
+            Minimum segment length
+        datadir:
+            Directory to store data
+        logdir:
+            Directory to store log file
+        force_generation:
+            Force data to be generated even if path exists
+        verbose:
+            Log verbosely
 
-    Returns path to data
+    Returns:
+        Path to data
     """
 
     logdir.mkdir(exist_ok=True, parents=True)
@@ -57,7 +69,7 @@ def main(
     # create and loop over generator that will query data
     # that satisfies segment criteria.
     # break since we only need one segment
-    generator = data_generator(
+    generator = find_data(
         start, stop, channels, minimum_length, state_flags, retain_order=True
     )
 
