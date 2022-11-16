@@ -16,6 +16,7 @@ from timeslide_injections.utils import (
     Sampler,
     WaveformGenerator,
     check_segment,
+    chunk_segments,
     download_data,
     make_shifts,
     submit_write,
@@ -50,6 +51,7 @@ def main(
     frame_type: str,
     channel: str,
     min_segment_length: Optional[float] = None,
+    chunk_size: Optional[float] = None,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
@@ -137,6 +139,10 @@ def main(
         waveform_approximant,
     )
     tensors, vertices = get_ifo_geometry(*ifos)
+
+    segments = [tuple(segment) for segment in intersection]
+    if chunk_size is not None:
+        segments = chunk_segments(segments, chunk_size)
 
     # set up some pools for doing our data IO/injection
     with AsyncExecutor(4, thread=False) as pool:
