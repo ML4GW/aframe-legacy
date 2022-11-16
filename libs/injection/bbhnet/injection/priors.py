@@ -92,13 +92,13 @@ def bns_ratesandpops():
 
     prior_dict = PriorDict()
     prior_dict["mass_1"] = Uniform(
-        name="mass_1", minimum=5, maximum=100, unit=r"$M_{\odot}$"
+        name="mass_1", minimum=1, maximum=2.5, unit=r"$M_{\odot}$"
     )
     prior_dict["mass_2"] = Uniform(
-        name="mass_2", minimum=5, maximum=100, unit=r"$M_{\odot}$"
+        name="mass_2", minimum=1, maximum=2.5, unit=r"$M_{\odot}$"
     )
     prior_dict["luminosity_distance"] = UniformComovingVolume(
-        name="luminosity_distance", minimum=100, maximum=750, unit="Mpc"
+        name="luminosity_distance", minimum=0, maximum=750, unit="Mpc"
     )
     prior_dict["dec"] = Cosine(name="dec")
     prior_dict["ra"] = Uniform(
