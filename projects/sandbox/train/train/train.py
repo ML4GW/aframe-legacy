@@ -205,10 +205,10 @@ def main(
     # into one file for simplicity
     background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
-        background, valid_background = split(background, 1 - valid_frac)
+        background, valid_background = split(background, 1 - valid_frac, -1)
         recorder = Recorder(
             outdir,
-            "recall@spec=1",
+            "recall@spec=1.0",
             kernel_length=4,
             stride=2,
             sample_rate=sample_rate,
