@@ -4,7 +4,7 @@ from typing import Optional
 import h5py
 import numpy as np
 from train.utils import prepare_augmentation, split
-from train.validation import make_validation_dataset
+from train.validation import Recorder, Validator
 
 from bbhnet.architectures import Preprocessor
 from bbhnet.data.dataloader import BBHInMemoryDataset
@@ -34,10 +34,10 @@ def load_background(*backgrounds: Path):
 @trainify
 def main(
     # paths and environment args
-    hanford_background: str,
-    livingston_background: str,
-    glitch_dataset: str,
-    waveform_dataset: str,
+    hanford_background: Path,
+    livingston_background: Path,
+    glitch_dataset: Path,
+    waveform_dataset: Path,
     outdir: Path,
     logdir: Path,
     # data generation args
@@ -57,6 +57,7 @@ def main(
     # validation args
     valid_frac: Optional[float] = None,
     valid_stride: Optional[float] = None,
+    early_stop: Optional[int] = None,
     # misc args
     device: str = "cpu",
     verbose: bool = False,
@@ -204,9 +205,32 @@ def main(
     # into one file for simplicity
     background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
-        background, valid_background = split(background, 1 - valid_frac, 1)
-        valid_injector.fit(H1=background[0], L1=background[1])
-        valid_waveforms, _ = valid_injector.sample(-1)
+        background, valid_background = split(background, 1 - valid_frac)
+        recorder = Recorder(
+            outdir,
+            "recall@spec=1",
+            kernel_length=4,
+            stride=2,
+            sample_rate=sample_rate,
+            topk=5,
+            specs=[0.75, 0.9, 1],
+            early_stop=early_stop,
+            checkpoint_every=5,
+        )
+        validator = Validator(
+            recorder,
+            background=valid_background,
+            glitches=valid_glitches,
+            injector=valid_injector,
+            kernel_length=kernel_length,
+            stride=valid_stride,
+            sample_rate=sample_rate,
+            batch_size=4 * batch_size,
+            glitch_frac=glitch_prob,
+            device=device,
+        )
+    else:
+        validator = None
 
     # fit our waveform injector to this background
     # to facilitate the SNR remapping
@@ -241,21 +265,4 @@ def main(
     # move eveyrthing to the desired device
     preprocessor.whitener.fit(background)
     preprocessor.whitener.to(device)
-
-    # deterministic validation glitch sampler
-    if valid_frac is not None:
-        valid_dataset = make_validation_dataset(
-            valid_background,
-            valid_glitches,
-            valid_waveforms,
-            kernel_length=kernel_length,
-            stride=valid_stride,
-            sample_rate=sample_rate,
-            batch_size=batch_size * 8,
-            glitch_frac=glitch_prob,
-            device=device,
-        )
-    else:
-        valid_dataset = None
-
-    return train_dataset, valid_dataset, preprocessor
+    return train_dataset, validator, preprocessor
