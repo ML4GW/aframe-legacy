@@ -13,52 +13,49 @@ if TYPE_CHECKING:
     from bbhnet.data.waveform_injection import BBHNetWaveformInjection
 
 
-@dataclass
-class Metric:
+class Metric(torch.nn.Module):
     @property
-    def fields(self):
-        raise NotImplementedError
-
-    def __call__(self):
+    def metrics(self):
         raise NotImplementedError
 
 
-@dataclass
 class BackgroundRecall(Metric):
-    kernel_size: int
-    stride: int
-    k: int = 5
+    def __init__(self, kernel_size: int, stride: int, k: int = 5) -> None:
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.k = k
 
     @property
-    def fields(self):
+    def metrics(self):
         return [f"recall@k={i+1}" for i in range(self.k)]
 
-    def __call__(self, background, signal):
+    def forward(self, background, signal):
+        background = background.unsqueeze(0)
         background = torch.nn.functional.max_pool1d(
             background, kernel_size=self.kernel_size, stride=self.stride
         )
-        topk = torch.topk(background, self.k)
+        background = background[0]
+        topk = torch.topk(background, self.k).values
         recall = (signal.unsqueeze(1) >= topk).sum(0) / len(signal)
-        return dict(zip(self.fields, recall.cpu().numpy()))
+        return dict(zip(self.metrics, recall.cpu().numpy()))
 
 
-@dataclass
 class GlitchRecall(Metric):
-    specs: Sequence[float]
-
-    def __post_init__(self):
-        for spec in self.specs:
-            assert 0 <= spec <= 1
-        self.specs = torch.Tensor(self.specs)
+    def __init__(self, specs: Sequence[float]) -> None:
+        super().__init__()
+        for i in specs:
+            assert 0 <= i <= 1
+        self.register_buffer("specs", torch.Tensor(specs))
 
     @property
-    def fields(self):
+    def metrics(self):
         return [f"recall@spec={spec}" for spec in self.specs]
 
-    def __call__(self, glitches, signal):
+    def forward(self, glitches, signal):
         qs = torch.quantile(glitches.unsqueeze(1), self.specs)
         recall = (signal.unsqueeze(1) >= qs).sum(0) / len(signal)
-        return dict(zip(self.fields, recall.cpu().numpy()))
+        return dict(zip(self.metrics, recall.cpu().numpy()))
 
 
 @dataclass
@@ -69,11 +66,14 @@ class Recorder:
     stride: int
     sample_rate: float
     topk: int = 5
-    specs: Sequence[float] = [0.75, 0.9, 1]
+    specs: Optional[Sequence[float]] = None
     early_stop: Optional[int] = None
     checkpoint_every: Optional[int] = None
 
     def __post_init__(self):
+        if self.specs is None:
+            self.specs = [0.75, 0.9, 1]
+
         self.background = BackgroundRecall(
             int(self.kernel_length * self.sample_rate),
             int(self.stride * self.sample_rate),
@@ -81,7 +81,7 @@ class Recorder:
         )
         self.glitch = GlitchRecall(self.specs)
 
-        fields = self.background.fields + self.glitch.fields
+        fields = self.background.metrics + self.glitch.metrics
         if self.monitor not in fields:
             raise ValueError(
                 f"Monitor field {self.monitor} not in metric fields {fields}"
@@ -110,15 +110,21 @@ class Recorder:
         metrics.update(bckgrd_recall)
         metrics.update(glitch_recall)
 
-        msg = f"Train loss: {train_loss}"
-        msg += "\nRecall vs. background @:"
-        for field in self.background.fields:
-            value = metrics[field]
-            msg += "\n" + field.split("@")[1] + f": {value:0.3f}"
-        msg += "\nRecall vs. glitches @:"
-        for field in self.glitch.fields:
-            value = metrics[field]
-            msg += "\n" + field.split("@")[1] + f": {value:0.3f}"
+        msg = f"Summary:\nTrain loss: {train_loss:0.3e}"
+        msg += "\nValidation recall vs. background @:"
+        tab = " " * 8
+        for metric in self.background.metrics:
+            value = metrics[metric]
+            metric = metric.split("@")[1]
+            metric, thresh = metric.split("=")
+            msg += f"\n{tab}{metric} = {thresh}: {value:0.3f}"
+        msg += "\nValidation recall vs. glitches @:"
+        for metric in self.glitch.metrics:
+            value = metrics[metric]
+            metric = metric.split("@")[1]
+            metric, thresh = metric.split("=")
+            thresh = float(thresh)
+            msg += f"\n{tab}{metric} = {thresh:0.2f}: {value:0.3f}"
         logging.info(msg)
 
         return self.checkpoint(model, metrics)
@@ -127,7 +133,7 @@ class Recorder:
         self, model: torch.nn.Module, metrics: Dict[str, float]
     ) -> bool:
         self._i += 1
-        for key, val in metrics:
+        for key, val in metrics.items():
             self.history[key].append(val)
 
         if (
@@ -210,7 +216,7 @@ def make_glitches(
 
 
 def repeat(X: torch.Tensor, max_num: int):
-    repeats = ceil(len(X) / max_num)
+    repeats = ceil(max_num / len(X))
     X = X.repeat(repeats, 1, 1)
     return X[:max_num]
 
@@ -231,6 +237,7 @@ class Validator:
     ) -> None:
         self.device = device
         self.recorder = recorder
+        self.recorder.glitch.to(device)
 
         kernel_size = int(kernel_length * sample_rate)
         stride_size = int(stride * sample_rate)
@@ -247,7 +254,7 @@ class Validator:
         self.glitch_loader = self.make_loader(glitch_background, batch_size)
 
         # 3. create a tensor of background with waveforms injected
-        waveforms = injector.sample(-1)
+        waveforms, _ = injector.sample(-1)
         signal_background = repeat(background, len(waveforms))
 
         start = waveforms.shape[-1] // 2 - kernel_size // 2
@@ -256,7 +263,7 @@ class Validator:
         self.signal_loader = self.make_loader(signal_background, batch_size)
 
     def make_loader(self, X: torch.Tensor, batch_size: int):
-        dataset = torch.utils.data.Dataset(X)
+        dataset = torch.utils.data.TensorDataset(X)
         return torch.utils.data.DataLoader(
             dataset,
             pin_memory=True,
@@ -272,7 +279,7 @@ class Validator:
             preds.append(y_hat)
         return torch.cat(preds)
 
-    @torch.no_grad
+    @torch.no_grad()
     def __call__(self, model: torch.nn.Module, train_loss: float) -> bool:
         background_preds = self.get_predictions(self.background_loader, model)
         glitch_preds = self.get_predictions(self.glitch_loader, model)
