@@ -54,7 +54,7 @@ class WaveformGenerator:
     reference_frequency: float
     sample_rate: float
     waveform_duration: float
-    waveform_approximant: float
+    waveform_approximant: str
 
     def __call__(self, parameters):
         return generate_gw(
