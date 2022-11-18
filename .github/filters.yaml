@@ -100,3 +100,4 @@ projects/sandbox/train/:
   - 'libs/trainer/**'
   - 'libs/logging/**'
   - 'libs/data/**'
+  - 'ml4gw/**'
