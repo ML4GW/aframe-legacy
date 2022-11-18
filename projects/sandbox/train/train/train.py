@@ -177,6 +177,27 @@ def main(
             Distance, in seconds, between windows taken from
             the validation timeseries to pass to the network
             for validation.
+        monitor_metric:
+            Indicates whether model selection should be done
+            using measurements of recall against performance
+            on `"background"` or `"glitch"` data.
+        threshold:
+            Threshold of the indicated monitor metric against
+            which to select the best-performing model. If
+            `monitor_metric == "background"`, the allowed values
+            are `[1, 2, 3, 4, 5]`. If `monitor_metric == "glitch"`,
+            the allowed values are `[0.75, 0.9, 1]`.
+        early_stop:
+            Number of epochs without improvement in the indicated
+            `monitor_metric` at the indicated `threshold` before
+            training should be terminated. If left as `None`,
+            training will continue all the way through `max_epochs`.
+        checkpoint_every:
+            Indicates the frequency with which model weights
+            should be checkpointed regardless of validation
+            metric performance. If left as `None`, no
+            checkpointing will occur and only the best
+            performing weights will be saved.
         device:
             Device on which to perform training. Either `"cpu"`,
             `"cuda"`, or `"cuda:<device index>"` to train on a
@@ -213,7 +234,10 @@ def main(
     # into one file for simplicity
     background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
+        # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)
+
+        # build a couple validation metrics to evaluate during training
         background_recall = BackgroundRecall(
             kernel_size=int(4 / valid_stride),
             stride=int(2 / valid_stride),
@@ -221,6 +245,8 @@ def main(
         )
         glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
 
+        # pop out one of them to monitor for model selection
+        # and early-stopping purposes.
         additional = [background_recall, glitch_recall]
         if monitor_metric == "background":
             monitor = additional.pop(0)
@@ -229,6 +255,8 @@ def main(
         else:
             raise ValueError(f"Unknown validation metric {monitor_metric}")
 
+        # set up a recorder which will perform evaluation,
+        # model selection, and checkpointing.
         recorder = Recorder(
             outdir,
             monitor,
@@ -237,6 +265,11 @@ def main(
             early_stop=early_stop,
             checkpoint_every=checkpoint_every,
         )
+
+        # pass this all to a validation callable which will
+        # build the necessary datasets, compute predictions
+        # on them using the model, and pass the predictions
+        # to the recorder
         validator = Validator(
             recorder,
             background=valid_background,

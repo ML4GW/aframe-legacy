@@ -3,7 +3,15 @@ import pickle
 from dataclasses import dataclass
 from math import ceil
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import numpy as np
 import torch
@@ -14,6 +22,16 @@ if TYPE_CHECKING:
 
 
 class Metric(torch.nn.Module):
+    """
+    Abstract class for representing a metric which
+    needs to be evaluated at particular threshold(s).
+    Inherits from `torch.nn.Module` so that parameters
+    for calculating the metric of interest can be
+    saved as `buffer`s and moved to appropriate devices
+    via `Metric.to`. Child classes should override `call`
+    for actually computing the metric values of interest.
+    """
+
     def __init__(self, thresholds) -> None:
         super().__init__()
         self.thresholds = thresholds
@@ -59,11 +77,34 @@ class Metric(torch.nn.Module):
 
 
 class BackgroundRecall(Metric):
+    """
+    Computes the recall of injected signals (fraction
+    of total injected signals recovered) at the
+    detection statistic threshold given by each of the
+    top `k` background "events."
+
+    Background predictions are max-pooled along the time
+    dimension using the indicated `kernel_size` and
+    `stride` to keep from counting multiple events from
+    the same phenomenon.
+
+    Args:
+        kernel_size:
+            Size of the window, in samples, over which
+            to max pool background predictions.
+        stride:
+            Number of samples between consecutive
+            background max pool windows.
+        k:
+            Max number of top background events against
+            whose thresholds to evaluate signal recall.
+    """
+
     name = "recall vs. background"
     param = "k"
 
     def __init__(self, kernel_size: int, stride: int, k: int = 5) -> None:
-        super().__init__(list(range(k)))
+        super().__init__([i + 1 for i in range(k)])
         self.kernel_size = kernel_size
         self.stride = stride
         self.k = k
@@ -80,6 +121,21 @@ class BackgroundRecall(Metric):
 
 
 class GlitchRecall(Metric):
+    """
+    Computes the recall of injected signals (fraction
+    of total injected signals recovered) at the detection
+    statistic threshold given by each of the glitch
+    specificity values (fraction of glitches rejected)
+    specified.
+
+    Args:
+        specs:
+            Glitch specificity values against which to
+            compute detection statistic thresholds.
+            Represents the fraction of glitches that would
+            be rejected at a given threshold.
+    """
+
     name = "recall vs. glitches"
     param = "specificity"
 
@@ -97,6 +153,45 @@ class GlitchRecall(Metric):
 
 @dataclass
 class Recorder:
+    """Callable which handles metric evaluation and model checkpointing
+
+    Given a model, its most recent train loss measurement,
+    and tensors of predictions on background, glitch, and
+    signal datasets, this evaluates a series of `Metrics`
+    and records them alongside the training loss in a
+    dictionary for recording training progress. The weights
+    of the best performing model according to the monitored
+    metric will be saved in `logdir` as `weights.pt`. Will also
+    optionally check for early stopping and perform periodic
+    checkpointing of the model weights.
+
+    Args:
+        logdir:
+            Directory to save artifacts to, including best-performing
+            model weights, training history, and an optional subdirectory
+            for periodic checkpointing.
+        monitor:
+            Metric which will be used for deciding which model
+            weights are "best-performing"
+        threshold:
+            Threshold value for the monitored metric at which
+            to evaluate the model's performance.
+        additional:
+            Any additional metrics to evaluate during training
+        early_stop:
+            Number of epochs to go without an improvement in
+            the monitored metric at the given threshold before
+            training should be terminated. If left as `None`,
+            never prematurely terminate training.
+        checkpoint_every:
+            Indicates a frequency at which to checkpoint model
+            weights in terms of number of epochs. If left as
+            `None`, model weights won't be checkpointed and
+            only the weights which produced the best score
+            on the monitored metric at the indicated threshold
+            will be saved.
+    """
+
     logdir: Path
     monitor: Metric
     threshold: float
@@ -119,29 +214,6 @@ class Recorder:
         self.best = -1  # best monitored metric value so far
         self._i = 0  # epoch counter
         self._since_last = 0  # epochs since last best monitored metric
-
-    def record(
-        self,
-        model: torch.nn.Module,
-        train_loss: float,
-        background: torch.Tensor,
-        glitches: torch.Tensor,
-        signal: torch.Tensor,
-    ):
-        self.history["train_loss"].append(train_loss)
-        self.monitor(background, glitches, signal)
-        self.monitor.update(self.history)
-
-        msg = f"Summary:\nTrain loss: {train_loss:0.3e}"
-        msg += f"\nValidation {self.monitor}"
-        if self.additional is not None:
-            for metric in self.additional:
-                metric(background, glitches, signal)
-                metric.update(self.history)
-                msg += f"\nValidation {metric}"
-        logging.info(msg)
-
-        return self.checkpoint(model, self.history)
 
     def checkpoint(
         self, model: torch.nn.Module, metrics: Dict[str, float]
@@ -167,6 +239,29 @@ class Recorder:
             if self._since_last >= self.early_stop:
                 return True
         return False
+
+    def __call__(
+        self,
+        model: torch.nn.Module,
+        train_loss: float,
+        background: torch.Tensor,
+        glitches: torch.Tensor,
+        signal: torch.Tensor,
+    ) -> bool:
+        self.history["train_loss"].append(train_loss)
+        self.monitor(background, glitches, signal)
+        self.monitor.update(self.history)
+
+        msg = f"Summary:\nTrain loss: {train_loss:0.3e}"
+        msg += f"\nValidation {self.monitor}"
+        if self.additional is not None:
+            for metric in self.additional:
+                metric(background, glitches, signal)
+                metric.update(self.history)
+                msg += f"\nValidation {metric}"
+        logging.info(msg)
+
+        return self.checkpoint(model, self.history)
 
 
 def make_background(
@@ -229,7 +324,12 @@ def make_glitches(
     return background
 
 
-def repeat(X: torch.Tensor, max_num: int):
+def repeat(X: torch.Tensor, max_num: int) -> torch.Tensor:
+    """
+    Repeat a 3D tensor `X` along its 0 dimension until
+    it has length `max_num`.
+    """
+
     repeats = ceil(max_num / len(X))
     X = X.repeat(repeats, 1, 1)
     return X[:max_num]
@@ -238,7 +338,7 @@ def repeat(X: torch.Tensor, max_num: int):
 class Validator:
     def __init__(
         self,
-        recorder: Recorder,
+        recorder: Callable,
         background: np.ndarray,
         glitches: Sequence[np.ndarray],
         injector: "BBHNetWaveformInjection",
@@ -249,7 +349,59 @@ class Validator:
         glitch_frac: float,
         device: str,
     ) -> None:
+        """Callable class for evaluating model validation scores
+
+        Computes model outputs on background, glitch,
+        and signal datasets at call time and passes them
+        to a `recorder` for evaluation and checkpointing.
+
+        Args:
+            recorder:
+                Callable which accepts the model being evaluated,
+                most recent training loss, and the predictions on
+                background, glitch, and signal data and returns a
+                boolean indicating whether training should terminate
+                or not.
+            background:
+                2D timeseries of interferometer strain data. Will be
+                split into windows of length `kernel_length`, sampled
+                every `stride` seconds. Glitch and signal data will be
+                augmented onto this dataset
+            glitches:
+                Each element of `glitches` should be a 2D array
+                containing glitches from each interferometer, with
+                the 0th axis used to enumerate individual glitches
+                and the 1st axis corresponding to time.
+            injector:
+                A `BBHNetWaveformInjection` object for sampling
+                waveforms. Preferring this to an array of waveforms
+                for the time being so that we can potentially do
+                on-the-fly SNR reweighting during validation. For now,
+                waveforms are sampled with no SNR reweighting.
+            kernel_length:
+                The length of windows to sample from the background
+                in seconds.
+            stride:
+                The number of seconds between sampled background
+                windows.
+            sample_rate:
+                The rate at which all relevant data arrays have
+                been sampled in Hz
+            batch_size:
+                Number of samples over which to compute model
+                predictions at call time
+            glitch_frac:
+                Rate at which interferometer channels are
+                replaced with glitches during training. Used
+                to compute the fraction of validation glitches
+                which should be sampled coincidentally.
+            device:
+                Device on which to perform model evaluation.
+        """
         self.device = device
+
+        # move all our validation metrics to the
+        # appropriate device
         recorder.monitor.to(device)
         if recorder.additional is not None:
             for metric in recorder.additional:
@@ -288,7 +440,9 @@ class Validator:
             pin_memory_device=self.device,
         )
 
-    def get_predictions(self, loader, model):
+    def get_predictions(
+        self, loader: Iterable[Tuple[torch.Tensor]], model: torch.nn.Module
+    ) -> torch.Tensor:
         preds = []
         for (X,) in loader:
             X = X.to(self.device)
@@ -302,10 +456,6 @@ class Validator:
         glitch_preds = self.get_predictions(self.glitch_loader, model)
         signal_preds = self.get_predictions(self.signal_loader, model)
 
-        return self.recorder.record(
+        return self.recorder(
             model, train_loss, background_preds, glitch_preds, signal_preds
         )
-
-    def save(self):
-        with open(self.recorder.logdir / "history.pkl", "wb") as f:
-            pickle.dump(self.recorder.history, f)
