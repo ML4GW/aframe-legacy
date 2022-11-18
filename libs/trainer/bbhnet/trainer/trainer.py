@@ -222,6 +222,3 @@ def train(
         )
         if stop:
             break
-
-    if validator is not None:
-        validator.save()

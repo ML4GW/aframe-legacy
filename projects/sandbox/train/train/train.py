@@ -1,10 +1,15 @@
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import h5py
 import numpy as np
 from train.utils import prepare_augmentation, split
-from train.validation import Recorder, Validator
+from train.validation import (
+    BackgroundRecall,
+    GlitchRecall,
+    Recorder,
+    Validator,
+)
 
 from bbhnet.architectures import Preprocessor
 from bbhnet.data.dataloader import BBHInMemoryDataset
@@ -57,7 +62,10 @@ def main(
     # validation args
     valid_frac: Optional[float] = None,
     valid_stride: Optional[float] = None,
+    monitor_metric: Literal["background", "glitch"] = "glitch",
+    threshold: float = 1.0,
     early_stop: Optional[int] = None,
+    checkpoint_every: Optional[int] = None,
     # misc args
     device: str = "cpu",
     verbose: bool = False,
@@ -206,16 +214,28 @@ def main(
     background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
         background, valid_background = split(background, 1 - valid_frac, -1)
+        background_recall = BackgroundRecall(
+            kernel_size=int(4 / valid_stride),
+            stride=int(2 / valid_stride),
+            k=5,
+        )
+        glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
+
+        additional = [background_recall, glitch_recall]
+        if monitor_metric == "background":
+            monitor = additional.pop(0)
+        elif monitor_metric == "glitch":
+            monitor = additional.pop(1)
+        else:
+            raise ValueError(f"Unknown validation metric {monitor_metric}")
+
         recorder = Recorder(
             outdir,
-            "recall@spec=1.0",
-            kernel_length=4,
-            stride=2,
-            sample_rate=sample_rate,
-            topk=5,
-            specs=[0.75, 0.9, 1],
+            monitor,
+            threshold=threshold,
+            additional=additional,
             early_stop=early_stop,
-            checkpoint_every=5,
+            checkpoint_every=checkpoint_every,
         )
         validator = Validator(
             recorder,

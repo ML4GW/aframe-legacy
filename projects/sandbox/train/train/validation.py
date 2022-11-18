@@ -14,23 +14,61 @@ if TYPE_CHECKING:
 
 
 class Metric(torch.nn.Module):
-    @property
-    def metrics(self):
+    def __init__(self, thresholds) -> None:
+        super().__init__()
+        self.thresholds = thresholds
+        self.values = [0.0 for _ in thresholds]
+
+    def update(self, metrics):
+        try:
+            metric = metrics[self.name]
+        except KeyError:
+            metric = {}
+            metrics[self.name] = {}
+
+        for threshold, value in zip(self.thresholds, self.values):
+            try:
+                metric[threshold].append(value)
+            except KeyError:
+                metric[threshold] = [value]
+
+    def call(self, backgrounds, glitches, signals):
         raise NotImplementedError
+
+    def forward(self, backgrounds, glitches, signals):
+        values = self.call(backgrounds, glitches, signals)
+        values = values.cpu().numpy()
+        self.values = [v for v in values]
+
+    def __str__(self):
+        tab = " " * 8
+        string = ""
+        for threshold, value in zip(self.thresholds, self.values):
+            string += f"\n{tab}{self.param} = {threshold}: {value:0.3f}"
+        return self.name + " @:" + string
+
+    def __getitem__(self, threshold):
+        try:
+            idx = self.thresholds.index(threshold)
+        except ValueError:
+            raise KeyError(str(threshold))
+        return self.values[idx]
+
+    def __contains__(self, threshold):
+        return threshold in self.thresholds
 
 
 class BackgroundRecall(Metric):
+    name = "recall vs. background"
+    param = "k"
+
     def __init__(self, kernel_size: int, stride: int, k: int = 5) -> None:
-        super().__init__()
+        super().__init__(list(range(k)))
         self.kernel_size = kernel_size
         self.stride = stride
         self.k = k
 
-    @property
-    def metrics(self):
-        return [f"recall@k={i+1}" for i in range(self.k)]
-
-    def forward(self, background, signal):
+    def call(self, background, _, signal):
         background = background.unsqueeze(0)
         background = torch.nn.functional.max_pool1d(
             background, kernel_size=self.kernel_size, stride=self.stride
@@ -38,61 +76,49 @@ class BackgroundRecall(Metric):
         background = background[0]
         topk = torch.topk(background, self.k).values
         recall = (signal.unsqueeze(1) >= topk).sum(0) / len(signal)
-        return dict(zip(self.metrics, recall.cpu().numpy()))
+        return recall
 
 
 class GlitchRecall(Metric):
+    name = "recall vs. glitches"
+    param = "specificity"
+
     def __init__(self, specs: Sequence[float]) -> None:
-        super().__init__()
         for i in specs:
             assert 0 <= i <= 1
+        super().__init__(specs)
         self.register_buffer("specs", torch.Tensor(specs))
 
-    @property
-    def metrics(self):
-        return [f"recall@spec={spec}" for spec in self.specs]
-
-    def forward(self, glitches, signal):
+    def call(self, _, glitches, signal):
         qs = torch.quantile(glitches.unsqueeze(1), self.specs)
         recall = (signal.unsqueeze(1) >= qs).sum(0) / len(signal)
-        return dict(zip(self.metrics, recall.cpu().numpy()))
+        return recall
 
 
 @dataclass
 class Recorder:
     logdir: Path
-    monitor: str
-    kernel_length: int
-    stride: int
-    sample_rate: float
-    topk: int = 5
-    specs: Optional[Sequence[float]] = None
+    monitor: Metric
+    threshold: float
+    additional: Optional[Sequence[Metric]] = None
     early_stop: Optional[int] = None
     checkpoint_every: Optional[int] = None
 
     def __post_init__(self):
-        if self.specs is None:
-            self.specs = [0.75, 0.9, 1]
-
-        self.background = BackgroundRecall(
-            int(self.kernel_length * self.sample_rate),
-            int(self.stride * self.sample_rate),
-            self.topk,
-        )
-        self.glitch = GlitchRecall(self.specs)
-
-        fields = self.background.metrics + self.glitch.metrics
-        if self.monitor not in fields:
+        if self.threshold not in self.monitor:
             raise ValueError(
-                f"Monitor field {self.monitor} not in metric fields {fields}"
+                "Metric {} has no threshold {}".format(
+                    self.monitor.name, self.threshold
+                )
             )
-        self.history = {i: [] for i in fields + ["train_loss"]}
+        self.history = {"train_loss": []}
 
         if self.checkpoint_every is not None:
             (self.logdir / "checkpoints").mkdir(parents=True, exist_ok=True)
 
-        self.best = 0
-        self._i = 0
+        self.best = -1  # best monitored metric value so far
+        self._i = 0  # epoch counter
+        self._since_last = 0  # epochs since last best monitored metric
 
     def record(
         self,
@@ -102,39 +128,27 @@ class Recorder:
         glitches: torch.Tensor,
         signal: torch.Tensor,
     ):
-        train_loss = train_loss
-        metrics = {"train_loss": train_loss}
-        bckgrd_recall = self.background(background, signal)
-        glitch_recall = self.glitch(glitches, signal)
-
-        metrics.update(bckgrd_recall)
-        metrics.update(glitch_recall)
+        self.history["train_loss"].append(train_loss)
+        self.monitor(background, glitches, signal)
+        self.monitor.update(self.history)
 
         msg = f"Summary:\nTrain loss: {train_loss:0.3e}"
-        msg += "\nValidation recall vs. background @:"
-        tab = " " * 8
-        for metric in self.background.metrics:
-            value = metrics[metric]
-            metric = metric.split("@")[1]
-            metric, thresh = metric.split("=")
-            msg += f"\n{tab}{metric} = {thresh}: {value:0.3f}"
-        msg += "\nValidation recall vs. glitches @:"
-        for metric in self.glitch.metrics:
-            value = metrics[metric]
-            metric = metric.split("@")[1]
-            metric, thresh = metric.split("=")
-            thresh = float(thresh)
-            msg += f"\n{tab}{metric} = {thresh:0.2f}: {value:0.3f}"
+        msg += f"\nValidation {self.monitor}"
+        if self.additional is not None:
+            for metric in self.additional:
+                metric(background, glitches, signal)
+                metric.update(self.history)
+                msg += f"\nValidation {metric}"
         logging.info(msg)
 
-        return self.checkpoint(model, metrics)
+        return self.checkpoint(model, self.history)
 
     def checkpoint(
         self, model: torch.nn.Module, metrics: Dict[str, float]
     ) -> bool:
         self._i += 1
-        for key, val in metrics.items():
-            self.history[key].append(val)
+        with open(self.logdir / "history.pkl", "wb") as f:
+            pickle.dump(self.history, f)
 
         if (
             self.checkpoint_every is not None
@@ -144,7 +158,7 @@ class Recorder:
             fname = self.logdir / "checkpoints" / f"epoch_{epoch}.pt"
             torch.save(model.state_dict(), fname)
 
-        if metrics[self.monitor] > self.best:
+        if self.monitor[self.threshold] > self.best:
             fname = self.logdir / "weights.pt"
             torch.save(model.state_dict(), fname)
             self._since_last = 0
@@ -236,8 +250,11 @@ class Validator:
         device: str,
     ) -> None:
         self.device = device
+        recorder.monitor.to(device)
+        if recorder.additional is not None:
+            for metric in recorder.additional:
+                metric.to(device)
         self.recorder = recorder
-        self.recorder.glitch.to(device)
 
         kernel_size = int(kernel_length * sample_rate)
         stride_size = int(stride * sample_rate)
