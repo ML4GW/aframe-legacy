@@ -55,8 +55,8 @@ class Metric(torch.nn.Module):
 
     def forward(self, backgrounds, glitches, signals):
         values = self.call(backgrounds, glitches, signals)
-        values = values.cpu().numpy()
-        self.values = [v for v in values]
+        self.values = [v for v in values.cpu().numpy()]
+        return values
 
     def __str__(self):
         tab = " " * 8
@@ -271,7 +271,8 @@ def make_background(
     num_kernels = (size - kernel_size) // stride_size + 1
     num_kernels = int(num_kernels)
 
-    background = background[:, : num_kernels * stride_size + kernel_size]
+    stop = (num_kernels - 1) * stride_size + kernel_size
+    background = background[:, :stop]
     background = torch.Tensor(background)[None, :, None]
 
     # fold out into windows up front
@@ -289,7 +290,6 @@ def make_background(
 def make_glitches(
     glitches: Sequence[np.ndarray],
     background: torch.Tensor,
-    kernel_size: int,
     glitch_frac: float,
 ) -> torch.Tensor:
     if len(glitches) != background.size(1):
@@ -301,7 +301,7 @@ def make_glitches(
     h1_glitches, l1_glitches = map(torch.Tensor, glitches)
     num_h1, num_l1 = len(h1_glitches), len(l1_glitches)
     num_glitches = num_h1 + num_l1
-    num_coinc = int(glitch_frac * num_glitches / (1 + glitch_frac))
+    num_coinc = int(glitch_frac**2 * num_glitches / (1 + glitch_frac**2))
 
     h1_coinc, h1_glitches = split(h1_glitches, num_coinc / num_h1, 0)
     l1_coinc, l1_glitches = split(l1_glitches, num_coinc / num_l1, 0)
@@ -314,6 +314,7 @@ def make_glitches(
     background = repeat(background, num_glitches)
 
     # now insert the glitches
+    kernel_size = background.size(2)
     start = h1_glitches.shape[-1] // 2 - kernel_size // 2
     slc = slice(start, start + kernel_size)
 
@@ -417,9 +418,7 @@ class Validator:
 
         # now repliate that dataset but with glitches inserted
         # into either or both interferometer channels
-        glitch_background = make_glitches(
-            glitches, background, kernel_size, glitch_frac
-        )
+        glitch_background = make_glitches(glitches, background, glitch_frac)
         self.glitch_loader = self.make_loader(glitch_background, batch_size)
 
         # 3. create a tensor of background with waveforms injected

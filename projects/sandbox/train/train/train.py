@@ -240,7 +240,7 @@ def main(
         # build a couple validation metrics to evaluate during training
         background_recall = BackgroundRecall(
             kernel_size=int(4 / valid_stride),
-            stride=int(2 / valid_stride),
+            stride=int(4 / valid_stride),
             k=5,
         )
         glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
