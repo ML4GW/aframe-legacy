@@ -57,15 +57,21 @@ def prior(request):
     return request.param
 
 
+@pytest.fixture(params=["IMRPhenomPv2"])
+def waveform_approximant(request):
+    return request.param
+
+
 def test_check_file_contents(
-    data_dir,
-    log_dir,
-    n_samples,
-    waveform_duration,
-    sample_rate,
     prior,
-    minimum_frequency,
+    n_samples,
     reference_frequency,
+    minimum_frequency,
+    sample_rate,
+    waveform_duration,
+    waveform_approximant,
+    log_dir,
+    data_dir,
 ):
 
     signal_length = waveform_duration * sample_rate
@@ -73,12 +79,13 @@ def test_check_file_contents(
     signal_file = main(
         prior,
         n_samples,
-        log_dir,
-        data_dir,
         reference_frequency,
         minimum_frequency,
         sample_rate,
         waveform_duration,
+        waveform_approximant,
+        log_dir,
+        data_dir,
     )
 
     with h5py.File(signal_file, "r") as f:
