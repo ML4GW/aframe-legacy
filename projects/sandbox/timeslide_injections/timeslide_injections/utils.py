@@ -224,3 +224,4 @@ def chunk_segments(segments: List[tuple], chunk_size: float):
                 out_segments.append(seg)
         else:
             out_segments.append(segment)
+    return out_segments
