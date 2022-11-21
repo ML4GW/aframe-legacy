@@ -218,6 +218,7 @@ def chunk_segments(segments: List[tuple], chunk_size: float):
         duration = stop - start
         if duration > chunk_size:
             num_segments = int((duration - 1) // chunk_size) + 1
+            logging.info(f"Chunking segment into {num_segments} parts")
             for i in range(num_segments):
                 end = min(start + (i + 1) * chunk_size, stop)
                 seg = (start + i * chunk_size, end)
