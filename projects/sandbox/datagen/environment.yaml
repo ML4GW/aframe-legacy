@@ -1,0 +1,19 @@
+name: bbhnet-datagen
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - gwpy=2.1.0
+  - astropy<5.0.0
+  # frame file I/O dependencies
+  - python-ldas-tools-framecpp
+  - python-nds2-client
+  # omicron dependencies
+  - python-ligo-lw<1.8.0
+  - pyomicron
+  - omicron=2.4.2
+  - dqsegdb2<1.1.0
+  - uproot>=4.3
+  # injection dependencies
+  - bilby<1.2
+  - lalsuite>=7.4

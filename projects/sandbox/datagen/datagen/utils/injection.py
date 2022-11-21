@@ -79,7 +79,7 @@ def inject_waveforms(
     background: Tuple[np.ndarray, np.ndarray],
     waveforms: np.ndarray,
     signal_times: np.ndarray,
-) -> Dict[str, np.ndarray]:
+) -> np.ndarray:
 
     """
     Inject a set of signals into background data
