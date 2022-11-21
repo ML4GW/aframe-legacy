@@ -2,7 +2,7 @@
 This project uses BBHNet's `injection` library to generate the specified number of raw waveforms; i.e., waveforms that have not been projected onto an interferometer. The waveforms are saved to an HDF5 file, along with the parameters that define them, which were sampled in the process.
 
 ## Quickstart Instructions
-These instructions assume that `poetry` and `pinto` have been installed as per the instructions here (NEED A LINK TO POETRY/PINTO INSTALLATION INSTRUCTIONS). To install the environment necessary to run this project, run 
+These instructions assume that `poetry` and `pinto` have been installed as per the instructions here: [https://github.com/ML4GW/pinto#readme](https://github.com/ML4GW/pinto#readme). To install the environment necessary to run this project, run 
 ```
 $ pinto build
 ```
@@ -12,9 +12,7 @@ Once installed, running
 ```
 $ pinto run generate-waveforms --typeo ..:generate-waveforms
 ```
-from your base `conda` environment and in the `generate_waveforms` directory will run the script with the default arguments defined in the `pyproject.toml` in the `sandbox` directory.
-
-For an explanation of the anatomy of the above command, see here (GUIDE EXPLAINING HOW PINTO WORKS)
+from your base `conda` environment and in the `generate_waveforms` directory will run the script with the default arguments defined in the `pyproject.toml` in the `sandbox` directory. Here, [`typeo`](https://github.com/ML4GW/typeo) has been used to pass the arguments specified in the `generate-waveforms` section of `../pyproject.toml` to the `generate-waveforms` command. 
 
 ## `generate-waveforms` Configuration
 The following is the `help` message for `generate-waveforms`:
