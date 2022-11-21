@@ -9,18 +9,15 @@ authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 cuda-version = "11.2"
 
 [tool.poetry.scripts]
-export-model = "export:export"
+export-model = "export:main"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 gwpy = "^2.1"
-"hermes.typeo" = "^0.1.5"
 nvidia-tensorrt = {version = "<8.2.4", source = "ngc" }
 ml4gw = {path = "../../../ml4gw", develop = true}
 
 "bbhnet.architectures" = {path = "../../../libs/architectures", extras = ["wrapper"], develop = true}
-"bbhnet.base" = {path = "../../../libs/base", develop = true}
-"bbhnet.data" = {path = "../../../libs/data", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 
 [tool.poetry.dependencies."hermes.quiver"]

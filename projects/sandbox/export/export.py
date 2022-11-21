@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from typing import Callable, Optional
 
-import h5py  # noqa
 import torch
 
 import hermes.quiver as qv
