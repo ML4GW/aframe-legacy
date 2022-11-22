@@ -68,6 +68,7 @@ jobs:
         env:
           test_dir: /github/workspace/${{ matrix.library }}
         run: |
+            echo $CONDA_PREFIX
             if [[ "${{matrix.library}}" == "libs/architectures/" ]]; then
                 pinto -p $test_dir build -E wrapper
             fi    
