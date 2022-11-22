@@ -66,16 +66,20 @@ def main(
         )
         return
 
-    # create and loop over generator that will query data
-    # that satisfies segment criteria.
-    # break since we only need one segment
-    generator = find_data(
-        start, stop, channels, minimum_length, state_flags, retain_order=True
+    # create generator that will query data that satisfies
+    # segment criteria and retrieve data from the first segment
+    data_iterator = find_data(
+        start,
+        stop,
+        channels,
+        minimum_length,
+        state_flags,
+        retain_order=True,
+        thread=True,
     )
 
-    for data in generator:
-        data.resample(sample_rate)
-        break
+    ts_dict = next(data_iterator)
+    ts_dict.resample(sample_rate)
+    ts_dict.write(path)
 
-    data.write(path)
     return path
