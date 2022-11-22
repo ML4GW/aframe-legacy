@@ -3,7 +3,7 @@ import logging
 from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import bilby
 import gwdatafind
@@ -54,7 +54,7 @@ class WaveformGenerator:
     reference_frequency: float
     sample_rate: float
     waveform_duration: float
-    waveform_approximant: str
+    waveform_approximant: float
 
     def __call__(self, parameters):
         return generate_gw(
@@ -78,12 +78,7 @@ def waveform_iterator(
     sampler: Sampler,
     generator: WaveformGenerator,
     n_slides: int,
-) -> Iterable[Tuple[np.ndarray, Dict[str, np.ndarray]]]:
-    """
-    Simple prefetching generator that generates the
-    next waveform while the calling process works
-    on the previously generated one.
-    """
+) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
     future = pool.submit(_generate_waveforms, sampler, generator)
     for _ in range(n_slides - 1):
         waveforms, params = future.result()
@@ -94,8 +89,8 @@ def waveform_iterator(
 
 @dataclass
 class Shift:
-    ifos: Sequence[str]
-    shifts: Sequence[float]
+    ifos: List[str]
+    shifts: Iterable[float]
 
     def __post_init__(self):
         self.shifts = [float(i) for i in self.shifts]
@@ -118,7 +113,7 @@ class Shift:
 
 
 def make_shifts(
-    ifos: Sequence[str], shifts: Iterable[float], n_slides: int
+    ifos: Iterable[str], shifts: Iterable[float], n_slides: int
 ) -> List[Shift]:
     ranges = [range(n_slides) for i in shifts if i]
     shift_objs = []
@@ -214,3 +209,20 @@ def check_segment(
                 break
 
     return segment_shifts
+
+
+def chunk_segments(segments: List[tuple], chunk_size: float):
+    out_segments = []
+    for segment in segments:
+        start, stop = segment
+        duration = stop - start
+        if duration > chunk_size:
+            num_segments = int((duration - 1) // chunk_size) + 1
+            logging.info(f"Chunking segment into {num_segments} parts")
+            for i in range(num_segments):
+                end = min(start + (i + 1) * chunk_size, stop)
+                seg = (start + i * chunk_size, end)
+                out_segments.append(seg)
+        else:
+            out_segments.append(segment)
+    return out_segments
