@@ -50,7 +50,9 @@ def test_generate_background(
     ts = TimeSeries(np.ones(n_samples), times=times)
 
     mock_ts = patch("gwpy.timeseries.TimeSeries.read", return_value=ts)
-    mock_datafind = patch("generate_background.find_urls", return_value=None)
+    mock_datafind = patch(
+        "datagen.scripts.background.find_urls", return_value=None
+    )
     with mock_ts, mock_datafind:
         generate_background(
             start,

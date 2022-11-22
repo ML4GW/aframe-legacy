@@ -1,4 +1,5 @@
-from unittest.mock import patch
+from concurrent.futures._base import FINISHED
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -37,11 +38,6 @@ def buffer_(request):
 
 @pytest.fixture(params=[1, 5, 10])
 def n_slides(request):
-    return request.param
-
-
-@pytest.fixture(params=[10, 4096])
-def file_length(request):
     return request.param
 
 
@@ -85,7 +81,22 @@ def state_flag(request):
     return request.param
 
 
+def submit_mock(f, *args, **kwargs):
+    result = Mock()
+    result.result = Mock(return_value=f(*args, **kwargs))
+    result._state = FINISHED
+    return result
+
+
+pool_mock = Mock()
+pool_mock.submit = submit_mock
+
+
+@patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
+@patch("bbhnet.parallelize.AsyncExecutor.__exit__")
 def test_timeslide_injections_no_segments(
+    mock1,
+    mock2,
     logdir,
     datadir,
     prior,
@@ -94,7 +105,6 @@ def test_timeslide_injections_no_segments(
     buffer_,
     n_slides,
     shifts,
-    file_length,
     ifos,
     minimum_frequency,
     highpass,
@@ -115,23 +125,22 @@ def test_timeslide_injections_no_segments(
     mock_datafind = patch("gwdatafind.find_urls", return_value=None)
     with mock_datafind, mock_ts:
         generate_timeslides(
-            start,
-            stop,
-            logdir,
-            datadir,
-            prior,
-            spacing,
-            jitter,
-            buffer_,
-            n_slides,
-            shifts,
-            ifos,
-            file_length,
-            minimum_frequency,
-            highpass,
-            sample_rate,
-            frame_type,
-            channel,
+            start=start,
+            stop=stop,
+            logdir=logdir,
+            datadir=datadir,
+            prior=prior,
+            spacing=spacing,
+            jitter=jitter,
+            buffer_=buffer_,
+            n_slides=n_slides,
+            shifts=shifts,
+            ifos=ifos,
+            minimum_frequency=minimum_frequency,
+            highpass=highpass,
+            sample_rate=sample_rate,
+            frame_type=frame_type,
+            channel=channel,
         )
 
     timeslides = datadir.iterdir()
@@ -161,7 +170,11 @@ def test_timeslide_injections_no_segments(
         assert (injection_ts.path / "params.h5").exists()
 
 
+@patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
+@patch("bbhnet.parallelize.AsyncExecutor.__exit__")
 def test_timeslide_injections_with_segments(
+    mock1,
+    mock2,
     logdir,
     datadir,
     prior,
@@ -170,7 +183,6 @@ def test_timeslide_injections_with_segments(
     buffer_,
     n_slides,
     shifts,
-    file_length,
     ifos,
     minimum_frequency,
     highpass,
@@ -213,23 +225,22 @@ def test_timeslide_injections_with_segments(
 
     with mock_datafind, mock_ts, mock_segments:
         generate_timeslides(
-            start,
-            stop,
-            logdir,
-            datadir,
-            prior,
-            spacing,
-            jitter,
-            buffer_,
-            n_slides,
-            shifts,
-            ifos,
-            file_length,
-            minimum_frequency,
-            highpass,
-            sample_rate,
-            frame_type,
-            channel,
+            start=start,
+            stop=stop,
+            logdir=logdir,
+            datadir=datadir,
+            prior=prior,
+            spacing=spacing,
+            jitter=jitter,
+            buffer_=buffer_,
+            n_slides=n_slides,
+            shifts=shifts,
+            ifos=ifos,
+            minimum_frequency=minimum_frequency,
+            highpass=highpass,
+            sample_rate=sample_rate,
+            frame_type=frame_type,
+            channel=channel,
             state_flag=state_flag,
         )
 

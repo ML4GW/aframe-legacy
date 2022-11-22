@@ -168,7 +168,6 @@ ifos = "${base.ifos}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}"
 state_flag = "${base.state_flag}"
-file_length = 4096
 min_segment_length = 1024
 
 # timeslide parameters

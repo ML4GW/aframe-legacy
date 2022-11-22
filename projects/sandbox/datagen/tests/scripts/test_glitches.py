@@ -45,7 +45,6 @@ def trig_file(ifo):
 
 
 def test_generate_glitch_dataset(
-    data_dir,
     ifo,
     window,
     sample_rate,

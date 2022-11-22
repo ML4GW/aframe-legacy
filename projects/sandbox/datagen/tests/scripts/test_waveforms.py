@@ -35,8 +35,8 @@ def prior(request):
 
 
 def test_check_file_contents(
-    data_dir,
-    log_dir,
+    datadir,
+    logdir,
     n_samples,
     waveform_duration,
     sample_rate,
@@ -47,8 +47,8 @@ def test_check_file_contents(
     signal_file = generate_waveforms(
         prior,
         n_samples,
-        log_dir,
-        data_dir,
+        logdir,
+        datadir,
         reference_frequency,
         minimum_frequency,
         sample_rate,
