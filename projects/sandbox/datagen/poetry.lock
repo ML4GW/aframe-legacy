@@ -34,7 +34,7 @@ tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)"
 tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "mypy (>=0.900,!=0.940)", "pytest-mypy-plugins", "cloudpickle"]
 
 [[package]]
-name = "bbhnet.io"
+name = "bbhnet-io"
 version = "0.0.1"
 description = "Tools for standardizing reading and writing BBHNet files"
 category = "main"
@@ -51,7 +51,7 @@ type = "directory"
 url = "../../../libs/io"
 
 [[package]]
-name = "bbhnet.logging"
+name = "bbhnet-logging"
 version = "0.0.1"
 description = "BBHNet logging utilities"
 category = "main"
@@ -64,7 +64,7 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet.parallelize"
+name = "bbhnet-parallelize"
 version = "0.0.1"
 description = "BBHNet multiprocessing utilities"
 category = "main"
@@ -690,7 +690,7 @@ dev = ["mypy", "typing-extensions", "pycodestyle", "flake8"]
 
 [[package]]
 name = "scitokens"
-version = "1.7.2"
+version = "1.7.4"
 description = "SciToken reference implementation library"
 category = "main"
 optional = false
@@ -700,7 +700,9 @@ python-versions = ">=3.5"
 cryptography = "*"
 PyJWT = ">=1.6.1"
 setuptools = "*"
-six = "*"
+
+[package.extras]
+docs = ["sphinx"]
 
 [[package]]
 name = "setuptools"
@@ -775,7 +777,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "torch"
-version = "1.13.0"
+version = "1.13.0+cpu"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
 category = "main"
 optional = false
@@ -915,9 +917,9 @@ attrs = [
     {file = "attrs-22.1.0-py2.py3-none-any.whl", hash = "sha256:86efa402f67bf2df34f51a335487cf46b1ec130d02b8d39fd248abfd30da551c"},
     {file = "attrs-22.1.0.tar.gz", hash = "sha256:29adc2665447e5191d0e7c568fde78b21f9672d344281d0c6e1ab085429b22b6"},
 ]
-"bbhnet.io" = []
-"bbhnet.logging" = []
-"bbhnet.parallelize" = []
+bbhnet-io = []
+bbhnet-logging = []
+bbhnet-parallelize = []
 bilby = [
     {file = "bilby-1.1.5.tar.gz", hash = "sha256:82f5920dd48d2088eb6bcdbef8f91854c3f9f343ffd01cb4f069d00d1e512bc2"},
 ]
@@ -1551,8 +1553,8 @@ scipy = [
     {file = "scipy-1.9.3.tar.gz", hash = "sha256:fbc5c05c85c1a02be77b1ff591087c83bc44579c6d2bd9fb798bb64ea5e1a027"},
 ]
 scitokens = [
-    {file = "scitokens-1.7.2-py3-none-any.whl", hash = "sha256:6cddfa8876e50e120c9cb66c2132dcd0618693ef17225a8bbc663b8a48d2dfac"},
-    {file = "scitokens-1.7.2.tar.gz", hash = "sha256:b81d57831b60ab41cb5711e08a5441a8bb7b320870f4ea3579bab650a1800e5b"},
+    {file = "scitokens-1.7.4-py3-none-any.whl", hash = "sha256:cd17a57fc934233a83e272320cf4836a9e287a11f014aec32918d3f4161f8ae4"},
+    {file = "scitokens-1.7.4.tar.gz", hash = "sha256:d215091b5a66d8cf37d386602495e93f347646f132469091ca44148683193c4e"},
 ]
 setuptools = [
     {file = "setuptools-65.6.0-py3-none-any.whl", hash = "sha256:6211d2f5eddad8757bd0484923ca7c0a6302ebc4ab32ea5e94357176e0ca0840"},
@@ -1603,18 +1605,15 @@ tomli = [
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
 torch = [
-    {file = "torch-1.13.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:d2d2753519415d154de4d3e64d2eaaeefdba6b6fd7d69d5ffaef595988117700"},
-    {file = "torch-1.13.0-cp310-none-macosx_10_9_x86_64.whl", hash = "sha256:49a949b8136b32b2ec0724cbf4c6678b54e974b7d68f19f1231eea21cde5c23b"},
-    {file = "torch-1.13.0-cp310-none-macosx_11_0_arm64.whl", hash = "sha256:0fdd38c96230947b1ed870fed4a560252f8d23c3a2bf4dab9d2d42b18f2e67c8"},
-    {file = "torch-1.13.0-cp37-cp37m-manylinux2014_aarch64.whl", hash = "sha256:bb33a911460475d1594a8c8cb73f58c08293211760796d99cae8c2509b86d7f1"},
-    {file = "torch-1.13.0-cp37-none-macosx_10_9_x86_64.whl", hash = "sha256:cd1e67db6575e1b173a626077a54e4911133178557aac50683db03a34e2b636a"},
-    {file = "torch-1.13.0-cp37-none-macosx_11_0_arm64.whl", hash = "sha256:9197ec216833b836b67e4d68e513d31fb38d9789d7cd998a08fba5b499c38454"},
-    {file = "torch-1.13.0-cp38-cp38-manylinux2014_aarch64.whl", hash = "sha256:635dbb99d981a6483ca533b3dc7be18ef08dd9e1e96fb0bb0e6a99d79e85a130"},
-    {file = "torch-1.13.0-cp38-none-macosx_10_9_x86_64.whl", hash = "sha256:ef934a21da6f6a516d0a9c712a80d09c56128abdc6af8dc151bee5199b4c3b4e"},
-    {file = "torch-1.13.0-cp38-none-macosx_11_0_arm64.whl", hash = "sha256:f01a9ae0d4b69d2fc4145e8beab45b7877342dddbd4838a7d3c11ca7f6680745"},
-    {file = "torch-1.13.0-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:e20df14d874b024851c58e8bb3846249cb120e677f7463f60c986e3661f88680"},
-    {file = "torch-1.13.0-cp39-none-macosx_10_9_x86_64.whl", hash = "sha256:922a4910613b310fbeb87707f00cb76fec328eb60cc1349ed2173e7c9b6edcd8"},
-    {file = "torch-1.13.0-cp39-none-macosx_11_0_arm64.whl", hash = "sha256:47fe6228386bff6d74319a2ffe9d4ed943e6e85473d78e80502518c607d644d2"},
+    {file = "torch-1.13.0+cpu-cp310-cp310-linux_x86_64.whl", hash = "sha256:b37a1a701fa00bcb9d508ebc509c3137df5f1cb9287548ee674893ac9561fbae"},
+    {file = "torch-1.13.0+cpu-cp310-cp310-win_amd64.whl", hash = "sha256:6fe6a7b8c7fcb4ba5f9d20854ecd4d6a8644c5cb12ff9b72d1523c6dcf543606"},
+    {file = "torch-1.13.0+cpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:c48cf9d76c017cd5f6a015fee1c082a57236f44e7c289060ea207a50ca9e66f1"},
+    {file = "torch-1.13.0+cpu-cp37-cp37m-linux_x86_64.whl", hash = "sha256:c55ca981cf3f1ce8db0fc95327fe2b8092386425d83d6ad02fe1b8d1bfae5eab"},
+    {file = "torch-1.13.0+cpu-cp37-cp37m-win_amd64.whl", hash = "sha256:40616584c171a2562480b788da29e6ae0a35e1aae2e5dc55bd2cc9bbedc847dd"},
+    {file = "torch-1.13.0+cpu-cp38-cp38-linux_x86_64.whl", hash = "sha256:4adafbcc43d2e7fa0b661a3c36c85f0ed35f69ab5fc88f4b245ad55174776183"},
+    {file = "torch-1.13.0+cpu-cp38-cp38-win_amd64.whl", hash = "sha256:0a46a7170bbdca7eb71a595bd499d3bc4b5862aa756120c55383111ceeffe09e"},
+    {file = "torch-1.13.0+cpu-cp39-cp39-linux_x86_64.whl", hash = "sha256:c7531242830606713a32a3c0047e19ec7d718c971a8a9482de7f3c38a05a97a7"},
+    {file = "torch-1.13.0+cpu-cp39-cp39-win_amd64.whl", hash = "sha256:8df18dacc5b3b5739fa86b133329abb2f63932104e5a0e57ce01133dff754eb7"},
 ]
 torchtyping = [
     {file = "torchtyping-0.1.4-py3-none-any.whl", hash = "sha256:485fb6ef3965c39b0de15f00d6f49373e0a3a6993e9733942a63c5e207d35390"},
