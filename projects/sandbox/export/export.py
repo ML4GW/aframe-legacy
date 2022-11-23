@@ -115,7 +115,7 @@ def export(
         highpass=highpass,
     )
     nn = torch.nn.Sequential(preprocessor, nn)
-    nn.load_state_dict(torch.load(weights))
+    nn.load_state_dict(torch.load(weights, map_location=torch.device("cpu")))
     nn.eval()
 
     # instantiate a model repository at the
