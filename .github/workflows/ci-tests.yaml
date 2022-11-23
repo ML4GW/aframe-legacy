@@ -63,16 +63,27 @@ jobs:
         name: install gcc
         run: apt update && apt install -y build-essential
 
-      # run tests
+      # build the project's environment
+      -
+        name: build environment
+        env:
+          test_dir: /github/workspace/${{ matrix.library }}
+          CONDA_PREFIX: /opt/conda
+        # TODO: use case statement here, or add separate matrix.build_args
+        run: |
+            if [[ "${{matrix.library}}" == "libs/architectures/" ]]; then
+                FLAGS="-E wrapper"
+            else
+                FLAGS=""
+            fi
+            pinto -p $test_dir build $FLAGS
+        shell: bash
+
+      # run its unit tests inside that environment
       - 
         name: run tests 
         env:
           test_dir: /github/workspace/${{ matrix.library }}
           CONDA_PREFIX: /opt/conda
-        run: |
-            if [[ "${{matrix.library}}" == "libs/architectures/" ]]; then
-                pinto -p $test_dir build -E wrapper
-            fi    
-            pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
+        run: pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
         shell: bash
-        
