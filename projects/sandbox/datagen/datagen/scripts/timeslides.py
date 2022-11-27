@@ -280,9 +280,7 @@ def main(
 
                 # 6. Write the injected data for this shift to
                 # the corresponding injection directory
-                future = submit_write(
-                    pool, injection_ts, t[0], sample_rate, **injected_data
-                )
+                future = submit_write(pool, injection_ts, t, **injected_data)
                 futures.append(future)
 
                 # 7. Write the injection parameters to the injection

@@ -129,8 +129,7 @@ def make_shifts(
 def submit_write(
     pool: AsyncExecutor,
     ts: TimeSlide,
-    t0: float,
-    sample_rate: float,
+    t: np.ndarray,
     **fields: np.ndarray,
 ) -> Future:
     ts_type = ts.path.name
@@ -142,8 +141,7 @@ def submit_write(
     future = pool.submit(
         write_timeseries,
         ts.path,
-        t0,
-        sample_rate,
+        t,
         prefix=prefix,
         **fields,
     )
