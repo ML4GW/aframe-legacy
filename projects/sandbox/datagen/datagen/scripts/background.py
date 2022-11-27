@@ -2,11 +2,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-import h5py
-import numpy as np
-from gwdatafind import find_urls
-from gwpy.segments import DataQualityDict
-from gwpy.timeseries import TimeSeries
+from mldatafind.find import find_data
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -16,102 +12,72 @@ from bbhnet.logging import configure_logging
 def main(
     start: float,
     stop: float,
-    ifos: List[str],
     sample_rate: float,
-    channel: str,
-    frame_type: str,
-    state_flag: str,
+    channels: List[str],
+    state_flags: List[str],
     minimum_length: float,
     datadir: Path,
     logdir: Path,
     force_generation: bool = False,
     verbose: bool = False,
 ):
-    """Generates background data for training BBHnet
-
+    """Generate background strain for training BBHnet
+    Finds the first contiguous, coincident segment
+    consistent with `segment_names`, and `minimum_length`,
+    and queries strain data from `channels`
     Args:
-        start: start gpstime
-        stop: stop gpstime
-        ifos: which ifos to query data for
-        outdir: where to store data
+        start:
+            Start gpstime
+        stop:
+            Stop gpstime
+        sample_rate:
+            Rate to sample strain data
+        channels:
+            Strain channels to query
+        state_flags:
+            Name of segments
+        minimum_length:
+            Minimum segment length
+        datadir:
+            Directory to store data
+        logdir:
+            Directory to store log file
+        force_generation:
+            Force data to be generated even if path exists
+        verbose:
+            Log verbosely
+    Returns:
+        Path to data
     """
-    # make logdir dir
+
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
-
-    # configure logging output file
     configure_logging(logdir / "generate_background.log", verbose)
 
-    # check if paths already exist
-    # TODO: maybe put all background in one path
-    paths_exist = [
-        Path(datadir / f"{ifo}_background.h5").exists() for ifo in ifos
-    ]
+    path = datadir / "background.h5"
 
-    if all(paths_exist) and not force_generation:
+    if path.exists() and not force_generation:
         logging.info(
             "Background data already exists"
             " and forced generation is off. Not generating background"
         )
         return
 
-    # query segments for each ifo
-    # I think a certificate is needed for this
-    segments = DataQualityDict.query_dqsegdb(
-        [f"{ifo}:{state_flag}" for ifo in ifos],
+    # create generator that will query data that satisfies
+    # segment criteria, retrieve data from the first segment,
+    # and write using standard gwpy write functionality
+    data_iterator = find_data(
         start,
         stop,
+        channels,
+        minimum_length,
+        state_flags,
+        retain_order=True,
+        thread=True,
     )
 
-    # create copy of first ifo segment list to start
-    intersection = segments[f"{ifos[0]}:{state_flag}"].active.copy()
+    ts_dict = next(data_iterator)
+    ts_dict.resample(sample_rate)
+    ts_dict.write(path)
 
-    # loop over ifos finding segment intersection
-    for ifo in ifos:
-        intersection &= segments[f"{ifo}:{state_flag}"].active
-
-    # find first continuous segment of minimum length
-    segment_lengths = np.array(
-        [float(seg[1] - seg[0]) for seg in intersection]
-    )
-    continuous_segments = np.where(segment_lengths >= minimum_length)[0]
-
-    if len(continuous_segments) == 0:
-        raise ValueError(
-            "No segments of minimum length, not producing background"
-        )
-
-    # choose first of such segments
-    segment = intersection[continuous_segments[0]]
-    logging.info(
-        "Querying coincident, continuous segment "
-        "from {} to {}".format(*segment)
-    )
-
-    for ifo in ifos:
-
-        # find frame files
-        files = find_urls(
-            site=ifo.strip("1"),
-            frametype=f"{ifo}_{frame_type}",
-            gpsstart=start,
-            gpsend=stop,
-            urltype="file",
-        )
-        data = TimeSeries.read(
-            files, channel=f"{ifo}:{channel}", start=segment[0], end=segment[1]
-        )
-
-        # resample
-        data = data.resample(sample_rate)
-
-        if np.isnan(data).any():
-            raise ValueError(
-                f"The background for ifo {ifo} contains NaN values"
-            )
-
-        with h5py.File(datadir / f"{ifo}_background.h5", "w") as f:
-            f.create_dataset("hoft", data=data)
-            f.create_dataset("t0", data=float(segment[0]))
-
-    return datadir
+    return path
