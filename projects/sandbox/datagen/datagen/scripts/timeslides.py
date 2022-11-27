@@ -17,7 +17,8 @@ from datagen.utils.timeslides import (
     waveform_iterator,
 )
 from gwpy.segments import Segment, SegmentList
-from mldatafind import find_data, query_segments
+from gwpy.timeseries import TimeSeriesDict
+from mldatafind import query_segments
 from typeo import scriptify
 
 from bbhnet.io.timeslides import TimeSlide
@@ -72,7 +73,6 @@ def main(
         minimum_frequency: minimum_frequency used for waveform generation
         highpass: frequency at which data is highpassed
         sample_rate: sample rate
-        frame_type: frame type for data discovery
         channel: strain channel to analyze
         waveform_duration: length of injected waveforms
         reference_frequency: reference frequency for generating waveforms
@@ -164,12 +164,10 @@ def main(
 
             # begin the download of data in a separate thread
             logging.debug(f"Beginning download of segment {seg_str}")
-            background = find_data(
-                [[segment_start, segment_stop]],
-                channels,
-                n_workers=1,
-                thread=True,
+            background = TimeSeriesDict.get(
+                channels, segment_start, segment_stop
             )
+
             logging.debug(f"Completed download of segment {seg_str}")
 
             # set up array of times for all shifts
