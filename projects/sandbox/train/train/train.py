@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import h5py
 import numpy as np
@@ -17,14 +17,11 @@ from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
 
 
-def load_background(*backgrounds: Path):
-    # TODO: maybe package up hanford and livingston
-    # (or any arbitrary set of ifos) background files into one
-    # for simplicity
+def load_background(background_dataset: Path, channels: List[str]):
     background = []
-    for fname in backgrounds:
-        with h5py.File(fname, "r") as f:
-            hoft = f["hoft"][:]
+    with h5py.File(background_dataset, "r") as f:
+        for channel in channels:
+            hoft = f[channel][:]
         background.append(hoft)
     return np.stack(background)
 
@@ -39,10 +36,10 @@ def load_background(*backgrounds: Path):
 @trainify
 def main(
     # paths and environment args
-    hanford_background: Path,
-    livingston_background: Path,
+    background_dataset: Path,
     glitch_dataset: Path,
     waveform_dataset: Path,
+    channels: List[str],
     outdir: Path,
     logdir: Path,
     # data generation args
@@ -77,16 +74,11 @@ def main(
     a BBHNet architecture.
 
     Args:
-        hanford_background:
+        background_dataset:
             Path to file containing background data for
-            Hanford strain channel to train on. Should be
-            an HDF5 archive with an `"hoft"` dataset
-            containing the strain data.
-        livingston_background:
-            Path to file containing background data for
-            Livingston strain channel to train on. Should be
-            an HDF5 archive with an `"hoft"` dataset
-            containing the strain data.
+            all interferometer strain channels to train on. Should be
+            an HDF5 archive with a `{ifo}:{channel_name}` dataset
+            containing the strain data for each ifo.
         glitch_dataset:
             Path to file containing short segments of data
             with non-Gaussian noise transients. Should be
@@ -229,10 +221,7 @@ def main(
         valid_frac=valid_frac,
     )
 
-    # TODO: maybe package up hanford and livingston
-    # (or any arbitrary set of ifos) background files
-    # into one file for simplicity
-    background = load_background(hanford_background, livingston_background)
+    background = load_background(background_dataset, channels)
     if valid_frac is not None:
         # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)
