@@ -211,7 +211,7 @@ def main(
         valid_frac=valid_frac,
     )
 
-    background = read_timeseries(background_dataset, channels)
+    background, _ = read_timeseries(background_dataset, channels)
     if valid_frac is not None:
         # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)
