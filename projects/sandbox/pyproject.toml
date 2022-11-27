@@ -19,9 +19,9 @@ ifos = ['H1', 'L1']
 start = 1262607622
 stop = 1262620622
 test_stop = 1262751694  
-channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+channels = ["H1:DCS-CALIB_STRAIN_CLEAN_C01", "L1:DCS-CALIB_STRAIN_CLEAN_C01"]
 frame_type = "HOFT_C01"
-state_flag = "DCS-ANALYSIS_READY_C01:1"
+state_flags = ["H1:DCS-ANALYSIS_READY_C01:1", "L1:DCS-ANALYSIS_READY_C01:1"]
 resnet = {layers = [3, 3, 3]}
 repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
