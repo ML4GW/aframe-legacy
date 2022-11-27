@@ -12,17 +12,12 @@ from datagen.utils.timeslides import (
     WaveformGenerator,
     check_segment,
     chunk_segments,
-    download_data,
     make_shifts,
     submit_write,
     waveform_iterator,
 )
-from gwpy.segments import (
-    DataQualityDict,
-    Segment,
-    SegmentList,
-    SegmentListDict,
-)
+from gwpy.segments import Segment, SegmentList
+from mldatafind import find_data, query_segments
 from typeo import scriptify
 
 from bbhnet.io.timeslides import TimeSlide
@@ -43,19 +38,17 @@ def main(
     buffer_: float,
     n_slides: int,
     shifts: Iterable[float],
-    ifos: Iterable[str],
     minimum_frequency: float,
     highpass: float,
     sample_rate: float,
-    frame_type: str,
-    channel: str,
+    channels: Iterable[str],
     min_segment_length: Optional[float] = None,
     chunk_length: Optional[float] = None,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
     fftlength: float = 2,
-    state_flag: Optional[str] = None,
+    state_flags: Optional[Iterable[str]] = None,
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -75,7 +68,6 @@ def main(
             List of shift multiples for each ifo. Will create n_slides
             worth of shifts, at multiples of shift. If 0 is passed,
             will not shift this ifo for any slide.
-        ifos: List interferometers
         file_length: length in seconds of each separate file
         minimum_frequency: minimum_frequency used for waveform generation
         highpass: frequency at which data is highpassed
@@ -93,32 +85,24 @@ def main(
     datadir.mkdir(parents=True, exist_ok=True)
     configure_logging(logdir / "timeslide_injections.log", verbose)
 
+    # infer ifos from passed channels
+    ifos = [channel.split(":")[0] for channel in channels]
+
     # if state_flag is passed, query segments for each ifo.
     # A certificate is needed for this, see X509 instructions on
     # https://computing.docs.ligo.org/guide/auth/#ligo-x509
     logging.info("Querying segments")
-    if state_flag:
-        # query science segments
-        segments = DataQualityDict.query_dqsegdb(
-            [f"{ifo}:{state_flag}" for ifo in ifos],
-            start,
-            stop,
-        )
-
-        # convert DQ dict to SegmentList Dict
-        segments = SegmentListDict({k: v.active for k, v in segments.items()})
-
-        # intersect segments
-        intersection = segments.intersection(segments.keys())
+    if state_flags:
+        segments = query_segments(state_flags, start, stop, min_segment_length)
     else:
         # not considering segments so
         # make intersection from start to stop
-        intersection = SegmentList([Segment(start, stop)])
+        segments = SegmentList([Segment(start, stop)])
 
-    total_length = sum([j - i for i, j in intersection])
+    total_length = sum([j - i for i, j in segments])
     logging.info(
         "Querying {} segments of data totalling {} worth of data".format(
-            len(intersection), total_length
+            len(segments), total_length
         )
     )
 
@@ -139,14 +123,13 @@ def main(
     )
     tensors, vertices = get_ifo_geometry(*ifos)
 
-    segments = [tuple(segment) for segment in intersection]
+    segments = [tuple(segment) for segment in segments]
     if chunk_length is not None:
         segments = chunk_segments(segments, chunk_length)
 
     # set up some pools for doing our data IO/injection
     with AsyncExecutor(4, thread=False) as pool:
         for segment_start, segment_stop in segments:
-            print(segment_start, segment_stop)
             dur = segment_stop - segment_start - max_shift
             seg_str = f"{segment_start}-{segment_stop}"
 
@@ -155,13 +138,9 @@ def main(
                 datadir,
                 segment_start,
                 dur,
-                min_segment_length,
                 force_generation,
             )
-            if segment_shifts is None:
-                logging.info(f"Segment {seg_str} too short, skipping")
-                continue
-            elif len(segment_shifts) == 0:
+            if len(segment_shifts) == 0:
                 logging.info(
                     f"All data for segment {seg_str} already exists, skipping"
                 )
@@ -185,13 +164,11 @@ def main(
 
             # begin the download of data in a separate thread
             logging.debug(f"Beginning download of segment {seg_str}")
-            background = download_data(
-                ifos,
-                frame_type,
-                channel,
-                sample_rate,
-                segment_start,
-                segment_stop,
+            background = find_data(
+                [[segment_start, segment_stop]],
+                channels,
+                n_workers=1,
+                thread=True,
             )
             logging.debug(f"Completed download of segment {seg_str}")
 
@@ -303,7 +280,9 @@ def main(
 
                 # 6. Write the injected data for this shift to
                 # the corresponding injection directory
-                future = submit_write(pool, injection_ts, t, **injected_data)
+                future = submit_write(
+                    pool, injection_ts, t[0], sample_rate, **injected_data
+                )
                 futures.append(future)
 
                 # 7. Write the injection parameters to the injection

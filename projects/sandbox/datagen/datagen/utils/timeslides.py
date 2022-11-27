@@ -3,15 +3,13 @@ import logging
 from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import bilby
-import gwdatafind
 import numpy as np
 from datagen.utils.injection import generate_gw
-from gwpy.timeseries import TimeSeries, TimeSeriesDict
+from mldatafind.io import write_timeseries
 
-from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.parallelize import AsyncExecutor
 
@@ -129,7 +127,11 @@ def make_shifts(
 
 
 def submit_write(
-    pool: AsyncExecutor, ts: TimeSlide, t: np.ndarray, **fields: np.ndarray
+    pool: AsyncExecutor,
+    ts: TimeSlide,
+    t0: float,
+    sample_rate: float,
+    **fields: np.ndarray,
 ) -> Future:
     ts_type = ts.path.name
     if ts_type == "background":
@@ -138,10 +140,11 @@ def submit_write(
         prefix = "inj"
 
     future = pool.submit(
-        h5.write_timeseries,
+        write_timeseries,
         ts.path,
+        t0,
+        sample_rate,
         prefix=prefix,
-        t=t,
         **fields,
     )
 
@@ -149,29 +152,6 @@ def submit_write(
         lambda f: logging.debug(f"Wrote background {ts_type} {f.result()}")
     )
     return future
-
-
-def download_data(
-    ifos: Iterable[str],
-    frame_type: str,
-    channel: str,
-    sample_rate: float,
-    start: float,
-    stop: float,
-) -> TimeSeriesDict:
-    data = TimeSeriesDict()
-    for ifo in ifos:
-        files = gwdatafind.find_urls(
-            site=ifo.strip("1"),
-            frametype=f"{ifo}_{frame_type}",
-            gpsstart=start,
-            gpsend=stop,
-            urltype="file",
-        )
-        data[ifo] = TimeSeries.read(
-            files, channel=f"{ifo}:{channel}", start=start, end=stop, nproc=4
-        )
-    return data.resample(sample_rate)
 
 
 def intify(x: float):
@@ -183,13 +163,8 @@ def check_segment(
     datadir: Path,
     segment_start: float,
     dur: float,
-    min_segment_length: Optional[float] = None,
     force_generation: bool = False,
 ):
-    # first check if we'll even have enough data for
-    # this segment to be worth working with
-    if min_segment_length is not None and dur < min_segment_length:
-        return None
 
     segment_start = intify(segment_start)
     dur = intify(dur)
