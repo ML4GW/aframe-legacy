@@ -5,9 +5,8 @@ Script that generates a dataset of glitches from omicron triggers.
 import configparser
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, Optional
 
-import gwdatafind
 import h5py
 import numpy as np
 from gwpy.segments import Segment, SegmentList
@@ -77,14 +76,12 @@ def veto(times: list, segmentlist: SegmentList):
 
 
 def generate_glitch_dataset(
-    ifo: str,
     snr_thresh: float,
     start: float,
     stop: float,
     window: float,
     sample_rate: float,
     channel: str,
-    frame_type: str,
     trig_file: str,
     vetoes: SegmentList = None,
 ):
@@ -92,18 +89,18 @@ def generate_glitch_dataset(
     """
     Generates a list of omicron trigger times that satisfy snr threshold
 
-    Arguments:
-    - ifo: ifo to generate glitch triggers for
-    - snr_thresh: snr threshold above which to keep as glitch
-    - start: start gpstime
-    - stop: stop gpstime
-    - window: half window around trigger time to query data for
-    - sample_rate: sampling arequency
-    - channel: channel name used to read data
-    - frame_type: frame type for data discovery w/ gwdatafind
-    - trig_file: txt file output from omicron triggers
+    Args:
+        ifo: ifo to generate glitch triggers for
+        snr_thresh: snr threshold above which to keep as glitch
+        start: start gpstime
+        stop: stop gpstime
+        window: half window around trigger time to query data for
+        sample_rate: sampling arequency
+        channel: channel name used to read data
+        frame_type: frame type for data discovery w/ gwdatafind
+        trig_file: txt file output from omicron triggers
             (first column is gps times, 3rd column is snrs)
-    - vetoes: SegmentList object of times to ignore
+        vetoes: SegmentList object of times to ignore
     """
 
     glitches = []
@@ -134,23 +131,7 @@ def generate_glitch_dataset(
         f"Querying {stop - start} seconds of data for {len(triggers)} triggers"
     )
 
-    # use gwdatafind to create frame cache
-    frames = gwdatafind.find_urls(
-        site=ifo.strip("1"),
-        frametype=f"{ifo}_{frame_type}",
-        gpsstart=int(start),
-        gpsend=int(stop),
-        urltype="file",
-        on_gaps="ignore",
-    )
-
-    # read frames all at once, then crop this time series for each trigger.
-    # Although its initially slower to read all the frames at once,
-    # I think this is overall faster than querying a 4096 frame for
-    # every trigger.
-    ts = TimeSeries.read(
-        frames, channel=f"{ifo}:{channel}", start=start, end=stop, pad=0
-    )
+    ts = TimeSeries.get(channel, start=start, end=stop, pad=0)
 
     # for each trigger
     for trigger in tqdm(triggers):
@@ -205,8 +186,8 @@ def omicron_main_wrapper(
 
     config.set(section, "q-range", f"{q_min} {q_max}")
     config.set(section, "frequency-range", f"{f_min} {f_max}")
-    config.set(section, "frametype", f"{ifo}_{frame_type}")
-    config.set(section, "channels", f"{ifo}:{channel}")
+    config.set(section, "frametype", f"{frame_type}")
+    config.set(section, "channels", f"{channel}")
     config.set(section, "cluster-dt", str(cluster_dt))
     config.set(section, "sample-frequency", str(sample_rate))
     config.set(section, "chunk-duration", str(chunk_duration))
@@ -220,7 +201,7 @@ def omicron_main_wrapper(
 
     # in an online setting, can also pass state-vector,
     # and bits to check for science mode
-    config.set(section, "state-flag", f"{ifo}:{state_flag}")
+    config.set(section, "state-flag", f"{state_flag}")
 
     config_file_path = run_dir / f"omicron_{ifo}.ini"
 
@@ -267,11 +248,10 @@ def main(
     window: float,
     datadir: Path,
     logdir: Path,
-    channel: str,
-    frame_type: str,
+    channels: Iterable[str],
+    frame_types: Iterable[str],
     sample_rate: float,
-    state_flag: str,
-    ifos: List[str],
+    state_flags: Iterable[str],
     veto_files: Optional[dict[str, str]] = None,
     force_generation: bool = False,
     verbose: bool = False,
@@ -286,30 +266,29 @@ def main(
         for these triggers and saved in an h5 file.
 
     Arguments:
-
-    - snr_thresh: snr threshold above which to keep as glitch
-    - start: start gpstime
-    - stop: training stop gpstime
-    - test_stop: testing stop gpstime
-    - q_min: minimum q value of tiles for omicron
-    - q_max: maximum q value of tiles for omicron
-    - f_min: lowest frequency for omicron to consider
-    - cluster_dt: time window for omicron to cluster neighboring triggers
-    - chunk_duration: duration of data (seconds) for PSD estimation
-    - segment_duration: duration of data (seconds) for FFT
-    - overlap: overlap (seconds) between neighbouring segments and chunks
-    - mismatch_max: maximum distance between (Q, f) tiles
-    - window: half window around trigger time to query data for
-    - sample_rate: sampling frequency
-    - outdir: output directory to which signals will be written
-    - channel: channel name used to read data
-    - frame_type: frame type for data discovery w/ gwdatafind
-    - sample_rate: sampling frequency of timeseries data
-    - state_flag: identifier for which segments to use
-    - ifos: which ifos to generate glitches for
-    - veto_files:
-        dictionary where key is ifo and value is path
-        to file containing vetoes
+        snr_thresh: snr threshold above which to keep as glitch
+        start: start gpstime
+        stop: training stop gpstime
+        test_stop: testing stop gpstime
+        q_min: minimum q value of tiles for omicron
+        q_max: maximum q value of tiles for omicron
+        f_min: lowest frequency for omicron to consider
+        cluster_dt: time window for omicron to cluster neighboring triggers
+        chunk_duration: duration of data (seconds) for PSD estimation
+        segment_duration: duration of data (seconds) for FFT
+        overlap: overlap (seconds) between neighbouring segments and chunks
+        mismatch_max: maximum distance between (Q, f) tiles
+        window: half window around trigger time to query data for
+        sample_rate: sampling frequency
+        outdir: output directory to which signals will be written
+        channel: channel name used to read data
+        frame_type: frame type for data discovery w/ gwdatafind
+        sample_rate: sampling frequency of timeseries data
+        state_flag: identifier for which segments to use
+        ifos: which ifos to generate glitches for
+        veto_files:
+            dictionary where key is ifo and value is path
+            to file containing vetoes
     """
 
     logdir.mkdir(exist_ok=True, parents=True)
@@ -330,75 +309,107 @@ def main(
     # nyquist
     f_max = sample_rate / 2
 
-    with h5py.File(glitch_file, "w") as f:
+    ifos = [channel.split(":")[0] for channel in channels]
+    data_zip = zip(ifos, channels, frame_types, state_flags)
+
+    glitches = {}
+    snrs = {}
+    run_dir = datadir / "omicron"
+
+    for ifo, channel, frame_type, state_flag in data_zip:
+        train_run_dir = run_dir / "training" / ifo
+        test_run_dir = run_dir / "testing" / ifo
+
+        train_run_dir.mkdir(exist_ok=True, parents=True)
+        test_run_dir.mkdir(exist_ok=True, parents=True)
+
+        # launch omicron dag for training set
+        omicron_main_wrapper(
+            start,
+            stop,
+            q_min,
+            q_max,
+            f_min,
+            f_max,
+            sample_rate,
+            cluster_dt,
+            chunk_duration,
+            segment_duration,
+            overlap,
+            mismatch_max,
+            snr_thresh,
+            frame_type,
+            channel,
+            state_flag,
+            ifo,
+            train_run_dir,
+        )
+
+        # launch omicron dag for testing set
+        # we currently don't use this information in the pipeline
+        omicron_main_wrapper(
+            stop,
+            test_stop,
+            q_min,
+            q_max,
+            f_min,
+            f_max,
+            sample_rate,
+            cluster_dt,
+            chunk_duration,
+            segment_duration,
+            overlap,
+            mismatch_max,
+            snr_thresh,
+            frame_type,
+            channel,
+            state_flag,
+            ifo,
+            test_run_dir,
+        )
+
+        # load in vetoes and convert to gwpy SegmentList object
+        if veto_files is not None:
+            veto_file = veto_files[ifo]
+
+            logging.info(f"Applying vetoes to {ifo} times")
+
+            # load in vetoes
+            vetoes = np.loadtxt(veto_file)
+
+            # convert arrays to gwpy Segment objects
+            vetoes = [Segment(seg[0], seg[1]) for seg in vetoes]
+
+            # create SegmentList object
+            vetoes = SegmentList(vetoes).coalesce()
+        else:
+            vetoes = None
+
+        # get the path to the omicron triggers from *training* set
+        # only use the first segment for training (should only be one)
+        trigger_dir = train_run_dir / "merge" / channel
+        trigger_file = sorted(list(trigger_dir.glob("*.h5")))[0]
+
+        # generate glitches and store
+        glitches[ifo], snrs[ifo] = generate_glitch_dataset(
+            snr_thresh,
+            start,
+            stop,
+            window,
+            sample_rate,
+            channel,
+            trigger_file,
+            vetoes=vetoes,
+        )
+
+        if np.isnan(glitches[ifo]).any():
+            raise ValueError("The glitch data contains NaN values")
+
+    # store glitches from training set
+    with h5py.File(glitch_file) as f:
         for ifo in ifos:
-            run_dir = datadir / ifo
-            run_dir.mkdir(exist_ok=True)
-
-            # launch omicron dag for ifo
-            omicron_main_wrapper(
-                start,
-                test_stop,
-                q_min,
-                q_max,
-                f_min,
-                f_max,
-                sample_rate,
-                cluster_dt,
-                chunk_duration,
-                segment_duration,
-                overlap,
-                mismatch_max,
-                snr_thresh,
-                frame_type,
-                channel,
-                state_flag,
-                ifo,
-                run_dir,
-            )
-
-            # load in vetoes and convert to gwpy SegmentList object
-            if veto_files is not None:
-                veto_file = veto_files[ifo]
-
-                logging.info(f"Applying vetoes to {ifo} times")
-
-                # load in vetoes
-                vetoes = np.loadtxt(veto_file)
-
-                # convert arrays to gwpy Segment objects
-                vetoes = [Segment(seg[0], seg[1]) for seg in vetoes]
-
-                # create SegmentList object
-                vetoes = SegmentList(vetoes).coalesce()
-            else:
-                vetoes = None
-
-            # get the path to the omicron triggers
-            trigger_dir = run_dir / "merge" / f"{ifo}:{channel}"
-
-            # only use the first segment for training
-            trigger_file = sorted(list(trigger_dir.glob("*.h5")))[0]
-
-            # generate glitches
-            glitches, snrs = generate_glitch_dataset(
-                ifo,
-                snr_thresh,
-                start,
-                stop,
-                window,
-                sample_rate,
-                channel,
-                frame_type,
-                trigger_file,
-                vetoes=vetoes,
-            )
-
-            if np.isnan(glitches).any():
-                raise ValueError("The glitch data contains NaN values")
-
-            f.create_dataset(f"{ifo}_glitches", data=glitches)
-            f.create_dataset(f"{ifo}_snrs", data=snrs)
+            f.create_dataset(f"{ifo}_glitches", data=glitches[ifo])
+            f.create_dataset(f"{ifo}_snrs", data=snrs[ifo])
 
     return glitch_file
 
