@@ -171,6 +171,8 @@ def omicron_main_wrapper(
     state_flag: str,
     ifo: str,
     run_dir: Path,
+    log_file: Path,
+    verbose: bool,
 ):
 
     """Parses args into a format compatible for Pyomicron,
@@ -212,6 +214,8 @@ def omicron_main_wrapper(
     # parse args into format expected by omicron
     omicron_args = [
         section,
+        "--log-file",
+        str(log_file),
         "--config-file",
         str(config_file_path),
         "--gps",
@@ -226,6 +230,8 @@ def omicron_main_wrapper(
         "--skip-gzip",
         "--skip-rm",
     ]
+    if verbose:
+        omicron_args + ["--verbose"]
 
     # create and launch omicron dag
     omicron_main(omicron_args)
@@ -294,7 +300,8 @@ def main(
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
 
-    configure_logging(logdir / "generate_glitches.log", verbose)
+    log_file = logdir / "generate_glitches.log"
+    configure_logging(log_file, verbose)
 
     # output file
     glitch_file = datadir / "glitches.h5"
@@ -343,6 +350,8 @@ def main(
             state_flag,
             ifo,
             train_run_dir,
+            log_file,
+            verbose,
         )
 
         # launch omicron dag for testing set
@@ -366,6 +375,8 @@ def main(
             state_flag,
             ifo,
             test_run_dir,
+            log_file,
+            verbose,
         )
 
         # load in vetoes and convert to gwpy SegmentList object
