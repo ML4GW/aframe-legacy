@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-from mldatafind.find import find_data
+from mldatafind import find_data, query_segments
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -63,15 +63,14 @@ def main(
         )
         return
 
+    segments = query_segments(state_flags, start, stop, minimum_length)
+
     # create generator that will query data that satisfies
     # segment criteria, retrieve data from the first segment,
     # and write using standard gwpy write functionality
     data_iterator = find_data(
-        start,
-        stop,
+        segments,
         channels,
-        minimum_length,
-        state_flags,
         retain_order=True,
         thread=True,
     )
