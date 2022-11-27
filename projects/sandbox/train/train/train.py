@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import List, Literal, Optional
 
-import h5py
-import numpy as np
+from mldatafind.io import read_timeseries
 from train.utils import prepare_augmentation, split
 from train.validation import (
     BackgroundRecall,
@@ -15,15 +14,6 @@ from bbhnet.architectures import Preprocessor
 from bbhnet.data.dataloader import BBHInMemoryDataset
 from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
-
-
-def load_background(background_dataset: Path, channels: List[str]):
-    background = []
-    with h5py.File(background_dataset, "r") as f:
-        for channel in channels:
-            hoft = f[channel][:]
-        background.append(hoft)
-    return np.stack(background)
 
 
 # note that this function decorator acts both to
@@ -221,7 +211,7 @@ def main(
         valid_frac=valid_frac,
     )
 
-    background = load_background(background_dataset, channels)
+    background = read_timeseries(background_dataset, channels)
     if valid_frac is not None:
         # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)
