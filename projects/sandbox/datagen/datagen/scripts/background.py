@@ -1,8 +1,10 @@
 import logging
 from pathlib import Path
-from typing import List
+from typing import Iterable
 
-from mldatafind import find_data, query_segments
+from gwpy.timeseries import TimeSeriesDict
+from mldatafind import query_segments
+from mldatafind.authenticate import authenticate
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -13,8 +15,8 @@ def main(
     start: float,
     stop: float,
     sample_rate: float,
-    channels: List[str],
-    state_flags: List[str],
+    channels: Iterable[str],
+    state_flags: Iterable[str],
     minimum_length: float,
     datadir: Path,
     logdir: Path,
@@ -50,6 +52,9 @@ def main(
         Path to data
     """
 
+    # create credentials to access LIGO data products
+    authenticate()
+
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
     configure_logging(logdir / "generate_background.log", verbose)
@@ -63,19 +68,11 @@ def main(
         )
         return
 
-    segments = query_segments(state_flags, start, stop, minimum_length)
+    segment_start, segment_stop = query_segments(
+        state_flags, start, stop, minimum_length
+    )[0]
 
-    # create generator that will query data that satisfies
-    # segment criteria, retrieve data from the first segment,
-    # and write using standard gwpy write functionality
-    data_iterator = find_data(
-        segments,
-        channels,
-        retain_order=True,
-        thread=True,
-    )
-
-    ts_dict = next(data_iterator)
+    ts_dict = TimeSeriesDict.get(channels, segment_start, segment_stop)
     ts_dict.resample(sample_rate)
     ts_dict.write(path)
 
