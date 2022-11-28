@@ -194,10 +194,11 @@ def main(
                 # time array is always relative to first shift value
                 times = t + shift.shifts[0]
                 background_data = {}
-                for ifo, shift_val in shift:
+                for i, (_, shift_val) in enumerate(shift):
+                    channel = channels[i]
                     start = segment_start + shift_val
-                    bckgrd = background[ifo].crop(start, start + dur)
-                    background_data[ifo] = bckgrd.value
+                    bckgrd = background[channel].crop(start, start + dur)
+                    background_data[channel] = bckgrd.value
 
                 future = submit_write(pool, raw_ts, t, **background_data)
                 futures.append(future)
@@ -235,8 +236,8 @@ def main(
                 # with ml4gw compute_ifo_snr
                 df = 1 / (signals.shape[-1] / sample_rate)
                 psds = []
-                for ifo in ifos:
-                    psd = background[ifo].psd(fftlength).interpolate(df)
+                for channel in channels:
+                    psd = background[channel].psd(fftlength).interpolate(df)
                     psd = torch.tensor(psd.value, dtype=torch.float64)
                     psds.append(psd)
                 psds = torch.stack(psds)
@@ -263,10 +264,10 @@ def main(
                 )
                 signals = signals.numpy()
                 injected_data = {}
-                for i, ifo in enumerate(ifos):
+                for i, channel in enumerate(channels):
 
-                    injected_data[ifo] = inject_waveforms(
-                        (times, background_data[ifo]),
+                    injected_data[channel] = inject_waveforms(
+                        (times, background_data[channel]),
                         signals[:, i, :],
                         parameters["geocent_time"],
                     )

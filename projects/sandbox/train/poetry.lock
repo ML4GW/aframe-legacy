@@ -522,7 +522,7 @@ scipy = "<1.8"
 type = "git"
 url = "https://github.com/ML4GW/mldatafind.git"
 reference = "main"
-resolved_reference = "b3508623ca9bca779283ea0d7f62193cdd82cae6"
+resolved_reference = "834a1b311376ced13a14075818dca16dbf2d7be6"
 
 [[package]]
 name = "numpy"

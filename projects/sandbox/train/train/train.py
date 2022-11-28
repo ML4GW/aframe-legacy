@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from mldatafind.io import read_timeseries
+from gwpy.timeseries import TimeSeriesDict
+from mldatafind.io import ts_dict_to_array
 from train.utils import prepare_augmentation, split
 from train.validation import (
     BackgroundRecall,
@@ -211,7 +212,9 @@ def main(
         valid_frac=valid_frac,
     )
 
-    background, _ = read_timeseries(background_dataset, channels)
+    background = TimeSeriesDict.read(background_dataset, channels)
+    background, _ = ts_dict_to_array(background)
+
     if valid_frac is not None:
         # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)

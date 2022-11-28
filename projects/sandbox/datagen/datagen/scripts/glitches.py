@@ -231,7 +231,7 @@ def omicron_main_wrapper(
         "--skip-rm",
     ]
     if verbose:
-        omicron_args + ["--verbose"]
+        omicron_args += ["--verbose"]
 
     # create and launch omicron dag
     omicron_main(omicron_args)
@@ -417,7 +417,7 @@ def main(
             raise ValueError("The glitch data contains NaN values")
 
     # store glitches from training set
-    with h5py.File(glitch_file) as f:
+    with h5py.File(glitch_file, "w") as f:
         for ifo in ifos:
             f.create_dataset(f"{ifo}_glitches", data=glitches[ifo])
             f.create_dataset(f"{ifo}_snrs", data=snrs[ifo])

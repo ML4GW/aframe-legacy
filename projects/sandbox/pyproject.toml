@@ -3,9 +3,9 @@ steps = [
     "datagen:generate-background",
     "datagen:generate-waveforms",
     "datagen:generate-glitches",
+    "datagen:generate-timeslides",
     "train:train:resnet",
     "export:export-model:resnet",
-    "datagen:generate-timeslides",
     "infer:infer",
     "analyze:analyze"
 ]
@@ -67,6 +67,7 @@ force_generation = "${base.force_generation}"
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 sample_rate = "${base.sample_rate}"
+verbose = true
 
 [tool.typeo.scripts.generate-waveforms]
 minimum_frequency = "${base.minimum_frequency}" 
@@ -163,7 +164,7 @@ sample_rate = "${base.sample_rate}"
 channels = "${base.channels}"
 state_flags = "${base.state_flags}"
 min_segment_length = 1024
-
+chunk_length = 4000
 # timeslide parameters
 shifts = [0, 1]
 n_slides = 10
