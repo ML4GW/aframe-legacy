@@ -265,8 +265,8 @@ def main(
     overlap: int,
     mismatch_max: float,
     window: float,
-    datadir: Path,
     logdir: Path,
+    datadir: Path,
     channel: str,
     frame_type: str,
     sample_rate: float,
@@ -285,31 +285,32 @@ def main(
         above a given SNR threshold are selected, and data is queried
         for these triggers and saved in an h5 file.
 
-    Arguments:
-
-    - snr_thresh: snr threshold above which to keep as glitch
-    - start: start gpstime
-    - stop: training stop gpstime
-    - test_stop: testing stop gpstime
-    - q_min: minimum q value of tiles for omicron
-    - q_max: maximum q value of tiles for omicron
-    - f_min: lowest frequency for omicron to consider
-    - cluster_dt: time window for omicron to cluster neighboring triggers
-    - chunk_duration: duration of data (seconds) for PSD estimation
-    - segment_duration: duration of data (seconds) for FFT
-    - overlap: overlap (seconds) between neighbouring segments and chunks
-    - mismatch_max: maximum distance between (Q, f) tiles
-    - window: half window around trigger time to query data for
-    - sample_rate: sampling frequency
-    - outdir: output directory to which signals will be written
-    - channel: channel name used to read data
-    - frame_type: frame type for data discovery w/ gwdatafind
-    - sample_rate: sampling frequency of timeseries data
-    - state_flag: identifier for which segments to use
-    - ifos: which ifos to generate glitches for
-    - veto_files:
-        dictionary where key is ifo and value is path
-        to file containing vetoes
+    Args:
+        snr_thresh: snr threshold above which to keep as glitch
+        start: start gpstime
+        stop: training stop gpstime
+        test_stop: testing stop gpstime
+        q_min: minimum q value of tiles for omicron
+        q_max: maximum q value of tiles for omicron
+        f_min: lowest frequency for omicron to consider
+        cluster_dt: time window for omicron to cluster neighboring triggers
+        chunk_duration: duration of data (seconds) for PSD estimation
+        segment_duration: duration of data (seconds) for FFT
+        overlap: overlap (seconds) between neighbouring segments and chunks
+        mismatch_max: maximum distance between (Q, f) tiles
+        window: half window around trigger time to query data for
+        logdir: directory where log file will be written
+        datadir: output directory to which signals will be written
+        channel: channel name used to read data
+        frame_type: frame type for data discovery w/ gwdatafind
+        sample_rate: sampling frequency of timeseries data
+        state_flag: identifier for which segments to use
+        ifos: which ifos to generate glitches for
+        veto_files:
+            dictionary where key is ifo and value is path
+            to file containing vetoes
+        force_generation: if True, query data even if a path already exists
+        verbose: log verbosely
     """
 
     logdir.mkdir(exist_ok=True, parents=True)

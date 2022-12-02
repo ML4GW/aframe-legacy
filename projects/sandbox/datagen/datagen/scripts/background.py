@@ -22,18 +22,26 @@ def main(
     frame_type: str,
     state_flag: str,
     minimum_length: float,
-    datadir: Path,
     logdir: Path,
+    datadir: Path,
     force_generation: bool = False,
     verbose: bool = False,
 ):
     """Generates background data for training BBHnet
 
     Args:
-        start: start gpstime
-        stop: stop gpstime
-        ifos: which ifos to query data for
-        outdir: where to store data
+        start: starting GPS time of the time period to analyze
+        stop: ending GPS time of the time period to analyze
+        ifos: which ifos to get background data for
+        sample_rate: sample rate of the queried data
+        channel: strain channel to query data from
+        frame_type: frame type for data discovery
+        state_flag: name of segments to query from segment database
+        minimum_length: minimum length of contiguous segment to save
+        logdir: directory where log file will be written
+        datadir: output directory to which background data will be written
+        force_generation: if True, query data even if a path already exists
+        verbose: log verbosely
     """
     # make logdir dir
     logdir.mkdir(exist_ok=True, parents=True)

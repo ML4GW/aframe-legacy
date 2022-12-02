@@ -48,6 +48,22 @@ sample_rate = "${base.sample_rate}"
 minimum_length = 8000
 force_generation = "${base.force_generation}"
 
+[tool.typeo.scripts.generate-waveforms]
+# Arguments defining characteristics of the waveforms
+prior = "${base.prior}"
+n_samples = 10000
+reference_frequency = "${base.reference_frequency}"
+minimum_frequency = "${base.minimum_frequency}" 
+sample_rate = "${base.sample_rate}" 
+waveform_duration = 8
+waveform_approximant = "IMRPhenomPv2"
+
+# Logging and configuration arguments 
+logdir = "${base.logdir}"
+datadir = "${base.datadir}"
+force_generation = "${base.force_generation}"
+verbose = false
+
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 5
 window = 2
@@ -70,17 +86,6 @@ ifos = "${base.ifos}"
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 sample_rate = "${base.sample_rate}"
-
-[tool.typeo.scripts.generate-waveforms]
-minimum_frequency = "${base.minimum_frequency}" 
-reference_frequency = "${base.reference_frequency}"
-datadir = "${base.datadir}"
-logdir = "${base.logdir}"
-n_samples = 10000
-prior = "${base.prior}"
-sample_rate = "${base.sample_rate}" 
-waveform_duration = 8
-force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.train]
 # input and output paths

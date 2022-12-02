@@ -67,26 +67,34 @@ def main(
     Args:
         start: starting GPS time of time period to analyze
         stop: ending GPS time of time period to analyze
-        outdir: base directory where all timeslide directories will be created
+        logdir: directory where log file will be written
+        datadir: output directory to which background data will be written
         prior: a prior function defined in prior.py script in the injection lib
         spacing: spacing between consecutive injections
+        jitter: level of random noise to add to the injection times
+        buffer: time on either end of a segment that will not have injections
         n_slides: number of timeslides
         shifts:
             List of shift multiples for each ifo. Will create n_slides
             worth of shifts, at multiples of shift. If 0 is passed,
             will not shift this ifo for any slide.
         ifos: List interferometers
-        file_length: length in seconds of each separate file
         minimum_frequency: minimum_frequency used for waveform generation
         highpass: frequency at which data is highpassed
-        sample_rate: sample rate
+        sample_rate: sample rate of background data and waveforms
         frame_type: frame type for data discovery
         channel: strain channel to analyze
+        min_segment_length: segments shorter than this time will be skipped
+        chunk_length:
+            if a segment is longer than chunk_length, it will be split into
+            chunks that are at most chunk_length long
         waveform_duration: length of injected waveforms
         reference_frequency: reference frequency for generating waveforms
         waveform_approximant: waveform model to inject
         fftlength: fftlength for calculating psd
         state_flag: name of segments to query from segment database
+        force_generation: if True, query data even if a path already exists
+        verbose: log verbosely
     """
 
     logdir.mkdir(parents=True, exist_ok=True)

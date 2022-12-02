@@ -208,9 +208,9 @@ python-versions = ">=3.8"
 numpy = ">=1.18.5,<1.26.0"
 
 [package.extras]
-test = ["pytest", "pytest-cov", "pytest-xdist", "asv", "mpmath", "gmpy2", "threadpoolctl", "scikit-umfpack"]
-doc = ["sphinx (!=4.1.0)", "pydata-sphinx-theme (==0.9.0)", "sphinx-panels (>=0.5.2)", "matplotlib (>2)", "numpydoc", "sphinx-tabs"]
-dev = ["mypy", "typing-extensions", "pycodestyle", "flake8"]
+dev = ["flake8", "mypy", "pycodestyle", "typing_extensions"]
+doc = ["matplotlib (>2)", "numpydoc", "pydata-sphinx-theme (==0.9.0)", "sphinx (!=4.1.0)", "sphinx-panels (>=0.5.2)", "sphinx-tabs"]
+test = ["asv", "gmpy2", "mpmath", "pytest", "pytest-cov", "pytest-xdist", "scikit-umfpack", "threadpoolctl"]
 
 [[package]]
 name = "toml"
@@ -243,7 +243,7 @@ toml = "^0.10.2"
 [package.source]
 type = "git"
 url = "https://github.com/ML4GW/typeo.git"
-reference = "HEAD"
+reference = "main"
 resolved_reference = "bd2429d484a3c4c3d49bfab62811b57f905573f1"
 
 [[package]]

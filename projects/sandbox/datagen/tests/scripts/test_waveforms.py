@@ -1,7 +1,30 @@
+import logging
+import shutil
+from pathlib import Path
+
 import h5py
 import pytest
-from datagen.scripts import generate_waveforms
-from datagen.utils.priors import end_o3_ratesandpops, nonspin_bbh
+from generate_waveforms import main
+
+from bbhnet.injection import end_o3_ratesandpops, nonspin_bbh
+
+
+@pytest.fixture
+def data_dir():
+    tmpdir = Path(__file__).resolve().parent / "tmp"
+    tmpdir.mkdir(parents=True, exist_ok=False)
+    yield tmpdir
+    logging.shutdown()
+    shutil.rmtree(tmpdir)
+
+
+@pytest.fixture
+def log_dir():
+    tmpdir = Path(__file__).resolve().parent / "log"
+    tmpdir.mkdir(parents=True, exist_ok=False)
+    yield tmpdir
+    logging.shutdown()
+    shutil.rmtree(tmpdir)
 
 
 @pytest.fixture(params=[0, 10, 100])
@@ -34,32 +57,42 @@ def prior(request):
     return request.param
 
 
+@pytest.fixture(params=["IMRPhenomPv2"])
+def waveform_approximant(request):
+    return request.param
+
+
 def test_check_file_contents(
-    datadir,
-    logdir,
-    n_samples,
-    waveform_duration,
-    sample_rate,
     prior,
-    minimum_frequency,
+    n_samples,
     reference_frequency,
+    minimum_frequency,
+    sample_rate,
+    waveform_duration,
+    waveform_approximant,
+    log_dir,
+    data_dir,
 ):
-    signal_file = generate_waveforms(
+
+    signal_length = waveform_duration * sample_rate
+
+    signal_file = main(
         prior,
         n_samples,
-        logdir,
-        datadir,
         reference_frequency,
         minimum_frequency,
         sample_rate,
         waveform_duration,
+        waveform_approximant,
+        log_dir,
+        data_dir,
     )
 
     with h5py.File(signal_file, "r") as f:
         for key in f.keys():
             if key == "signals":
                 act_shape = f[key].shape
-                exp_shape = (n_samples, 2, waveform_duration * sample_rate)
+                exp_shape = (n_samples, 2, signal_length)
                 assert (
                     act_shape == exp_shape
                 ), f"Expected shape {exp_shape} for signals, found {act_shape}"
