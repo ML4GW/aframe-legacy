@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -51,7 +52,7 @@ def main(
     Returns:
         Path to data
     """
-
+    print(os.environ["LD_LIBRARY_PATH"])
     # create credentials to access LIGO data products
     authenticate()
 

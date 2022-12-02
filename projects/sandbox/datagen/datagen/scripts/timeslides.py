@@ -167,6 +167,7 @@ def main(
             background = TimeSeriesDict.get(
                 channels, segment_start, segment_stop
             )
+            background.resample(sample_rate)
 
             logging.debug(f"Completed download of segment {seg_str}")
 
