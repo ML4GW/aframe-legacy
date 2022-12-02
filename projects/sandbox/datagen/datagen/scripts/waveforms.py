@@ -4,9 +4,9 @@ from typing import Callable
 
 import h5py
 import numpy as np
+from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
-from bbhnet.injection import generate_gw
 from bbhnet.logging import configure_logging
 
 
