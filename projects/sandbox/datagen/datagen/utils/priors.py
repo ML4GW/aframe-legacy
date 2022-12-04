@@ -13,6 +13,16 @@ from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 
 
 def nonspin_bbh():
+    """Creates a set of priors for a non-spinning BBH merger
+
+    This function creates a very basic set of priors on a pair of black holes.
+    The spin of each black hole is set to 0. Based on the prior files located
+    at `https://github.com/lscsoft/bilby/tree/master/bilby/gw/prior_files
+    <https://github.com/lscsoft/bilby/tree/master/bilby/gw/prior_files>`
+
+    Returns:
+        prior_dict: A bilby PriorDict containing the priors on the parameters
+    """
 
     prior_dict = PriorDict()
     prior_dict["mass_1"] = Uniform(
@@ -45,6 +55,17 @@ def nonspin_bbh():
 
 
 def end_o3_ratesandpops():
+    """Creates a more realistic set of priors for a BBH merger
+
+    Based on the distributions used by the Rates and Pops group for injection
+    over O3a and O3b. See here for more information:
+    `https://wiki.ligo.org/CBC/RatesPop/EndO3PopulationInjections
+    <https://wiki.ligo.org/CBC/RatesPop/EndO3PopulationInjections>`
+
+    Returns:
+        prior_dict: A bilby ConditionalPriorDict containing the priors on the
+        parameters
+    """
 
     prior_dict = ConditionalPriorDict()
     prior_dict["mass_1"] = PowerLaw(
