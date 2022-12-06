@@ -36,7 +36,7 @@ class GaussianNormalizer:
         sqs = boxcar_filter(y**2, self.norm_size)
         scales = np.sqrt(sqs - shifts**2)
         if (scales == 0).any():
-            raise ValueError("Encountered 0 scale values")
+            raise ValueError("Encountered 0s in scale parameter")
 
         self.shifts = shifts
         self.scales = scales
