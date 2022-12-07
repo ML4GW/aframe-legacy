@@ -31,6 +31,8 @@ class Sampler:
         self.signal_times = np.arange(
             start + buffer, stop - buffer - max_shift, spacing
         )
+        self.buffer = buffer
+        self.max_shift = max_shift
         self.jitter = jitter
 
     @property
@@ -38,6 +40,17 @@ class Sampler:
         return len(self.signal_times)
 
     def __call__(self, waveform_duration: float):
+        min_buffer = waveform_duration + self.jitter - self.max_shift
+        if self.buffer < min_buffer:
+            # If the buffer isn't large enough, the full signal
+            # won't fit inside the background.
+            raise ValueError(
+                "The specified buffer {} is incompatible with the "
+                "requested waveform duration, jitter, and max shift. "
+                "For the desired values, the minumum buffer is {}".format(
+                    self.buffer, min_buffer
+                )
+            )
         jit = np.random.uniform(
             -self.jitter, self.jitter, size=self.num_signals
         )
