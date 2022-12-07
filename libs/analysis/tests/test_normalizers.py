@@ -38,7 +38,7 @@ def test_gaussian_normalizer(
     # test to make sure we don't allow 0 scale values
     with pytest.raises(ValueError) as exc_info:
         normalizer.fit(y)
-    assert str(exc_info.value) == "Encountered 0 scale values"
+    assert str(exc_info.value) == "Encountered 0s in scale parameter"
 
     normalizer.fit(y + 1)
     boxcar_integration_test_fn(norm_size, normalizer.shifts)
