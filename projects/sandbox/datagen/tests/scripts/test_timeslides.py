@@ -26,12 +26,12 @@ def spacing(request):
     return request.param
 
 
-@pytest.fixture(params=[10])
+@pytest.fixture(params=[2])
 def jitter(request):
     return request.param
 
 
-@pytest.fixture(params=[8])
+@pytest.fixture(params=[10])
 def buffer_(request):
     return request.param
 
