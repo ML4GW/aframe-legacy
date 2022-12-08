@@ -174,7 +174,8 @@ def check_segment(
     for shift in shifts:
         for field, prefix in zip(fields, prefixes):
             dirname = datadir / f"dt-{shift}" / field
-            fname = f"{prefix}_{segment_start}-{dur}.hdf5"
+            fname = f"{prefix}-{segment_start}-{dur}.hdf5"
+
             if not (dirname / fname).exists() or force_generation:
                 # we don't have data for this segment at this
                 # shift value, so we'll need to create it
