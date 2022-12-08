@@ -140,6 +140,7 @@ def main(
                 dur,
                 force_generation,
             )
+
             if len(segment_shifts) == 0:
                 logging.info(
                     f"All data for segment {seg_str} already exists, skipping"
