@@ -10,6 +10,10 @@ from typeo import scriptify
 from bbhnet.logging import configure_logging
 
 
+def intify(x: float):
+    return int(x) if int(x) == x else x
+
+
 @scriptify
 def main(
     start: float,
@@ -59,9 +63,15 @@ def main(
     datadir.mkdir(exist_ok=True, parents=True)
     configure_logging(logdir / "generate_background.log", verbose)
 
-    path = datadir / "background.h5"
+    prefix = "background"
+    n_matches = len(list(datadir.glob(f"{prefix}*.h5")))
 
-    if path.exists() and not force_generation:
+    if n_matches > 1:
+        raise ValueError(
+            "f{n_matches} background files found. Only 1 should exists"
+        )
+
+    if n_matches == 1 and not force_generation:
         logging.info(
             "Background data already exists"
             " and forced generation is off. Not generating background"
@@ -71,6 +81,13 @@ def main(
     segment_start, segment_stop = query_segments(
         state_flags, start, stop, minimum_length
     )[0]
+
+    # TODO: utility function in mldatafind
+    # for infering file name from TimeSeriesDict
+    duration = intify(segment_stop - segment_start)
+    start = intify(segment_start)
+
+    path = datadir / f"{prefix}-{start}-{duration}.h5"
 
     ts_dict = TimeSeriesDict.get(channels, segment_start, segment_stop)
     ts_dict.resample(sample_rate)
