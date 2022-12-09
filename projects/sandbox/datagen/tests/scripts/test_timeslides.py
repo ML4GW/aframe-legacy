@@ -234,7 +234,7 @@ def test_timeslide_injections_chunked_segments(
             prior=prior,
             spacing=spacing,
             jitter=1,
-            buffer_=2,
+            buffer_=buffer_,
             n_slides=n_slides,
             shifts=shifts,
             ifos=ifos,
