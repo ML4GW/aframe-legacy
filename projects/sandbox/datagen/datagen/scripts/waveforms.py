@@ -60,7 +60,7 @@ def main(
     logging.info("Simulation parameters")
     logging.info("Number of samples     : {}".format(n_samples))
     logging.info("Sample rate [Hz]      : {}".format(sample_rate))
-    logging.info("Prior name            : {}".format(prior.__name__))
+    logging.info("Prior name            : {}".format(prior.__class__.__name__))
 
     # sample gw parameters from prior distribution
     priors = prior()
