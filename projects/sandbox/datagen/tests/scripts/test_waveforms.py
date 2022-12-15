@@ -45,7 +45,6 @@ def test_check_file_contents(
     reference_frequency,
 ):
     signal_file = generate_waveforms(
-        prior,
         n_samples,
         logdir,
         datadir,
@@ -53,6 +52,7 @@ def test_check_file_contents(
         minimum_frequency,
         sample_rate,
         waveform_duration,
+        prior,
     )
 
     with h5py.File(signal_file, "r") as f:

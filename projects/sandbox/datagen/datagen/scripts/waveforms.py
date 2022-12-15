@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 import h5py
 import numpy as np
@@ -12,7 +12,6 @@ from bbhnet.logging import configure_logging
 
 @scriptify
 def main(
-    prior: Callable,
     n_samples: int,
     logdir: Path,
     datadir: Path,
@@ -20,6 +19,8 @@ def main(
     minimum_frequency: float,
     sample_rate: float,
     waveform_duration: float,
+    prior: Optional[Callable] = None,
+    parameter_file: Optional[Path] = None,
     waveform_approximant: str = "IMRPhenomPv2",
     force_generation: bool = False,
     verbose: bool = False,
@@ -60,11 +61,30 @@ def main(
     logging.info("Simulation parameters")
     logging.info("Number of samples     : {}".format(n_samples))
     logging.info("Sample rate [Hz]      : {}".format(sample_rate))
-    logging.info("Prior name            : {}".format(prior.__class__.__name__))
 
     # sample gw parameters from prior distribution
-    priors = prior()
-    sample_params = priors.sample(n_samples)
+    if prior is not None:
+        logging.info(
+            "Prior name            : {}".format(prior.__class__.__name__)
+        )
+        priors = prior()
+        sample_params = priors.sample(n_samples)
+
+    # sample gw parameters from a catalog of simulated events
+    # these parameters will override any that were also
+    # specified by the prior class
+    if parameter_file is not None:
+        logging.info("Parameter file        : {}".format(parameter_file))
+        with h5py.File(parameter_file, "r") as f:
+            events = f["events"]
+            num_events = len(events)
+            event_idx = np.sort(
+                np.random.choice(num_events, n_samples, replace=False)
+            )
+            field_names = events.dtype.names
+
+            for i, name in enumerate(field_names):
+                sample_params[name] = events[event_idx][name]
 
     signals = generate_gw(
         sample_params,

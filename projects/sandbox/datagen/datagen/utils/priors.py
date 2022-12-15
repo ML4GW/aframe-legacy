@@ -61,7 +61,6 @@ class EndO3RatesAndPops:
             maximum=100,
             unit=r"$M_{\odot}",
         )
-
         prior_dict["mass_2"] = ConditionalPowerLaw(
             name="mass_2",
             condition_func=self.condition_func,
