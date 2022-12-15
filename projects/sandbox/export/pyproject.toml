@@ -6,7 +6,7 @@ authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 # readme = "README.md"
 
 [tool.pinto]
-cuda-version = "11.2"
+cuda-version = "11.7"
 
 [tool.poetry.scripts]
 export-model = "export:export"
@@ -14,7 +14,7 @@ export-model = "export:export"
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 gwpy = "^2.1"
-nvidia-tensorrt = {version = "<8.2.4", source = "ngc" }
+nvidia-tensorrt = {version = ">8.4.1,<8.5", source = "ngc" }
 torch = {version = "^1.10", source = "torch"}
 ml4gw = {path = "../../../ml4gw", develop = true}
 
