@@ -71,7 +71,8 @@ jobs:
           CONDA_PREFIX: /opt/conda
         # TODO: use case statement here, or add separate matrix.build_args
         run: |
-            if [[ "${{matrix.library}}" == "libs/architectures/" ]]; then
+            echo ${{ matrix.library }}
+            if [[ "${{ matrix.library }}" == "libs/architectures/" ]]; then
                 FLAGS="-E wrapper"
             else
                 FLAGS=""
