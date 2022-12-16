@@ -1,9 +1,51 @@
-from typing import Dict, List, Tuple
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
 
+import h5py
 import numpy as np
 from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
 from bilby.gw.source import lal_binary_black_hole
 from bilby.gw.waveform_generator import WaveformGenerator
+
+
+def sample_params(
+    num_signals, prior: Callable, parameter_file: Optional[Path] = None
+):
+    """Sample GW parameters from a bilby dict and/or an event file
+    Args:
+        num_signals: The number of signals to sample parameters for
+        prior: An object that returns a bilby prior dictionary when called
+        parameter_file:
+            An hdf5 file containing parameters defining CBC events. The format
+            is taken from the event file found here:
+            [https://dcc.ligo.org/T2100512](https://dcc.ligo.org/T2100512)
+    Returns:
+        A dictionary of the sampled parameters
+    """
+    params = prior().sample(num_signals)
+    if parameter_file is None:
+        return params
+
+    with h5py.File(parameter_file, "r") as f:
+        events = f["events"]
+        num_events = len(events)
+        field_names = events.dtype.names
+
+        for name in field_names:
+            # The masses are not independent, so they have to sampled together
+            # in a separate step
+            if "mass" in name:
+                continue
+            idx = np.sort(
+                np.random.choice(num_events, num_signals, replace=False)
+            )
+            params[name] = events[idx][name]
+
+        idx = np.sort(np.random.choice(num_events, num_signals, replace=False))
+        params["mass_1"] = events[idx]["mass_1"]
+        params["mass_2"] = events[idx]["mass_2"]
+
+    return params
 
 
 def generate_gw(

@@ -12,6 +12,19 @@ from bilby.core.prior import (
 from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 
 
+class ExtrinsicParams:
+    def __call__(self):
+        prior_dict = PriorDict()
+        prior_dict["dec"] = Cosine(name="dec")
+        prior_dict["ra"] = Uniform(
+            name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
+        )
+        prior_dict["theta_jn"] = 0
+        prior_dict["phase"] = 0
+
+        return prior_dict
+
+
 class NonSpinBBH:
     def __call__(self):
         prior_dict = PriorDict()
@@ -91,5 +104,6 @@ class EndO3RatesAndPops:
         return prior_dict
 
 
+extrinsic_params = ExtrinsicParams()
 nonspin_bbh = NonSpinBBH()
 end_o3_ratesandpops = EndO3RatesAndPops()

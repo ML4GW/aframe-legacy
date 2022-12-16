@@ -49,6 +49,7 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
+    parameter_file: Optional[Path] = None,
     min_segment_length: Optional[float] = None,
     chunk_length: Optional[float] = None,
     waveform_duration: float = 8,
@@ -129,7 +130,6 @@ def main(
 
     # grab some parameters we'll need for waveform injection
     stride = 1 / sample_rate
-    priors = prior()
     waveform_generator = WaveformGenerator(
         minimum_frequency,
         reference_frequency,
@@ -171,13 +171,14 @@ def main(
             # create an iterator which will generate raw
             # waveforms in a separate process
             sampler = Sampler(
-                priors,
+                prior,
                 segment_start,
                 segment_stop,
                 buffer_,
                 max_shift,
                 spacing,
                 jitter,
+                parameter_file,
             )
             waveform_it = waveform_iterator(
                 pool, sampler, waveform_generator, num_shifts

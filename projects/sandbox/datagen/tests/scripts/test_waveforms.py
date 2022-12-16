@@ -1,7 +1,11 @@
 import h5py
 import pytest
 from datagen.scripts import generate_waveforms
-from datagen.utils.priors import end_o3_ratesandpops, nonspin_bbh
+from datagen.utils.priors import (
+    end_o3_ratesandpops,
+    extrinsic_params,
+    nonspin_bbh,
+)
 
 
 @pytest.fixture(params=[0, 10, 100])
@@ -29,7 +33,7 @@ def sample_rate(request):
     return request.param
 
 
-@pytest.fixture(params=[nonspin_bbh, end_o3_ratesandpops])
+@pytest.fixture(params=[extrinsic_params, nonspin_bbh, end_o3_ratesandpops])
 def prior(request):
     return request.param
 
@@ -45,6 +49,7 @@ def test_check_file_contents(
     reference_frequency,
 ):
     signal_file = generate_waveforms(
+        prior,
         n_samples,
         logdir,
         datadir,
@@ -52,7 +57,6 @@ def test_check_file_contents(
         minimum_frequency,
         sample_rate,
         waveform_duration,
-        prior,
     )
 
     with h5py.File(signal_file, "r") as f:
