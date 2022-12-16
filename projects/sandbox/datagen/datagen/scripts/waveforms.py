@@ -14,13 +14,13 @@ from bbhnet.logging import configure_logging
 def main(
     prior: Callable,
     n_samples: int,
+    datadir: Path,
+    logdir: Path,
     reference_frequency: float,
     minimum_frequency: float,
     sample_rate: float,
     waveform_duration: float,
-    waveform_approximant: str,
-    logdir: Path,
-    datadir: Path,
+    waveform_approximant: str = "IMRPhenomPv2",
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -29,13 +29,13 @@ def main(
     Args:
         prior: function returning a bilby PriorDict for bilby to sample from
         n_samples: number of signals to simulate
+        datadir: output directory to which signals will be written
+        logdir: directory where log file will be written
         reference_frequency: reference frequency for waveform generation
         minimum_frequency: minimum frequency for waveform generation
         sample_rate: sample rate of the simulated signals
         waveform_duration: length of injected waveforms in seconds
         waveform_approximant: which lalsimulation waveform approximant to use
-        logdir: directory where log file will be written
-        datadir: output directory to which signals will be written
         force_generation: if True, generate signals even if path already exists
         verbose: log verbosely
     """

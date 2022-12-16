@@ -265,8 +265,8 @@ def main(
     overlap: int,
     mismatch_max: float,
     window: float,
-    logdir: Path,
     datadir: Path,
+    logdir: Path,
     channel: str,
     frame_type: str,
     sample_rate: float,
@@ -299,8 +299,8 @@ def main(
         overlap: overlap (seconds) between neighbouring segments and chunks
         mismatch_max: maximum distance between (Q, f) tiles
         window: half window around trigger time to query data for
-        logdir: directory where log file will be written
         datadir: output directory to which signals will be written
+        logdir: directory where log file will be written
         channel: channel name used to read data
         frame_type: frame type for data discovery w/ gwdatafind
         sample_rate: sampling frequency of timeseries data

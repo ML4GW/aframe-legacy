@@ -22,8 +22,8 @@ def main(
     frame_type: str,
     state_flag: str,
     minimum_length: float,
-    logdir: Path,
     datadir: Path,
+    logdir: Path,
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -38,8 +38,8 @@ def main(
         frame_type: frame type for data discovery
         state_flag: name of segments to query from segment database
         minimum_length: minimum length of contiguous segment to save
-        logdir: directory where log file will be written
         datadir: output directory to which background data will be written
+        logdir: directory where log file will be written
         force_generation: if True, query data even if a path already exists
         verbose: log verbosely
     """
