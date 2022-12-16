@@ -28,6 +28,8 @@ def sample_params(
 
     with h5py.File(parameter_file, "r") as f:
         events = f["events"]
+        # TODO: hardcoding this cut right now. Should event type be a flag?
+        events = events[(events["mass_1"] > 2.5) & (events["mass_2"] > 2.5)]
         num_events = len(events)
         field_names = events.dtype.names
 
@@ -36,12 +38,9 @@ def sample_params(
             # in a separate step
             if "mass" in name:
                 continue
-            idx = np.sort(
-                np.random.choice(num_events, num_signals, replace=False)
-            )
-            params[name] = events[idx][name]
+            params[name] = np.random.choice(events[name], num_signals)
 
-        idx = np.sort(np.random.choice(num_events, num_signals, replace=False))
+        idx = np.sort(np.random.choice(num_events, num_signals))
         params["mass_1"] = events[idx]["mass_1"]
         params["mass_2"] = events[idx]["mass_2"]
 
