@@ -22,39 +22,27 @@ class Sampler:
         priors: bilby.gw.prior.PriorDict,
         start: float,
         stop: float,
-        buffer: float,
+        waveform_duration: float,
         max_shift: float,
-        spacing: float,
         jitter: float,
+        buffer: float = 0,
+        spacing: float = 0,
     ) -> None:
         self.priors = priors
+        self.jitter = jitter
+        buffer = waveform_duration // 2 + jitter + buffer
+        spacing = waveform_duration + 2 * jitter + spacing
         self.signal_times = np.arange(
             start + buffer, stop - buffer - max_shift, spacing
         )
-        self.buffer = buffer
-        self.max_shift = max_shift
-        self.jitter = jitter
 
     @property
     def num_signals(self):
         return len(self.signal_times)
 
-    def __call__(self, waveform_duration: float):
-        min_buffer = waveform_duration + self.jitter - self.max_shift
-        if self.buffer < min_buffer:
-            # If the buffer isn't large enough, the full signal
-            # won't fit inside the background.
-            raise ValueError(
-                "The specified buffer {} is incompatible with the "
-                "requested waveform duration, jitter, and max shift. "
-                "For the desired values, the minumum buffer is {}".format(
-                    self.buffer, min_buffer
-                )
-            )
-        jit = np.random.uniform(
-            -self.jitter, self.jitter, size=self.num_signals
-        )
-        times = self.signal_times + jit + waveform_duration / 2
+    def __call__(self):
+        jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
+        times = self.signal_times + jitter
 
         params = self.priors.sample(self.num_signals)
         params["geocent_time"] = times
@@ -81,7 +69,7 @@ class WaveformGenerator:
 
 
 def _generate_waveforms(sampler, generator):
-    params = sampler(generator.waveform_duration)
+    params = sampler()
     waveforms = generator(params)
     return waveforms, params
 

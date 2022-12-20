@@ -173,10 +173,11 @@ def main(
                 priors,
                 segment_start,
                 segment_stop,
-                buffer_,
+                waveform_duration,
                 max_shift,
-                spacing,
                 jitter,
+                buffer_,
+                spacing,
             )
             waveform_it = waveform_iterator(
                 pool, sampler, waveform_generator, num_shifts

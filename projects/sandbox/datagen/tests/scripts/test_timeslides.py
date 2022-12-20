@@ -21,7 +21,7 @@ def prior(request):
     return request.param
 
 
-@pytest.fixture(params=[60])
+@pytest.fixture(params=[0, 60])
 def spacing(request):
     return request.param
 
@@ -31,7 +31,7 @@ def jitter(request):
     return request.param
 
 
-@pytest.fixture(params=[10])
+@pytest.fixture(params=[0, 10])
 def buffer_(request):
     return request.param
 
