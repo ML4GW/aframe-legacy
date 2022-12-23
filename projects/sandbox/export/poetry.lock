@@ -52,8 +52,11 @@ develop = true
 
 [package.dependencies]
 "bbhnet.data" = {path = "../data", develop = true}
-"hermes.typeo" = {version = "^0.1.4", optional = true}
-torch = "^1.0"
+torch = [
+    "^1.0",
+    "^1.10",
+]
+typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main", optional = true}
 
 [package.extras]
 wrapper = ["hermes.typeo (>=0.1.4,<0.2.0)"]
@@ -467,17 +470,6 @@ tensorrt = ["nvidia-tensorrt (>=8.0,<9.0)"]
 [package.source]
 type = "directory"
 url = "../../../hermes/hermes/hermes.quiver"
-
-[[package]]
-name = "hermes-typeo"
-version = "0.1.5"
-description = "Utilities for running functions as scripts"
-category = "main"
-optional = false
-python-versions = ">=3.8,<4.0"
-
-[package.dependencies]
-toml = ">=0.10.2,<0.11.0"
 
 [[package]]
 name = "idna"
@@ -1074,6 +1066,24 @@ python-versions = ">=3.5.3"
 [package.extras]
 doc = ["sphinx-rtd-theme", "sphinx-autodoc-typehints (>=1.2.0)"]
 test = ["pytest", "typing-extensions", "mypy"]
+
+[[package]]
+name = "typeo"
+version = "0.1.6"
+description = "Utilities for running functions as scripts"
+category = "main"
+optional = false
+python-versions = "^3.8"
+develop = false
+
+[package.dependencies]
+toml = "^0.10.2"
+
+[package.source]
+type = "git"
+url = "https://github.com/ML4GW/typeo.git"
+reference = "main"
+resolved_reference = "bd2429d484a3c4c3d49bfab62811b57f905573f1"
 
 [[package]]
 name = "typing-extensions"
@@ -1741,10 +1751,6 @@ h5py = [
     {file = "h5py-3.7.0.tar.gz", hash = "sha256:3fcf37884383c5da64846ab510190720027dca0768def34dd8dcb659dbe5cbf3"},
 ]
 hermes-quiver = []
-hermes-typeo = [
-    {file = "hermes.typeo-0.1.5-py3-none-any.whl", hash = "sha256:a1fff2eeb257fb6f4f4b4b397681f2eddee59a4b8b3dd275f0fd9dac38e3371b"},
-    {file = "hermes.typeo-0.1.5.tar.gz", hash = "sha256:8bd1d97a698c0e99a7d2a6b3b082c8b8290aea1bf0e6a44548752ca178a8c73e"},
-]
 idna = [
     {file = "idna-3.4-py3-none-any.whl", hash = "sha256:90b77e79eaa3eba6de819a0c442c0b4ceefc341a7a2ab77d7562bf49f425c5c2"},
     {file = "idna-3.4.tar.gz", hash = "sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4"},
@@ -2257,6 +2263,7 @@ typeguard = [
     {file = "typeguard-2.13.3-py3-none-any.whl", hash = "sha256:5e3e3be01e887e7eafae5af63d1f36c849aaa94e3a0112097312aabfa16284f1"},
     {file = "typeguard-2.13.3.tar.gz", hash = "sha256:00edaa8da3a133674796cf5ea87d9f4b4c367d77476e185e80251cc13dfbb8c4"},
 ]
+typeo = []
 typing-extensions = [
     {file = "typing_extensions-4.4.0-py3-none-any.whl", hash = "sha256:16fa4864408f655d35ec496218b85f79b3437c829e93320c7c9215ccfd92489e"},
     {file = "typing_extensions-4.4.0.tar.gz", hash = "sha256:1511434bb92bf8dd198c12b1cc812e800d4181cfcb867674e0f8279cc93087aa"},
