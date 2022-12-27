@@ -4,14 +4,14 @@ Script that generates a dataset of glitches from omicron triggers.
 
 import configparser
 import logging
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterable
 
 import h5py
 import numpy as np
-from gwpy.timeseries import TimeSeries
+from mldatafind.find import find_data
 from omicron.cli.process import main as omicron_main
-from tqdm import tqdm
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -24,7 +24,8 @@ def generate_glitch_dataset(
     window: float,
     sample_rate: float,
     channel: str,
-    trig_file: str,
+    chunk_size: float,
+    trig_file: Path,
 ):
 
     """
@@ -50,13 +51,6 @@ def generate_glitch_dataset(
     with h5py.File(trig_file) as f:
         triggers = f["triggers"][()]
 
-        # restrict triggers to within gps start and stop times
-        # and apply snr threshold
-        times = triggers["time"][()]
-        mask = (times > start) & (times < stop)
-        mask &= triggers["snr"][()] > snr_thresh
-        triggers = triggers[mask]
-
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - 2 * window
     stop = np.max(triggers["time"]) + 2 * window
@@ -65,21 +59,31 @@ def generate_glitch_dataset(
         f"Querying {stop - start} seconds of data for {len(triggers)} triggers"
     )
 
-    ts = TimeSeries.get(channel, start=start, end=stop, pad=0)
+    # TODO: triggers on the edge of chunks will not have enough data.
+    # should only impact 2 * n_chunks triggers, so not a huge deal.
 
-    # for each trigger
-    for trigger in tqdm(triggers):
-        time = trigger["time"]
-
-        try:
-            glitch_ts = ts.crop(time - window, time + window)
-        except ValueError:
-            logging.warning(f"Data not available for trigger at time: {time}")
-            continue
-        else:
-            glitch_ts = glitch_ts.resample(sample_rate)
-            glitches.append(glitch_ts)
-            snrs.append(trigger["snr"])
+    data_generator = find_data(
+        [(start, stop)], [channel], chunk_size=chunk_size
+    )
+    for data in data_generator:
+        # restrict to triggers within current data chunk
+        times = data.times.value
+        mask = (triggers["time"] > times[0]) & (triggers["time"] < times[-1])
+        chunk_triggers = triggers[mask]
+        # query data for each trigger
+        for trigger in chunk_triggers:
+            time = trigger["time"]
+            try:
+                glitch_ts = data.crop(time - window, time + window)
+            except ValueError:
+                logging.warning(
+                    f"Data not available for trigger at time: {time}"
+                )
+                continue
+            else:
+                glitch_ts = glitch_ts.resample(sample_rate)
+                glitches.append(glitch_ts)
+                snrs.append(trigger["snr"])
 
     glitches = np.array(glitches)
     snrs = np.array(snrs)
@@ -89,6 +93,7 @@ def generate_glitch_dataset(
 def omicron_main_wrapper(
     start: int,
     stop: int,
+    run_dir: Path,
     q_min: float,
     q_max: float,
     f_min: float,
@@ -104,7 +109,6 @@ def omicron_main_wrapper(
     channel: str,
     state_flag: str,
     ifo: str,
-    run_dir: Path,
     log_file: Path,
     verbose: bool,
 ):
@@ -169,6 +173,9 @@ def omicron_main_wrapper(
 
     # create and launch omicron dag
     omicron_main(omicron_args)
+
+    # return variables necessary for glitch generation
+    return start, stop, channel
 
 
 @scriptify
@@ -253,6 +260,7 @@ def main(
     snrs = {}
     run_dir = datadir / "omicron"
 
+    train_futures = []
     for ifo, channel, frame_type, state_flag in data_zip:
         train_run_dir = run_dir / "training" / ifo
         test_run_dir = run_dir / "testing" / ifo
@@ -260,12 +268,12 @@ def main(
         train_run_dir.mkdir(exist_ok=True, parents=True)
         test_run_dir.mkdir(exist_ok=True, parents=True)
 
-        # launch omicron dag for training set and testing set
-        # in different processes
+        # launch pyomicron futures for training set and testing sets.
+        # as train futures complete, launch glitch generation processes.
+        # let test set jobs run in background and glitch data is queried
+        pool = ProcessPoolExecutor(4)
 
-        omicron_main_wrapper(
-            start,
-            stop,
+        args = [
             q_min,
             q_max,
             f_min,
@@ -284,51 +292,27 @@ def main(
             train_run_dir,
             log_file,
             verbose,
-        )
+        ]
 
-        # launch omicron dag for testing set
-        # we currently don't use this information in the pipeline
-        omicron_main_wrapper(
-            stop,
-            test_stop,
-            q_min,
-            q_max,
-            f_min,
-            f_max,
-            sample_rate,
-            cluster_dt,
-            chunk_duration,
-            segment_duration,
-            overlap,
-            mismatch_max,
-            snr_thresh,
-            frame_type,
-            channel,
-            state_flag,
-            ifo,
-            test_run_dir,
-            log_file,
-            verbose,
+        train_future = pool.submit(
+            omicron_main_wrapper, start, stop, train_run_dir, *args
         )
+        train_futures.append(train_future)
+
+        pool.submit(omicron_main_wrapper, stop, test_stop, test_run_dir, *args)
+
+    for future in as_completed(train_futures):
+        start, stop, channel = future.result()
 
         # get the path to the omicron triggers from *training* set
         # only use the first segment for training (should only be one)
         trigger_dir = train_run_dir / "merge" / channel
         trigger_file = sorted(list(trigger_dir.glob("*.h5")))[0]
 
-        # generate glitches and store
+        # launch generate glitches jobs and store
         glitches[ifo], snrs[ifo] = generate_glitch_dataset(
-            snr_thresh,
-            start,
-            stop,
-            window,
-            sample_rate,
-            channel,
-            trigger_file,
+            snr_thresh, start, stop, window, sample_rate, channel, trigger_file
         )
-
-        if np.isnan(glitches[ifo]).any():
-            raise ValueError("The glitch data contains NaN values")
 
     # store glitches from training set
     with h5py.File(glitch_file, "w") as f:
