@@ -5,74 +5,16 @@ Script that generates a dataset of glitches from omicron triggers.
 import configparser
 import logging
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 import h5py
 import numpy as np
-from gwpy.segments import Segment, SegmentList
 from gwpy.timeseries import TimeSeries
 from omicron.cli.process import main as omicron_main
 from tqdm import tqdm
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
-
-
-def veto(times: list, segmentlist: SegmentList):
-
-    """
-    Remove events from a list of times based on a segmentlist
-    A time ``t`` will be vetoed if ``start <= t <= end`` for any veto
-    segment in the list.
-
-    Args:
-    - times: the times of event triggers to veto
-    - segmentlist: the list of veto segments to use
-
-    Returns:
-    - keep_bools: list of booleans; True for the triggers to keep
-    """
-
-    # find args that sort times and create sorted times array
-    sorted_args = np.argsort(times)
-    sorted_times = times[sorted_args]
-
-    # initiate array of args to keep;
-    # refers to original args of unsorted times array;
-    # begin with all args being kept
-
-    keep_bools = np.ones(times.shape[0], dtype=bool)
-
-    # initiate loop variables; extract first segment
-    j = 0
-    a, b = segmentlist[j]
-    i = 0
-
-    while i < sorted_times.size:
-        t = sorted_times[i]
-
-        # if before start, not in vetoed segment; move to next trigger now
-        if t < a:
-
-            # original arg is the ith sorted arg
-            i += 1
-            continue
-
-        # if after end, find the next segment and check this trigger again
-        if t > b:
-            j += 1
-            try:
-                a, b = segmentlist[j]
-                continue
-            except IndexError:
-                break
-
-        # otherwise it must be in veto segment; move on to next trigger
-        original_arg = sorted_args[i]
-        keep_bools[original_arg] = False
-        i += 1
-
-    return keep_bools
 
 
 def generate_glitch_dataset(
@@ -83,7 +25,6 @@ def generate_glitch_dataset(
     sample_rate: float,
     channel: str,
     trig_file: str,
-    vetoes: SegmentList = None,
 ):
 
     """
@@ -100,7 +41,6 @@ def generate_glitch_dataset(
         frame_type: frame type for data discovery w/ gwdatafind
         trig_file: txt file output from omicron triggers
             (first column is gps times, 3rd column is snrs)
-        vetoes: SegmentList object of times to ignore
     """
 
     glitches = []
@@ -116,12 +56,6 @@ def generate_glitch_dataset(
         mask = (times > start) & (times < stop)
         mask &= triggers["snr"][()] > snr_thresh
         triggers = triggers[mask]
-
-    # if passed, apply vetos
-    if vetoes is not None:
-        keep_bools = veto(times, vetoes)
-        times = times[keep_bools]
-        snrs = snrs[keep_bools]
 
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - 2 * window
@@ -258,7 +192,6 @@ def main(
     frame_types: Iterable[str],
     sample_rate: float,
     state_flags: Iterable[str],
-    veto_files: Optional[dict[str, str]] = None,
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -292,9 +225,6 @@ def main(
         sample_rate: sampling frequency of timeseries data
         state_flag: identifier for which segments to use
         ifos: which ifos to generate glitches for
-        veto_files:
-            dictionary where key is ifo and value is path
-            to file containing vetoes
     """
 
     logdir.mkdir(exist_ok=True, parents=True)
@@ -330,7 +260,9 @@ def main(
         train_run_dir.mkdir(exist_ok=True, parents=True)
         test_run_dir.mkdir(exist_ok=True, parents=True)
 
-        # launch omicron dag for training set
+        # launch omicron dag for training set and testing set
+        # in different processes
+
         omicron_main_wrapper(
             start,
             stop,
@@ -379,23 +311,6 @@ def main(
             verbose,
         )
 
-        # load in vetoes and convert to gwpy SegmentList object
-        if veto_files is not None:
-            veto_file = veto_files[ifo]
-
-            logging.info(f"Applying vetoes to {ifo} times")
-
-            # load in vetoes
-            vetoes = np.loadtxt(veto_file)
-
-            # convert arrays to gwpy Segment objects
-            vetoes = [Segment(seg[0], seg[1]) for seg in vetoes]
-
-            # create SegmentList object
-            vetoes = SegmentList(vetoes).coalesce()
-        else:
-            vetoes = None
-
         # get the path to the omicron triggers from *training* set
         # only use the first segment for training (should only be one)
         trigger_dir = train_run_dir / "merge" / channel
@@ -410,7 +325,6 @@ def main(
             sample_rate,
             channel,
             trigger_file,
-            vetoes=vetoes,
         )
 
         if np.isnan(glitches[ifo]).any():
