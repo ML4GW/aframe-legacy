@@ -38,9 +38,9 @@ def sample_rate(request):
 
 
 @pytest.fixture
-def trig_file(ifo):
+def trigger_files(ifo):
     fname = Path(__file__).resolve().parent / "triggers" / f"triggers_{ifo}.h5"
-    return str(fname)
+    return [str(fname)]
 
 
 def test_generate_glitch_dataset(
@@ -48,7 +48,7 @@ def test_generate_glitch_dataset(
     window,
     sample_rate,
     snr_thresh,
-    trig_file,
+    trigger_files,
     channel,
     frame_type,
 ):
@@ -74,7 +74,7 @@ def test_generate_glitch_dataset(
             sample_rate,
             channel,
             frame_type,
-            trig_file,
+            trigger_files,
         )
 
     assert glitches.shape[-1] == glitch_len
