@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
-from gwpy.timeseries import TimeSeriesDict
-from mldatafind.io import ts_dict_to_array
+import h5py
+import numpy as np
 from train.utils import prepare_augmentation, split
 from train.validation import (
     BackgroundRecall,
@@ -17,6 +17,18 @@ from bbhnet.logging import configure_logging
 from bbhnet.trainer import trainify
 
 
+def load_background(*backgrounds: Path):
+    # TODO: maybe package up hanford and livingston
+    # (or any arbitrary set of ifos) background files into one
+    # for simplicity
+    background = []
+    for fname in backgrounds:
+        with h5py.File(fname, "r") as f:
+            hoft = f["hoft"][:]
+        background.append(hoft)
+    return np.stack(background)
+
+
 # note that this function decorator acts both to
 # wrap this function such that the outputs of it
 # (i.e. the training and possible validation data)
@@ -27,10 +39,10 @@ from bbhnet.trainer import trainify
 @trainify
 def main(
     # paths and environment args
-    background_dataset: Path,
+    hanford_background: Path,
+    livingston_background: Path,
     glitch_dataset: Path,
     waveform_dataset: Path,
-    channels: List[str],
     outdir: Path,
     logdir: Path,
     # data generation args
@@ -65,11 +77,16 @@ def main(
     a BBHNet architecture.
 
     Args:
-        background_dataset:
+        hanford_background:
             Path to file containing background data for
-            all interferometer strain channels to train on. Should be
-            an HDF5 archive with a `{ifo}:{channel_name}` dataset
-            containing the strain data for each ifo.
+            Hanford strain channel to train on. Should be
+            an HDF5 archive with an `"hoft"` dataset
+            containing the strain data.
+        livingston_background:
+            Path to file containing background data for
+            Livingston strain channel to train on. Should be
+            an HDF5 archive with an `"hoft"` dataset
+            containing the strain data.
         glitch_dataset:
             Path to file containing short segments of data
             with non-Gaussian noise transients. Should be
@@ -212,9 +229,10 @@ def main(
         valid_frac=valid_frac,
     )
 
-    background = TimeSeriesDict.read(background_dataset, channels)
-    background, _ = ts_dict_to_array(background)
-
+    # TODO: maybe package up hanford and livingston
+    # (or any arbitrary set of ifos) background files
+    # into one file for simplicity
+    background = load_background(hanford_background, livingston_background)
     if valid_frac is not None:
         # split up our background data into train and validation splits
         background, valid_background = split(background, 1 - valid_frac, -1)

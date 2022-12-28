@@ -12,13 +12,17 @@ from datagen.utils.timeslides import (
     WaveformGenerator,
     check_segment,
     chunk_segments,
+    download_data,
     make_shifts,
     submit_write,
     waveform_iterator,
 )
-from gwpy.segments import Segment, SegmentList
-from gwpy.timeseries import TimeSeriesDict
-from mldatafind import query_segments
+from gwpy.segments import (
+    DataQualityDict,
+    Segment,
+    SegmentList,
+    SegmentListDict,
+)
 from typeo import scriptify
 
 from bbhnet.io.timeslides import TimeSlide
@@ -39,17 +43,19 @@ def main(
     buffer_: float,
     n_slides: int,
     shifts: Iterable[float],
+    ifos: Iterable[str],
     minimum_frequency: float,
     highpass: float,
     sample_rate: float,
-    channels: Iterable[str],
+    frame_type: str,
+    channel: str,
     min_segment_length: Optional[float] = None,
     chunk_length: Optional[float] = None,
     waveform_duration: float = 8,
     reference_frequency: float = 20,
     waveform_approximant: str = "IMRPhenomPv2",
     fftlength: float = 2,
-    state_flags: Optional[Iterable[str]] = None,
+    state_flag: Optional[str] = None,
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -69,10 +75,12 @@ def main(
             List of shift multiples for each ifo. Will create n_slides
             worth of shifts, at multiples of shift. If 0 is passed,
             will not shift this ifo for any slide.
+        ifos: List interferometers
         file_length: length in seconds of each separate file
         minimum_frequency: minimum_frequency used for waveform generation
         highpass: frequency at which data is highpassed
         sample_rate: sample rate
+        frame_type: frame type for data discovery
         channel: strain channel to analyze
         waveform_duration: length of injected waveforms
         reference_frequency: reference frequency for generating waveforms
@@ -85,24 +93,32 @@ def main(
     datadir.mkdir(parents=True, exist_ok=True)
     configure_logging(logdir / "timeslide_injections.log", verbose)
 
-    # infer ifos from passed channels
-    ifos = [channel.split(":")[0] for channel in channels]
-
     # if state_flag is passed, query segments for each ifo.
     # A certificate is needed for this, see X509 instructions on
     # https://computing.docs.ligo.org/guide/auth/#ligo-x509
     logging.info("Querying segments")
-    if state_flags:
-        segments = query_segments(state_flags, start, stop, min_segment_length)
+    if state_flag:
+        # query science segments
+        segments = DataQualityDict.query_dqsegdb(
+            [f"{ifo}:{state_flag}" for ifo in ifos],
+            start,
+            stop,
+        )
+
+        # convert DQ dict to SegmentList Dict
+        segments = SegmentListDict({k: v.active for k, v in segments.items()})
+
+        # intersect segments
+        intersection = segments.intersection(segments.keys())
     else:
         # not considering segments so
         # make intersection from start to stop
-        segments = SegmentList([Segment(start, stop)])
+        intersection = SegmentList([Segment(start, stop)])
 
-    total_length = sum([j - i for i, j in segments])
+    total_length = sum([j - i for i, j in intersection])
     logging.info(
         "Querying {} segments of data totalling {} worth of data".format(
-            len(segments), total_length
+            len(intersection), total_length
         )
     )
 
@@ -123,7 +139,7 @@ def main(
     )
     tensors, vertices = get_ifo_geometry(*ifos)
 
-    segments = [tuple(segment) for segment in segments]
+    segments = [tuple(segment) for segment in intersection]
     if chunk_length is not None:
         segments = chunk_segments(segments, chunk_length)
 
@@ -138,10 +154,13 @@ def main(
                 datadir,
                 segment_start,
                 dur,
+                min_segment_length,
                 force_generation,
             )
-
-            if len(segment_shifts) == 0:
+            if segment_shifts is None:
+                logging.info(f"Segment {seg_str} too short, skipping")
+                continue
+            elif len(segment_shifts) == 0:
                 logging.info(
                     f"All data for segment {seg_str} already exists, skipping"
                 )
@@ -154,10 +173,11 @@ def main(
                 priors,
                 segment_start,
                 segment_stop,
-                buffer_,
+                waveform_duration,
                 max_shift,
-                spacing,
                 jitter,
+                buffer_,
+                spacing,
             )
             waveform_it = waveform_iterator(
                 pool, sampler, waveform_generator, num_shifts
@@ -165,11 +185,14 @@ def main(
 
             # begin the download of data in a separate thread
             logging.debug(f"Beginning download of segment {seg_str}")
-            background = TimeSeriesDict.get(
-                channels, segment_start, segment_stop
+            background = download_data(
+                ifos,
+                frame_type,
+                channel,
+                sample_rate,
+                segment_start,
+                segment_stop,
             )
-            background.resample(sample_rate)
-
             logging.debug(f"Completed download of segment {seg_str}")
 
             # set up array of times for all shifts
@@ -196,11 +219,10 @@ def main(
                 # time array is always relative to first shift value
                 times = t + shift.shifts[0]
                 background_data = {}
-                for i, (_, shift_val) in enumerate(shift):
-                    channel = channels[i]
+                for ifo, shift_val in shift:
                     start = segment_start + shift_val
-                    bckgrd = background[channel].crop(start, start + dur)
-                    background_data[channel] = bckgrd.value
+                    bckgrd = background[ifo].crop(start, start + dur)
+                    background_data[ifo] = bckgrd.value
 
                 future = submit_write(pool, raw_ts, t, **background_data)
                 futures.append(future)
@@ -238,8 +260,8 @@ def main(
                 # with ml4gw compute_ifo_snr
                 df = 1 / (signals.shape[-1] / sample_rate)
                 psds = []
-                for channel in channels:
-                    psd = background[channel].psd(fftlength).interpolate(df)
+                for ifo in ifos:
+                    psd = background[ifo].psd(fftlength).interpolate(df)
                     psd = torch.tensor(psd.value, dtype=torch.float64)
                     psds.append(psd)
                 psds = torch.stack(psds)
@@ -266,10 +288,10 @@ def main(
                 )
                 signals = signals.numpy()
                 injected_data = {}
-                for i, channel in enumerate(channels):
+                for i, ifo in enumerate(ifos):
 
-                    injected_data[channel] = inject_waveforms(
-                        (times, background_data[channel]),
+                    injected_data[ifo] = inject_waveforms(
+                        (times, background_data[ifo]),
                         signals[:, i, :],
                         parameters["geocent_time"],
                     )

@@ -3,13 +3,15 @@ import logging
 from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import bilby
+import gwdatafind
 import numpy as np
 from datagen.utils.injection import generate_gw
-from mldatafind.io import write_timeseries
+from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
+from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.parallelize import AsyncExecutor
 
@@ -20,26 +22,27 @@ class Sampler:
         priors: bilby.gw.prior.PriorDict,
         start: float,
         stop: float,
-        buffer: float,
+        waveform_duration: float,
         max_shift: float,
-        spacing: float,
         jitter: float,
+        buffer: float = 0,
+        spacing: float = 0,
     ) -> None:
         self.priors = priors
+        self.jitter = jitter
+        buffer = waveform_duration // 2 + jitter + buffer
+        spacing = waveform_duration + 2 * jitter + spacing
         self.signal_times = np.arange(
             start + buffer, stop - buffer - max_shift, spacing
         )
-        self.jitter = jitter
 
     @property
     def num_signals(self):
         return len(self.signal_times)
 
-    def __call__(self, waveform_duration: float):
-        jit = np.random.uniform(
-            -self.jitter, self.jitter, size=self.num_signals
-        )
-        times = self.signal_times + jit + waveform_duration / 2
+    def __call__(self):
+        jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
+        times = self.signal_times + jitter
 
         params = self.priors.sample(self.num_signals)
         params["geocent_time"] = times
@@ -66,7 +69,7 @@ class WaveformGenerator:
 
 
 def _generate_waveforms(sampler, generator):
-    params = sampler(generator.waveform_duration)
+    params = sampler()
     waveforms = generator(params)
     return waveforms, params
 
@@ -127,10 +130,7 @@ def make_shifts(
 
 
 def submit_write(
-    pool: AsyncExecutor,
-    ts: TimeSlide,
-    t: np.ndarray,
-    **fields: np.ndarray,
+    pool: AsyncExecutor, ts: TimeSlide, t: np.ndarray, **fields: np.ndarray
 ) -> Future:
     ts_type = ts.path.name
     if ts_type == "background":
@@ -139,10 +139,10 @@ def submit_write(
         prefix = "inj"
 
     future = pool.submit(
-        write_timeseries,
+        h5.write_timeseries,
         ts.path,
-        t,
         prefix=prefix,
+        t=t,
         **fields,
     )
 
@@ -150,6 +150,29 @@ def submit_write(
         lambda f: logging.debug(f"Wrote background {ts_type} {f.result()}")
     )
     return future
+
+
+def download_data(
+    ifos: Iterable[str],
+    frame_type: str,
+    channel: str,
+    sample_rate: float,
+    start: float,
+    stop: float,
+) -> TimeSeriesDict:
+    data = TimeSeriesDict()
+    for ifo in ifos:
+        files = gwdatafind.find_urls(
+            site=ifo.strip("1"),
+            frametype=f"{ifo}_{frame_type}",
+            gpsstart=start,
+            gpsend=stop,
+            urltype="file",
+        )
+        data[ifo] = TimeSeries.read(
+            files, channel=f"{ifo}:{channel}", start=start, end=stop, nproc=4
+        )
+    return data.resample(sample_rate)
 
 
 def intify(x: float):
@@ -161,8 +184,13 @@ def check_segment(
     datadir: Path,
     segment_start: float,
     dur: float,
+    min_segment_length: Optional[float] = None,
     force_generation: bool = False,
 ):
+    # first check if we'll even have enough data for
+    # this segment to be worth working with
+    if min_segment_length is not None and dur < min_segment_length:
+        return None
 
     segment_start = intify(segment_start)
     dur = intify(dur)
@@ -174,8 +202,7 @@ def check_segment(
     for shift in shifts:
         for field, prefix in zip(fields, prefixes):
             dirname = datadir / f"dt-{shift}" / field
-            fname = f"{prefix}-{segment_start}-{dur}.hdf5"
-
+            fname = f"{prefix}_{segment_start}-{dur}.hdf5"
             if not (dirname / fname).exists() or force_generation:
                 # we don't have data for this segment at this
                 # shift value, so we'll need to create it

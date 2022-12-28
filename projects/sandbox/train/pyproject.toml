@@ -8,10 +8,9 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-mldatafind = {git = "https://github.com/ML4GW/mldatafind.git", branch = "main"}
 "bbhnet.data" = {path = "../../../libs/data", develop  = true}
-"bbhnet.trainer" = {path = "../../../libs/trainer", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
+"bbhnet.trainer" = {path = "../../../libs/trainer", develop = true}
 
 [[tool.poetry.source]]
 name = "torch"
