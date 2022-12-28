@@ -61,10 +61,9 @@ def test_generate_glitch_dataset(
     times = np.arange(start, stop, 1 / sample_rate)
     n_samples = len(times)
     ts = TimeSeries(np.ones(n_samples), times=times)
-    mock_ts = patch("gwpy.timeseries.TimeSeries.read", return_value=ts)
-    mock_datafind = patch("gwdatafind.find_urls", return_value=None)
+    mock_ts = patch("gwpy.timeseries.TimeSeries.get", return_value=ts)
 
-    with mock_ts, mock_datafind:
+    with mock_ts:
         glitches, snrs = generate_glitch_dataset(
             ifo,
             snr_thresh,
