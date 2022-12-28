@@ -272,12 +272,14 @@ def main(
     train_futures = []
 
     run_dir = datadir / "omicron"
+    train_run_dir = run_dir / "training"
+    test_run_dir = run_dir / "testing"
     omicron_log_file = run_dir / "pyomicron.log"
 
     for ifo, channel, frame_type, state_flag in data_zip:
-        train_run_dir = run_dir / "training" / ifo
-        test_run_dir = run_dir / "testing" / ifo
-        train_run_dir.mkdir(exist_ok=True, parents=True)
+        train_ifo_dir = train_run_dir / ifo
+        test_ifo_dir = test_run_dir / ifo
+        train_ifo_dir.mkdir(exist_ok=True, parents=True)
 
         # launch pyomicron futures for training set and testing sets.
         # as train futures complete, launch glitch generation processes.
@@ -304,21 +306,22 @@ def main(
         ]
 
         train_future = pool.submit(
-            omicron_main_wrapper, start, stop, train_run_dir, *args
+            omicron_main_wrapper, start, stop, train_ifo_dir, *args
         )
         train_futures.append(train_future)
 
         if analyze_testing_set:
-            test_run_dir.mkdir(exist_ok=True, parents=True)
+            test_ifo_dir.mkdir(exist_ok=True, parents=True)
             pool.submit(
-                omicron_main_wrapper, stop, test_stop, test_run_dir, *args
+                omicron_main_wrapper, stop, test_stop, test_ifo_dir, *args
             )
 
     for future in as_completed(train_futures):
         # get the path to the omicron triggers from *training* set
         # only use the first segment for training (should only be one)
         channel = future.result()
-        trigger_dir = train_run_dir / "merge" / channel
+        ifo, _ = channel.split(":")
+        trigger_dir = train_run_dir / ifo / "merge" / channel
         trigger_file = sorted(list(trigger_dir.glob("*.h5")))[0]
 
         # generate glitches
