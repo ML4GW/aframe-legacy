@@ -24,8 +24,8 @@ def generate_glitch_dataset(
     window: float,
     sample_rate: float,
     channel: str,
-    chunk_size: float,
     trig_file: Path,
+    chunk_size: float = 4096,
 ):
 
     """
@@ -49,7 +49,13 @@ def generate_glitch_dataset(
 
     # load in triggers
     with h5py.File(trig_file) as f:
-        triggers = f["triggers"][()]
+        # restrict triggers to within gps start and stop times
+        # and apply snr threshold
+        triggers = f["triggers"][:]
+        times = triggers["time"][()]
+        mask = (times > start) & (times < stop)
+        mask &= triggers["snr"][()] > snr_thresh
+        triggers = triggers[mask]
 
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - 2 * window
@@ -62,12 +68,18 @@ def generate_glitch_dataset(
     # TODO: triggers on the edge of chunks will not have enough data.
     # should only impact 2 * n_chunks triggers, so not a huge deal.
 
-    data_generator = find_data(
-        [(start, stop)], [channel], chunk_size=chunk_size
+    generator_list = find_data(
+        [(start, stop)],
+        [channel],
+        chunk_size=chunk_size,
     )
+    data_generator = next(generator_list)
+
     for data in data_generator:
-        # restrict to triggers within current data chunk
+        data = data[channel]
         times = data.times.value
+        # restrict to triggers within current data chunk
+
         mask = (triggers["time"] > times[0]) & (triggers["time"] < times[-1])
         chunk_triggers = triggers[mask]
         # query data for each trigger
@@ -135,10 +147,6 @@ def omicron_main_wrapper(
     config.set(section, "overlap-duration", str(overlap))
     config.set(section, "mismatch-max", str(mismatch_max))
     config.set(section, "snr-threshold", str(snr_thresh))
-
-    config.add_section("OUTPUTS")
-    config.set("OUTPUTS", "format", "hdf5")
-
     # in an online setting, can also pass state-vector,
     # and bits to check for science mode
     config.set(section, "state-flag", f"{state_flag}")
@@ -175,7 +183,7 @@ def omicron_main_wrapper(
     omicron_main(omicron_args)
 
     # return variables necessary for glitch generation
-    return start, stop, channel
+    return channel
 
 
 @scriptify
@@ -199,6 +207,8 @@ def main(
     frame_types: Iterable[str],
     sample_rate: float,
     state_flags: Iterable[str],
+    chunk_size: float = 4096,
+    analyze_testing_set: bool = False,
     force_generation: bool = False,
     verbose: bool = False,
 ):
@@ -237,7 +247,8 @@ def main(
     logdir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
 
-    log_file = logdir / "generate_glitches.log"
+    log_file = logdir / "glitches.log"
+
     configure_logging(log_file, verbose)
 
     # output file
@@ -258,21 +269,20 @@ def main(
 
     glitches = {}
     snrs = {}
-    run_dir = datadir / "omicron"
-
     train_futures = []
+
+    run_dir = datadir / "omicron"
+    omicron_log_file = run_dir / "pyomicron.log"
+
     for ifo, channel, frame_type, state_flag in data_zip:
         train_run_dir = run_dir / "training" / ifo
         test_run_dir = run_dir / "testing" / ifo
-
         train_run_dir.mkdir(exist_ok=True, parents=True)
-        test_run_dir.mkdir(exist_ok=True, parents=True)
 
         # launch pyomicron futures for training set and testing sets.
         # as train futures complete, launch glitch generation processes.
         # let test set jobs run in background and glitch data is queried
         pool = ProcessPoolExecutor(4)
-
         args = [
             q_min,
             q_max,
@@ -289,8 +299,7 @@ def main(
             channel,
             state_flag,
             ifo,
-            train_run_dir,
-            log_file,
+            omicron_log_file,
             verbose,
         ]
 
@@ -299,19 +308,29 @@ def main(
         )
         train_futures.append(train_future)
 
-        pool.submit(omicron_main_wrapper, stop, test_stop, test_run_dir, *args)
+        if analyze_testing_set:
+            test_run_dir.mkdir(exist_ok=True, parents=True)
+            pool.submit(
+                omicron_main_wrapper, stop, test_stop, test_run_dir, *args
+            )
 
     for future in as_completed(train_futures):
-        start, stop, channel = future.result()
-
         # get the path to the omicron triggers from *training* set
         # only use the first segment for training (should only be one)
+        channel = future.result()
         trigger_dir = train_run_dir / "merge" / channel
         trigger_file = sorted(list(trigger_dir.glob("*.h5")))[0]
 
-        # launch generate glitches jobs and store
+        # generate glitches
         glitches[ifo], snrs[ifo] = generate_glitch_dataset(
-            snr_thresh, start, stop, window, sample_rate, channel, trigger_file
+            snr_thresh,
+            start,
+            stop,
+            window,
+            sample_rate,
+            channel,
+            trigger_file,
+            chunk_size,
         )
 
     # store glitches from training set

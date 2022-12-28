@@ -67,6 +67,7 @@ force_generation = "${base.force_generation}"
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 sample_rate = "${base.sample_rate}"
+analyze_testing_set = true
 verbose = true
 
 [tool.typeo.scripts.generate-waveforms]
