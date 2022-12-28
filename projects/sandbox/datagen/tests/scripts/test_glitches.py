@@ -73,7 +73,6 @@ def test_generate_glitch_dataset(
             window,
             sample_rate,
             channel,
-            frame_type,
             trigger_files,
         )
 
