@@ -4,7 +4,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 from datagen.scripts.glitches import generate_glitch_dataset
-from gwpy.timeseries import TimeSeries
+from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
 
 @pytest.fixture(params=[2, 4])
@@ -60,8 +60,9 @@ def test_generate_glitch_dataset(
     # create mock gwpy timeseries, gwdatafind
     times = np.arange(start, stop, 1 / sample_rate)
     n_samples = len(times)
-    ts = TimeSeries(np.ones(n_samples), times=times)
-    mock_ts = patch("gwpy.timeseries.TimeSeries.get", return_value=ts)
+    ts = TimeSeriesDict()
+    ts[f"{ifo}:{channel}"] = TimeSeries(np.ones(n_samples), times=times)
+    mock_ts = patch("gwpy.timeseries.TimeSeriesDict.get", return_value=ts)
 
     with mock_ts:
         glitches, snrs = generate_glitch_dataset(
