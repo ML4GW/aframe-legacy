@@ -4,7 +4,7 @@ Script that generates a dataset of glitches from omicron triggers.
 
 import configparser
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterable, List
 
@@ -40,8 +40,7 @@ def generate_glitch_dataset(
         sample_rate: sampling arequency
         channel: channel name used to read data
         frame_type: frame type for data discovery w/ gwdatafind
-        trig_file: txt file output from omicron triggers
-            (first column is gps times, 3rd column is snrs)
+        trigger_files: List of h5 files of omicron triggers
     """
     logging.info(f"Generating glitch dataset for {ifo}")
 
@@ -79,9 +78,9 @@ def generate_glitch_dataset(
         data_generator = next(generator_list)
 
         for data in data_generator:
+            # restrict to triggers within current data chunk
             data = data[channel]
             times = data.times.value
-            # restrict to triggers within current data chunk
             mask = (triggers["time"] > times[0]) & (
                 triggers["time"] < times[-1]
             )
@@ -285,8 +284,8 @@ def main(
 
         # launch pyomicron futures for training set and testing sets.
         # as train futures complete, launch glitch generation processes.
-        # let test set jobs run in background and glitch data is queried
-        pool = ProcessPoolExecutor(4)
+        # let test set jobs run in background as glitch data is queried
+        pool = ThreadPoolExecutor(4)
         args = [
             q_min,
             q_max,
@@ -319,13 +318,10 @@ def main(
             )
 
     for future in as_completed(train_futures):
-        # get the path to the omicron triggers from *training* set
-        # only use the first segment for training (should only be one)
         ifo = future.result()
         trigger_dir = train_run_dir / ifo / "merge" / f"{ifo}:{channel}"
         trigger_files = sorted(list(trigger_dir.glob("*.h5")))
 
-        # generate glitches
         glitches[ifo], snrs[ifo] = generate_glitch_dataset(
             ifo,
             snr_thresh,
