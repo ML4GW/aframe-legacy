@@ -22,25 +22,28 @@ def generate_glitch_dataset(
     snr_thresh: float,
     start: float,
     stop: float,
-    window: float,
+    half_window: float,
     sample_rate: float,
     channel: str,
     trigger_files: Iterable[Path],
     chunk_size: float = 4096,
 ):
-    """
-    Generates a list of omicron trigger times that satisfy snr threshold
+    """Query strain data for a set of trigger files produced by omicron.
+
+    For each trigger above `snr_thresh` and between `start` and `stop`,
+    query `half_window` length of strain data from `channel`
+    on either side of the trigger. Resample to `sample_rate`.
+
 
     Args:
-        ifo: ifo to generate glitch triggers for
-        snr_thresh: snr threshold above which to keep as glitch
-        start: start gpstime
-        stop: stop gpstime
-        window: half window around trigger time to query data for
-        sample_rate: sampling arequency
-        channel: channel name used to read data
-        frame_type: frame type for data discovery w/ gwdatafind
-        trigger_files: List of h5 files of omicron triggers
+        ifo: Interferometry from which to query data
+        snr_thresh: Lower snr threshold to place on triggers
+        start: Start gpstime
+        stop: Stop gpstime
+        half_window: Half window around trigger time to query data for
+        sample_rate: Sampling frequency
+        channel: Channel name of strain data
+        trigger_files: List of h5 files containing triggers produced by omicron
     """
     logging.info(f"Generating glitch dataset for {ifo}")
 
@@ -59,8 +62,8 @@ def generate_glitch_dataset(
             triggers = triggers[mask]
 
         # re-set 'start' and 'stop' so we aren't querying unnecessary data
-        file_start = np.min(triggers["time"]) - 2 * window
-        file_stop = np.max(triggers["time"]) + 2 * window
+        file_start = np.min(triggers["time"]) - 2 * half_window
+        file_stop = np.max(triggers["time"]) + 2 * half_window
 
         logging.debug(
             f"Querying {file_stop - file_start} seconds of data "
@@ -89,7 +92,9 @@ def generate_glitch_dataset(
             for trigger in chunk_triggers:
                 time = trigger["time"]
                 try:
-                    glitch_ts = data.crop(time - window, time + window)
+                    glitch_ts = data.crop(
+                        time - half_window, time + half_window
+                    )
                 except ValueError:
                     logging.warning(
                         f"Data not available for trigger at time: {time}"
@@ -128,8 +133,9 @@ def omicron_main_wrapper(
     verbose: bool,
 ):
 
-    """Parses args into a format compatible for Pyomicron,
-    then launches omicron dag
+    """Parses arguments into a format compatible with pyomicrons
+    `omicron-process` command, and runs the command. This will
+    generate and launch a DAG of omicron jobs to be run via condor.
     """
 
     # pyomicron expects some arguments passed via
@@ -217,35 +223,60 @@ def main(
     verbose: bool = False,
 ):
 
-    """Generates a set of glitches for both
-        H1 and L1 that can be added to background
+    """Generate a dataset of glitches identified via omicron
 
-        First, an omicron job is launched via pyomicron
-        (https://github.com/gwpy/pyomicron/). Next, triggers (i.e. glitches)
-        above a given SNR threshold are selected, and data is queried
-        for these triggers and saved in an h5 file.
+    First, a condor DAG of omicron jobs is generated and launched via pyomicron
+    (https://github.com/gwpy/pyomicron/). Next, triggers (i.e. glitches) with
+    snrs above `snr_thresh ` are selected, strain data is queried, and data
+    is saved in an h5 file.
 
-    Arguments:
-        snr_thresh: snr threshold above which to keep as glitch
-        start: start gpstime
-        stop: training stop gpstime
-        test_stop: testing stop gpstime
-        q_min: minimum q value of tiles for omicron
-        q_max: maximum q value of tiles for omicron
-        f_min: lowest frequency for omicron to consider
-        cluster_dt: time window for omicron to cluster neighboring triggers
-        chunk_duration: duration of data (seconds) for PSD estimation
-        segment_duration: duration of data (seconds) for FFT
-        overlap: overlap (seconds) between neighbouring segments and chunks
-        mismatch_max: maximum distance between (Q, f) tiles
-        window: half window around trigger time to query data for
-        sample_rate: sampling frequency
-        outdir: output directory to which signals will be written
-        channel: channel name used to read data
-        frame_type: frame type for data discovery w/ gwdatafind
-        sample_rate: sampling frequency of timeseries data
-        state_flag: identifier for which segments to use
-        ifos: which ifos to generate glitches for
+    Args:
+        snr_thresh:
+            Lower snr threshold to place on triggers
+        start:
+            Start gpstime of analysis for training set
+        stop:
+            Stop gpstime of analysis for training set
+            (Also, start gpstime of analysis for testing set)
+        test_stop:
+            Stop gpstime of analysis for testing set
+        q_min:
+            Minimum q value of tiles for omicron
+        q_max:
+            Maximum q value of tiles for omicron
+        f_min:
+            Lowest frequency for omicron to consider
+        cluster_dt:
+            Time window for omicron to cluster neighboring triggers
+        chunk_duration:
+            Duration of data (seconds) for PSD estimation
+        segment_duration:
+            Duration of data (seconds) for FFT
+        overlap:
+            Overlap (seconds) between neighbouring segments and chunks
+        mismatch_max:
+            Maximum distance between (Q, f) tiles
+        half_window:
+            Half window around trigger time to query data
+        sample_rate:
+            Sampling frequency of strain data
+        outdir:
+            Output directory where glitch datasets will be written
+        channel:
+            Channel name used to find strain data
+        frame_type:
+            Frame type for data discovery
+        state_flag:
+            Identifier for segments to use
+        ifos:
+            Interferometers to generate glitches for
+        chunk_size:
+            Size of strain data chunks that are read in at a time.
+            Useful for avoiding memory issues.
+        analyze_testing_set: Run glitch generation analysis over testing set
+        force_generation:
+            Force generation of glitches even if file already exists
+        verbose: Whether to print verbose output
     """
 
     logdir.mkdir(exist_ok=True, parents=True)
