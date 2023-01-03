@@ -50,28 +50,39 @@ minimum_length = 8000
 force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 5
-window = 2
-start = "${base.glitch_start}"
-stop = "${base.train_stop}"
-test_stop = "${base.test_stop}"
-channel = "${base.channel}"
-frame_type = "${base.frame_type}"
-state_flag = "${base.state_flag}"
+
+# omicron parameters
 f_min = "${base.highpass}"
+f_max = 1024
 q_min = 3.3166
 q_max = 108
+snr_thresh = 5
+overlap = 4 
+mismatch_max = 0.2
 cluster_dt = 0.5
 chunk_duration = 124
 segment_duration = 64 
-overlap = 4 
-mismatch_max = 0.2
-force_generation = "${base.force_generation}"
+
+# strain data parameters
+window = 2
+sample_rate = "${base.sample_rate}"
+
+# train / test split parameters
+start = "${base.glitch_start}"
+stop = "${base.train_stop}"
+test_stop = "${base.test_stop}"
+analyze_testing_set = false
+
+# data discovery parameters
+channel = "${base.channel}"
+frame_type = "${base.frame_type}"
+state_flag = "${base.state_flag}"
 ifos = "${base.ifos}"
+
+# input / output parameters
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
-sample_rate = "${base.sample_rate}"
-analyze_testing_set = false
+force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-waveforms]
 minimum_frequency = "${base.minimum_frequency}" 
