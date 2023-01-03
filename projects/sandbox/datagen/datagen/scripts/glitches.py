@@ -204,6 +204,7 @@ def main(
     q_min: float,
     q_max: float,
     f_min: float,
+    f_max: float,
     cluster_dt: float,
     chunk_duration: int,
     segment_duration: int,
@@ -246,6 +247,8 @@ def main(
             Maximum q value of tiles for omicron
         f_min:
             Lowest frequency for omicron to consider
+        f_max:
+            Highest frequency for omicron to consider
         cluster_dt:
             Time window for omicron to cluster neighboring triggers
         chunk_duration:
@@ -295,9 +298,6 @@ def main(
             "Not generating glitches"
         )
         return
-
-    # nyquist
-    f_max = sample_rate / 2
 
     glitches = {}
     snrs = {}
