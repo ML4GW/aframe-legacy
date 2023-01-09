@@ -63,7 +63,7 @@ def calculate_astrophysical_volume(
 
 
 @dataclass
-class VolumeTimeCalculator:
+class VolumeTimeIntegral:
     """
     Class for calculating VT metrics using importance sampling.
 
