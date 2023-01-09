@@ -1,13 +1,13 @@
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-import bilby
 from astropy import cosmology
 from astropy import units as u
 
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
+    import bilby
 
 import numpy as np
 from scipy.integrate import quad
@@ -63,7 +63,7 @@ def calculate_astrophysical_volume(
 
 
 @dataclass
-class ImportanceSampler:
+class VolumeTimeCalculator:
     """
     Class for calculating VT metrics using importance sampling.
 
@@ -87,10 +87,16 @@ class ImportanceSampler:
     livetime: float
     cosmology: "Cosmology"
 
-    def weights(self, target: "bilby.core.prior.PriorDict"):
+    def weights(self, target: Optional["bilby.core.prior.PriorDict"] = None):
         """
         Calculate the weights for the samples.
         """
+
+        # if no target distribution is passed,
+        # use the source distribution
+        if target is None:
+            target = self.source
+
         weights = target.prob(self.recovered_parameters) / self.source.prob(
             self.recovered_parameters
         )
@@ -111,11 +117,16 @@ class ImportanceSampler:
 
     def calculate_vt(
         self,
-        target: "bilby.core.prior.PriorDict",
+        target: Optional["bilby.core.prior.PriorDict"] = None,
     ):
         """
-        Calculates the VT and its uncertainty
-        using the target distribution for importance sampling
+        Calculates the VT and its uncertainty.
+
+        Args:
+            target:
+                Bilby PriorDict of the target distribution
+                used for importance sampling. If None, the source
+                distribution is used.
         """
         weights = self.weights(target)
         volume = self.volume(cosmology)
