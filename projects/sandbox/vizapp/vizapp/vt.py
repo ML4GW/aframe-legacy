@@ -87,6 +87,17 @@ class VolumeTimeCalculator:
     livetime: float
     cosmology: "Cosmology"
 
+    def __post_init__(self):
+        # calculate the astrophysical volume over
+        # which injections have been made.
+        self.volume = calculate_astrophysical_volume(
+            dl_min=self.source["luminosity_distance"].minimum,
+            dl_max=self.source["luminosity_distance"].maximum,
+            dec_min=self.source["dec"].minimum,
+            dec_max=self.source["dec"].maximum,
+            cosmology=cosmology,
+        )
+
     def weights(self, target: Optional["bilby.core.prior.PriorDict"] = None):
         """
         Calculate the weights for the samples.
@@ -102,19 +113,6 @@ class VolumeTimeCalculator:
         )
         return weights
 
-    def volume(self, cosmology: "Cosmology"):
-        """
-        Calculate the astrophysical volume over
-        which injections have been made.
-        """
-        return calculate_astrophysical_volume(
-            dl_min=self.source["luminosity_distance"].minimum,
-            dl_max=self.source["luminosity_distance"].maximum,
-            dec_min=self.source["dec"].minimum,
-            dec_max=self.source["dec"].maximum,
-            cosmology=cosmology,
-        )
-
     def calculate_vt(
         self,
         target: Optional["bilby.core.prior.PriorDict"] = None,
@@ -128,10 +126,7 @@ class VolumeTimeCalculator:
                 used for importance sampling. If None, the source
                 distribution is used.
         """
-        weights = self.weights(target)
-        volume = self.volume(cosmology)
-        weights *= volume * self.livetime
-
+        weights = self.weights(target) ** self.volume * self.livetime
         vt = np.sum(weights) / self.n_injections
         uncertainty = (np.sum(weights**2) / self.n_injections) - (
             vt**2 / self.n_injections
