@@ -1,11 +1,12 @@
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-from astropy import cosmology
+from astropy import cosmology as cosmo
 from astropy import units as u
 
 if TYPE_CHECKING:
+    from astropy.quantity import Quantity
     from astropy.cosmology import Cosmology
     import bilby
 
@@ -13,15 +14,16 @@ import numpy as np
 from scipy.integrate import quad
 
 PI_OVER_TWO = math.pi / 2
+YEARS_PER_SECOND = 1 / (60 * 60 * 24 * 365)
 
 
 def calculate_astrophysical_volume(
-    cosmology: "Cosmology",
     dl_min: float,
     dl_max: float,
     dec_min: float = -PI_OVER_TWO,
     dec_max: float = PI_OVER_TWO,
-):
+    cosmology: "Cosmology" = cosmo.Planck15,
+) -> "Quantity":
     """
     Calculates the astrophysical volume over which injections have been made.
     See equation 4) in https://arxiv.org/pdf/1712.00482.pdf
@@ -33,21 +35,21 @@ def calculate_astrophysical_volume(
         dec_max: maximum declination of injections in radians
         cosmology: astropy cosmology object
 
-    Returns volume in Mpc^3
+    Returns astropy.Quantity of volume in Mpc^3
     """
 
     # given passed cosmology, calculate the comoving distance
     # at the minimum and maximum distance of injections
-    zmin, zmax = cosmology.z_at_value(
-        cosmology.comoving_distance, [dl_min, dl_max]
+    zmin, zmax = cosmo.z_at_value(
+        cosmology.luminosity_distance, [dl_min, dl_max] * u.Mpc
     )
 
     # calculate the angular volume of the sky
     # over which injections have been made
-    dec_min, dec_max = -np.pi / 2 * u.rad, np.pi / 2 * u.rad
+    dec_min, dec_max = dec_min * u.rad, dec_max * u.rad
     theta_max, theta_min = (
-        np.pi / 2 - dec_min.to("rad").value,
-        np.pi / 2 - dec_max.to("rad").value,
+        np.pi / 2 - dec_min.value,
+        np.pi / 2 - dec_max.value,
     )
     omega = -2 * math.pi * (np.cos(theta_max) - np.cos(theta_min))
 
@@ -72,7 +74,7 @@ class VolumeTimeIntegral:
             Bilby PriorDict of the source distribution
             used to create injections
         recovered_parameters:
-            Array of recovered injections
+            Dictionary of recovered parameters
         n_injections:
             Number of total injections
         livetime:
@@ -82,20 +84,39 @@ class VolumeTimeIntegral:
     """
 
     source: "bilby.core.prior.PriorDict"
-    recovered_parameters: np.ndarray
+    recovered_parameters: Dict[str, np.ndarray]
     n_injections: int
     livetime: float
-    cosmology: "Cosmology"
+    cosmology: "Cosmology" = cosmo.Planck15
 
     def __post_init__(self):
+        # convert recovered parameters to a list of dictionaries
+        self.recovered_parameters = [
+            dict(zip(self.recovered_parameters, col))
+            for col in zip(*self.recovered_parameters.values())
+        ]
+
+        dl_prior = self.source["luminosity_distance"]
+        dl_min, dl_max = [dl_prior.minimum, dl_prior.maximum]
+
+        # if the source distribution has a dec prior,
+        # use it to calculate the area on the sky
+        # over which injections have been made
+        # otherwise, calculate_astrophysical_volume assumes the full sky
+        if "dec" in self.source:
+            dec_prior = self.source["dec"]
+            dec_min, dec_max = dec_prior.minimum, dec_prior.maximum
+        else:
+            dec_min = dec_max = None
+
         # calculate the astrophysical volume over
         # which injections have been made.
         self.volume = calculate_astrophysical_volume(
-            dl_min=self.source["luminosity_distance"].minimum,
-            dl_max=self.source["luminosity_distance"].maximum,
-            dec_min=self.source["dec"].minimum,
-            dec_max=self.source["dec"].maximum,
-            cosmology=cosmology,
+            dl_min=dl_min,
+            dl_max=dl_max,
+            dec_min=dec_min,
+            dec_max=dec_max,
+            cosmology=self.cosmology,
         )
 
     def weights(self, target: Optional["bilby.core.prior.PriorDict"] = None):
@@ -108,17 +129,22 @@ class VolumeTimeIntegral:
         if target is None:
             target = self.source
 
-        weights = target.prob(self.recovered_parameters) / self.source.prob(
-            self.recovered_parameters
-        )
-        return weights
+        weights = []
+        for sample in self.recovered_parameters:
+            # calculate the weight for each sample
+            # using the source and target distributions
+            weight = target.prob(sample) / self.source.prob(sample)
+            weights.append(weight)
+
+        return np.array(weights)
 
     def calculate_vt(
         self,
         target: Optional["bilby.core.prior.PriorDict"] = None,
     ):
         """
-        Calculates the VT and its uncertainty.
+        Calculates the VT and its uncertainty. See equations
+        8 and 9 in https://arxiv.org/pdf/1904.10879.pdf
 
         Args:
             target:
@@ -126,9 +152,12 @@ class VolumeTimeIntegral:
                 used for importance sampling. If None, the source
                 distribution is used.
         """
-        weights = self.weights(target) ** self.volume * self.livetime
-        vt = np.sum(weights) / self.n_injections
-        uncertainty = (np.sum(weights**2) / self.n_injections) - (
-            vt**2 / self.n_injections
+        weights = self.weights(target)
+        mu = np.sum(weights) / self.n_injections
+        v0 = self.livetime * YEARS_PER_SECOND * self.volume
+        vt = mu * v0
+        uncertainty = v0**2 * (
+            (np.sum(weights**2) / self.n_injections**2)
+            - (mu**2 / self.n_injections)
         )
-        return vt, uncertainty
+        return vt.value, np.sqrt(uncertainty.value)
