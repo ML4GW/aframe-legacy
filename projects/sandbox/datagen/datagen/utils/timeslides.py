@@ -7,7 +7,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 import gwdatafind
 import numpy as np
-from datagen.utils.injection import generate_gw, sample_params
+from datagen.utils.injection import generate_gw
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
 from bbhnet.io import h5
@@ -21,31 +21,29 @@ class Sampler:
         prior: Callable,
         start: float,
         stop: float,
-        buffer: float,
+        waveform_duration: float,
         max_shift: float,
-        spacing: float,
         jitter: float,
-        parameter_file: Optional[Path] = None,
+        buffer: float = 0,
+        spacing: float = 0,
     ) -> None:
         self.prior = prior
-        self.parameter_file = parameter_file
+        self.jitter = jitter
+        buffer = waveform_duration // 2 + jitter + buffer
+        spacing = waveform_duration + 2 * jitter + spacing
         self.signal_times = np.arange(
             start + buffer, stop - buffer - max_shift, spacing
         )
-        self.jitter = jitter
 
     @property
     def num_signals(self):
         return len(self.signal_times)
 
-    def __call__(self, waveform_duration: float):
-        jit = np.random.uniform(
-            -self.jitter, self.jitter, size=self.num_signals
-        )
-        times = self.signal_times + jit + waveform_duration / 2
-        params = sample_params(
-            self.num_signals, self.prior, self.parameter_file
-        )
+    def __call__(self):
+        jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
+        times = self.signal_times + jitter
+
+        params = self.prior.sample(self.num_signals)
         params["geocent_time"] = times
         return params
 
@@ -70,7 +68,7 @@ class WaveformGenerator:
 
 
 def _generate_waveforms(sampler, generator):
-    params = sampler(generator.waveform_duration)
+    params = sampler()
     waveforms = generator(params)
     return waveforms, params
 

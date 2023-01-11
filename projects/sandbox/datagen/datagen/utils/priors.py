@@ -1,12 +1,9 @@
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Sequence
 
 import h5py
 import numpy as np
 from bilby.core.prior import (
-    ConditionalPowerLaw,
-    ConditionalPriorDict,
     Constraint,
     Cosine,
     Interped,
@@ -14,123 +11,105 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
+from bilby.gw.prior import (
+    BBHPriorDict,
+    UniformComovingVolume,
+    UniformSourceFrame,
+)
+
+# Unit names
+msun = r"$M_{\odot}$"
+mpc = "Mpc"
+rad = "rad"
 
 
-# generic parent class for implementing priors
-# Use frozen dataclass since this will make it
-# pickleable and therefore usable with multiprocessing
-@dataclass(frozen=True)
-class Prior:
-    # Conditional to allow for possibility of conditional priors
-    prior: ConditionalPriorDict
-    parameter_file: Path = None
+def pdf_from_events(
+    param_values: Sequence[float],
+    grid_size: int = 100,
+    spacing: str = "lin",
+):
+    param_min = np.min(param_values)
+    param_max = np.max(param_values)
+    if spacing == "lin":
+        bins = np.linspace(param_min, param_max, grid_size + 1)
+        grid = (bins[:-1] + bins[1:]) / 2
+    elif spacing == "log":
+        min_exp = np.log10(param_min)
+        max_exp = np.log10(param_max)
+        bins = np.logspace(min_exp, max_exp, grid_size + 1)
+        grid = np.sqrt(bins[:-1] * bins[1:])
+    else:
+        raise ValueError("Spacing must be either 'lin' or 'log'")
 
-    @staticmethod
-    def build() -> ConditionalPriorDict:
-        raise NotImplementedError
+    pdf, _ = np.histogram(param_values, bins, density=True)
 
-    @classmethod
-    def create(cls):
-        prior = cls.build()
-        return cls(prior)
-
-    def read_priors_from_file(self):
-        with h5py.File(self.parameter_file, "r") as f:
-            for key in list(f.keys()):
-                param_grid = f[key]["param_grid"][:]
-                p_vals = f[key]["p_vals"][:]
-                self.prior[key] = Interped(param_grid, p_vals, name=key)
-
-    def sample(self, N: int) -> Dict[str, Sequence[float]]:
-        return self.prior.sample(N)
+    return grid, pdf
 
 
-class UniformExtrinsicParametersPrior(Prior):
-    @staticmethod
-    def build():
-        prior = ConditionalPriorDict()
-        prior["dec"] = Cosine(name="dec")
-        prior["ra"] = Uniform(
-            name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
-        )
-        prior["theta_jn"] = 0
-        prior["phase"] = 0
+def read_priors_from_file(event_file: Path, *parameters: str) -> BBHPriorDict:
+    prior = BBHPriorDict()
+    with h5py.File(event_file, "r") as f:
+        events = f["events"]
+        events = events[(events["mass_1"] > 5) & (events["mass_2"] > 5)]
+        field_names = parameters or events.dtype.names
+        for name in field_names:
+            # We'll specify mass_2 via mass_ratio at sampling time
+            if name == "mass_2":
+                continue
+            grid, pdf = pdf_from_events(events[name])
+            prior[name] = Interped(grid, pdf, np.min(grid), np.max(grid))
 
-        return prior
-
-
-class NonSpinBBHPrior(UniformExtrinsicParametersPrior):
-    @staticmethod
-    def build():
-        prior = UniformExtrinsicParametersPrior.build()
-        prior["mass_1"] = Uniform(
-            name="mass_1", minimum=5, maximum=100, unit=r"$M_{\odot}$"
-        )
-        prior["mass_2"] = Uniform(
-            name="mass_2", minimum=5, maximum=100, unit=r"$M_{\odot}$"
-        )
-        prior["mass_ratio"] = Constraint(
-            name="mass_ratio", minimum=0.2, maximum=5.0
-        )
-        prior["luminosity_distance"] = UniformSourceFrame(
-            name="luminosity_distance", minimum=100, maximum=3000, unit="Mpc"
-        )
-        prior["psi"] = 0
-        prior["a_1"] = 0
-        prior["a_2"] = 0
-        prior["tilt_1"] = 0
-        prior["tilt_2"] = 0
-        prior["phi_12"] = 0
-        prior["phi_jl"] = 0
-
-        return prior
+    return prior
 
 
-class EndO3RatesAndPopsPrior(UniformExtrinsicParametersPrior):
-    @staticmethod
-    def condition_func(reference_params, mass_1):
-        return dict(
-            alpha=reference_params["alpha"],
-            minimum=reference_params["minimum"],
-            maximum=mass_1,
-        )
+def uniform_extrinsic():
+    prior = BBHPriorDict()
+    prior["dec"] = Cosine()
+    prior["ra"] = Uniform(0, 2 * np.pi)
+    prior["theta_jn"] = 0
+    prior["phase"] = 0
 
-    @staticmethod
-    def build():
-        prior = UniformExtrinsicParametersPrior.build()
-        prior["mass_1"] = PowerLaw(
-            name="mass_1",
-            alpha=-2.35,
-            minimum=2,
-            maximum=100,
-            unit=r"$M_{\odot}",
-        )
-        prior["mass_2"] = ConditionalPowerLaw(
-            name="mass_2",
-            condition_func=EndO3RatesAndPopsPrior.condition_func,
-            alpha=1,
-            minimum=2,
-            maximum=100,
-            unit=r"$M_{\odot}",
-        )
-        prior["luminosity_distance"] = UniformComovingVolume(
-            name="luminosity_distance", minimum=100, maximum=15000, unit="Mpc"
-        )
-        prior["psi"] = 0
-        prior["a_1"] = Uniform(name="a_1", minimum=0, maximum=0.998)
-        prior["a_2"] = Uniform(name="a_2", minimum=0, maximum=0.998)
-        prior["tilt_1"] = Sine(name="tilt_1", unit="rad")
-        prior["tilt_2"] = Sine(name="tilt_2", unit="rad")
-        prior["phi_12"] = Uniform(
-            name="phi_12", minimum=0, maximum=2 * np.pi, boundary="periodic"
-        )
-        prior["phi_jl"] = 0
-
-        return prior
+    return prior
 
 
-extrinsic_params = UniformExtrinsicParametersPrior.create()
-nonspin_bbh = NonSpinBBHPrior.create()
-end_o3_ratesandpops = EndO3RatesAndPopsPrior.create()
-power_law_break_dip = extrinsic_params.read_priors_from_file("param_file.h5")
+def nonspin_bbh():
+    prior = uniform_extrinsic()
+    prior["mass_1"] = Uniform(5, 100, unit=msun)
+    prior["mass_2"] = Uniform(5, 100, unit=msun)
+    prior["mass_ratio"] = Constraint(0.2, 5)
+    prior["luminosity_distance"] = UniformSourceFrame(100, 3000, unit=mpc)
+    prior["psi"] = 0
+    prior["a_1"] = 0
+    prior["a_2"] = 0
+    prior["tilt_1"] = 0
+    prior["tilt_2"] = 0
+    prior["phi_12"] = 0
+    prior["phi_jl"] = 0
+
+    return prior
+
+
+def end_o3_ratesandpops():
+    prior = uniform_extrinsic()
+    prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=2, maximum=100, unit=msun)
+    prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
+    prior["mass_ratio"] = Constraint(0.02, 1)
+    prior["luminosity_distance"] = UniformComovingVolume(100, 15000, unit=mpc)
+    prior["psi"] = 0
+    prior["a_1"] = Uniform(0, 0.998)
+    prior["a_2"] = Uniform(0, 0.998)
+    prior["tilt_1"] = Sine(unit=rad)
+    prior["tilt_2"] = Sine(unit=rad)
+    prior["phi_12"] = Uniform(0, 2 * np.pi)
+    prior["phi_jl"] = 0
+
+    return prior
+
+
+def power_law_dip_break_ind():
+    prior = uniform_extrinsic()
+    event_file = "/home/william.benoit/\
+        O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_all.h5"
+    prior |= read_priors_from_file(event_file)
+
+    return prior
