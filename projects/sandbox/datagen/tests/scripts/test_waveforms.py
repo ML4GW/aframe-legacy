@@ -4,11 +4,7 @@ import h5py
 import numpy as np
 import pytest
 from datagen.scripts import generate_waveforms
-from datagen.utils.priors import (
-    end_o3_ratesandpops,
-    extrinsic_params,
-    nonspin_bbh,
-)
+from datagen.utils.priors import end_o3_ratesandpops, nonspin_bbh
 
 
 @pytest.fixture(params=[0, 10, 100])
@@ -36,7 +32,7 @@ def sample_rate(request):
     return request.param
 
 
-@pytest.fixture(params=[extrinsic_params, nonspin_bbh, end_o3_ratesandpops])
+@pytest.fixture(params=[nonspin_bbh, end_o3_ratesandpops])
 def prior(request):
     return request.param
 
