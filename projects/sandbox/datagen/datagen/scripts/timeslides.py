@@ -69,7 +69,7 @@ def main(
         start: starting GPS time of time period to analyze
         stop: ending GPS time of time period to analyze
         outdir: base directory where all timeslide directories will be created
-        prior: a prior function defined in prior.py script in the injection lib
+        prior: a prior function defined in prior.py script in datagen/utils
         spacing: spacing between consecutive injections
         n_slides: number of timeslides
         shifts:

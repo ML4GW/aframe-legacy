@@ -4,7 +4,7 @@ from typing import Callable, Optional
 
 import h5py
 import numpy as np
-from datagen.utils.injection import generate_gw, sample_params
+from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
 from bbhnet.logging import configure_logging
@@ -61,12 +61,12 @@ def main(
     logging.info("Simulation parameters")
     logging.info("Number of samples     : {}".format(num_signals))
     logging.info("Sample rate [Hz]      : {}".format(sample_rate))
-    logging.info("Prior name            : {}".format(prior.__class__.__name__))
+    logging.info("Prior name            : {}".format(prior.__name__))
     if parameter_file is not None:
         logging.info("Parameter file        : {}".format(parameter_file))
 
     # sample gw parameters
-    params = sample_params(num_signals, prior, parameter_file)
+    params = prior().sample(num_signals)
 
     signals = generate_gw(
         params,
