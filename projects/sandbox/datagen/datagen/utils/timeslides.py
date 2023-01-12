@@ -27,7 +27,7 @@ class Sampler:
         buffer: float = 0,
         spacing: float = 0,
     ) -> None:
-        self.prior = prior
+        self.prior = prior()
         self.jitter = jitter
         buffer = waveform_duration // 2 + jitter + buffer
         spacing = waveform_duration + 2 * jitter + spacing
@@ -43,7 +43,7 @@ class Sampler:
         jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
         times = self.signal_times + jitter
 
-        params = self.prior().sample(self.num_signals)
+        params = self.prior.sample(self.num_signals)
         params["geocent_time"] = times
         return params
 
