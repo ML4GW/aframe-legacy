@@ -49,7 +49,6 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
-    parameter_file: Optional[Path] = None,
     min_segment_length: Optional[float] = None,
     chunk_length: Optional[float] = None,
     waveform_duration: float = 8,

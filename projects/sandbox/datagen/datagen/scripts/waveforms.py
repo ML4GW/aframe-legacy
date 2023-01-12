@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 import h5py
 import numpy as np
@@ -20,7 +20,6 @@ def main(
     minimum_frequency: float,
     sample_rate: float,
     waveform_duration: float,
-    parameter_file: Optional[Path] = None,
     waveform_approximant: str = "IMRPhenomPv2",
     force_generation: bool = False,
     verbose: bool = False,
@@ -62,8 +61,6 @@ def main(
     logging.info("Number of samples     : {}".format(num_signals))
     logging.info("Sample rate [Hz]      : {}".format(sample_rate))
     logging.info("Prior name            : {}".format(prior.__name__))
-    if parameter_file is not None:
-        logging.info("Parameter file        : {}".format(parameter_file))
 
     # sample gw parameters
     params = prior().sample(num_signals)

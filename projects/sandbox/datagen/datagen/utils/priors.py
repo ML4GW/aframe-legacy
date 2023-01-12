@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Tuple
 
 import h5py
 import numpy as np
@@ -27,7 +27,28 @@ def pdf_from_events(
     param_values: Sequence[float],
     grid_size: int = 100,
     spacing: str = "lin",
-):
+) -> Tuple[Sequence[float], Sequence[float]]:
+    """
+    Estimates the probability distribution of a parameter based on
+    a list of sampled values. Currently does this by just creating
+    a histogram of the values, but might consider doing a KDE in
+    the future
+
+    Args:
+        param_values:
+            A list of parameter values drawn from the distribution
+            to be estimated
+        grid_size:
+            The number of points at which to estimate the pdf
+        spacing:
+            The spacing type of the grid, either linear or log
+
+    Returns:
+        grid:
+            The values at which the pdf was estimated
+        pdf:
+            The estimated pdf
+    """
     param_min = np.min(param_values)
     param_max = np.max(param_values)
     if spacing == "lin":
@@ -47,26 +68,29 @@ def pdf_from_events(
 
 
 def read_priors_from_file(event_file: Path, *parameters: str) -> BBHPriorDict:
+    """
+    Reads in a file containing sets of GW parameters and
+    returns a set of interpolated priors
+    The expected structure is based off the event file from
+    here: https://dcc.ligo.org/T2100512
+
+    Args:
+        event_file: An hdf5 file containing event parameters
+        parameters: Optional, a list of parameters to read from the file
+
+    Returns:
+        prior: A BBHPriorDict with priors based on the event file
+    """
     prior = BBHPriorDict()
     with h5py.File(event_file, "r") as f:
         events = f["events"]
+        # Restrict ourselves to BBH events
         events = events[(events["mass_1"] > 5) & (events["mass_2"] > 5)]
         field_names = parameters or events.dtype.names
         for name in field_names:
-            # We'll specify mass_2 via mass_ratio at sampling time
-            if name == "mass_2":
-                continue
             grid, pdf = pdf_from_events(events[name])
             prior[name] = Interped(grid, pdf, np.min(grid), np.max(grid))
 
-    return prior
-
-
-def assign_prior_names(prior: BBHPriorDict) -> BBHPriorDict:
-    for key in prior.keys():
-        if hasattr(prior[key], "name"):
-            print("check")
-            prior[key].name = key
     return prior
 
 
@@ -76,7 +100,6 @@ def uniform_extrinsic():
     prior["ra"] = Uniform(0, 2 * np.pi)
     prior["theta_jn"] = 0
     prior["phase"] = 0
-    prior = assign_prior_names(prior)
 
     return prior
 
@@ -86,9 +109,7 @@ def nonspin_bbh():
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0.2, 5)
-    prior["luminosity_distance"] = UniformSourceFrame(
-        100, 3000, unit=mpc, name="luminosity_distance"
-    )
+    prior["redshift"] = UniformSourceFrame(0, 0.5, unit=mpc, name="redshift")
     prior["psi"] = 0
     prior["a_1"] = 0
     prior["a_2"] = 0
@@ -96,7 +117,6 @@ def nonspin_bbh():
     prior["tilt_2"] = 0
     prior["phi_12"] = 0
     prior["phi_jl"] = 0
-    prior = assign_prior_names(prior)
 
     return prior
 
@@ -106,9 +126,7 @@ def end_o3_ratesandpops():
     prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=2, maximum=100, unit=msun)
     prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
     prior["mass_ratio"] = Constraint(0.02, 1)
-    prior["luminosity_distance"] = UniformComovingVolume(
-        100, 15000, unit=mpc, name="luminosity_distance"
-    )
+    prior["redshift"] = UniformComovingVolume(0, 2, unit=mpc, name="redshift")
     prior["psi"] = 0
     prior["a_1"] = Uniform(0, 0.998)
     prior["a_2"] = Uniform(0, 0.998)
@@ -116,7 +134,6 @@ def end_o3_ratesandpops():
     prior["tilt_2"] = Sine(unit=rad)
     prior["phi_12"] = Uniform(0, 2 * np.pi)
     prior["phi_jl"] = 0
-    prior = assign_prior_names(prior)
 
     return prior
 
@@ -126,6 +143,5 @@ def power_law_dip_break():
     event_file = "/home/william.benoit/\
         O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_all.h5"
     prior |= read_priors_from_file(event_file)
-    prior = assign_prior_names(prior)
 
     return prior
