@@ -84,8 +84,6 @@ def read_priors_from_file(event_file: Path, *parameters: str) -> BBHPriorDict:
     prior = BBHPriorDict()
     with h5py.File(event_file, "r") as f:
         events = f["events"]
-        # Restrict ourselves to BBH events
-        events = events[(events["mass_1"] > 5) & (events["mass_2"] > 5)]
         field_names = parameters or events.dtype.names
         for name in field_names:
             grid, pdf = pdf_from_events(events[name])
@@ -140,8 +138,8 @@ def end_o3_ratesandpops():
 
 def power_law_dip_break():
     prior = uniform_extrinsic()
-    event_file = "/home/william.benoit/\
-        O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_all.h5"
+    event_file = "./event_files/\
+        O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_bbh.h5"
     prior |= read_priors_from_file(event_file)
 
     return prior
