@@ -2,7 +2,6 @@ import numpy as np
 from bilby.core.prior import (
     ConditionalPowerLaw,
     ConditionalPriorDict,
-    ConditionalTruncatedGaussian,
     Constraint,
     Cosine,
     Gaussian,
@@ -11,7 +10,11 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
+from bilby.gw.prior import (
+    BBHPriorDict,
+    UniformComovingVolume,
+    UniformSourceFrame,
+)
 
 """
 This is a duplicate of the priors.py in the datagen project.
@@ -100,38 +103,18 @@ def end_o3_ratesandpops():
 
 def gaussian_masses(m1: float, m2: float, sigma: float = 2):
     """
-    Constructs a gaussian distribution for masses. It is enforced
-    that mass_2 < mass_1 through the ConditionalLogNormal prior.
 
+    Constructs a gaussian distribution for masses.
     Args:
         m1: mean of the log normal distribution for mass 1
         m2: mean of the log normal distribution for mass 2
         sigma: standard deviation of the log normal distribution
 
-    Returns a ConditionalPriorDict
+    Returns a BBHpriorDict
     """
-
-    prior_dict = ConditionalPriorDict()
+    prior_dict = BBHPriorDict()
     prior_dict["mass_1"] = Gaussian(name="mass_1", mu=m1, sigma=sigma)
-
-    def condition_func(reference_params, mass_1):
-
-        return dict(
-            maximum=mass_1,
-            minimum=reference_params["minimum"],
-            mu=reference_params["mu"],
-            sigma=reference_params["sigma"],
-        )
-
-    prior_dict["mass_2"] = ConditionalTruncatedGaussian(
-        name="mass_2",
-        condition_func=condition_func,
-        minimum=5,
-        maximum=100,
-        mu=m2,
-        sigma=sigma,
-    )
-
+    prior_dict["mass_2"] = Gaussian(name="mass_2", mu=m1, sigma=sigma)
     prior_dict["luminosity_distance"] = UniformSourceFrame(
         name="luminosity_distance", minimum=100, maximum=3000, unit="Mpc"
     )

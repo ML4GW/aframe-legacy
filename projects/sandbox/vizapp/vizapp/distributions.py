@@ -82,8 +82,8 @@ def get_foreground(
             event_times = f["geocent_time"][:]
             h1_snrs = f["H1_snr"][:]
             l1_snrs = f["L1_snr"][:]
-            m1s = f["mass_1"][:]
-            m2s = f["mass_2"][:]
+            m1s = np.maximum(f["mass_1"][:], f["mass_2"][:])
+            m2s = np.minimum(f["mass_1"][:], f["mass_2"][:])
             distances = f["luminosity_distance"][:]
             ras = f["ra"][:]
             decs = f["dec"][:]

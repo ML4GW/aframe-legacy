@@ -8,7 +8,13 @@ if TYPE_CHECKING:
 import logging
 
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource, Spinner
+from bokeh.models import (
+    Button,
+    ColumnDataSource,
+    LinearAxis,
+    NumericInput,
+    Range1d,
+)
 from bokeh.plotting import figure
 from vizapp.priors import gaussian_masses
 
@@ -46,6 +52,14 @@ class VolumeTimeVsFAR:
             y_axis_label="<VT> Gpc^3 yr",
         )
 
+        self.figure.extra_y_ranges = {"n_eff": Range1d(1, 1000)}
+        axis = LinearAxis(
+            axis_label="Effective samples",
+            axis_label_text_color="blue",
+            y_range_name="n_eff",
+        )
+        self.figure.add_layout(axis, "right")
+
         self.figure.line(
             x="far",
             y="vt",
@@ -69,14 +83,21 @@ class VolumeTimeVsFAR:
         self.layout = row(self.widgets, self.figure)
 
     def configure_widgets(self):
-        self.m1_selector = Spinner(title="mass_1", value=30, low=5, high=60)
-        self.m2_selector = Spinner(
-            title="mass_2", value=29, low=5, high=self.m1_selector.value
+        self.m1_selector = NumericInput(
+            title="Enter mass_1", value=30, low=5, high=100
         )
-        self.m1_selector.on_change("value", self.calculate_vt)
-        self.m2_selector.on_change("value", self.calculate_vt)
+        self.m2_selector = NumericInput(
+            title="Enter mass_2 (must be below mass_1)",
+            value=30,
+            low=5,
+            high=100,
+        )
 
-        self.widgets = column(self.m1_selector, self.m2_selector)
+        self.calculate_button = Button(label="Calculate VT")
+        self.calculate_button.on_click(self.calculate_vt)
+        self.widgets = column(
+            self.m1_selector, self.m2_selector, self.calculate_button
+        )
 
     def configure_sources(self):
         self.source = ColumnDataSource(
@@ -88,16 +109,21 @@ class VolumeTimeVsFAR:
             )
         )
 
-    def calculate_vt(self, attr, old, new):
-
+    def calculate_vt(self, event):
         m1_mean = self.m1_selector.value
         m2_mean = self.m2_selector.value
+
+        if m1_mean < m2_mean:
+            self.logger.error("m1 must be greater than m2")
+            return
+
         self.logger.debug(f"Calculating VT for m1 = {m1_mean}, m2 = {m2_mean}")
         target = gaussian_masses(m1_mean, m2_mean, sigma=3)
 
         fars = []
         vts = []
         uncertainties = []
+        n_effs = []
         for far in self.fars:
             self.figure.title.text = (
                 f"VT vs FAR for m1 = {m1_mean}, m2 = {m2_mean}"
@@ -110,9 +136,6 @@ class VolumeTimeVsFAR:
             recovered_parameters = {
                 "mass_1": self.foreground.m1s[indices],
                 "mass_2": self.foreground.m2s[indices],
-                "luminosity_distance": self.foreground.distances[indices],
-                "ra": self.foreground.ras[indices],
-                "dec": self.foreground.decs[indices],
             }
 
             volume_time_integral = VolumeTimeIntegral(
@@ -122,7 +145,9 @@ class VolumeTimeVsFAR:
                 livetime=self.foreground.livetime,
             )
 
-            vt, uncertainty = volume_time_integral.calculate_vt(target=target)
+            vt, uncertainty, n_eff = volume_time_integral.calculate_vt(
+                target=target
+            )
 
             # convert vt into Gpc^3 yr
             vt *= MPC3_TO_GPC3
@@ -130,19 +155,25 @@ class VolumeTimeVsFAR:
             fars.append(far)
             vts.append(vt)
             uncertainties.append(uncertainty)
+            n_effs.append(n_eff)
 
         vts = np.array(vts)
         uncertainties = np.array(uncertainties)
+        n_eff = np.array(n_effs)
         self.logger.debug(uncertainties)
         self.source.data = {
             "far": fars,
             "vt": vts,
             "error_low": vts - uncertainties,
             "error_high": vts + uncertainties,
+            "n_eff": n_effs,
         }
+
+        self.figure.extra_y_ranges["n_eff"].start = 0.5 * n_eff.min()
+        self.figure.extra_y_ranges["n_eff"].end = 2 * n_eff.max()
 
     def update(self, foreground):
         self.foreground = foreground
         self.n_injections = len(foreground.injection_times)
         self.livetime = foreground.livetime
-        self.calculate_vt(None, None, None)
+        self.calculate_vt(None)

@@ -47,6 +47,7 @@ def main(
     )
 
     source_prior = source_prior()
+
     bkapp = VizApp(
         source_prior=source_prior,
         timeslides_results_dir=timeslides_results_dir,

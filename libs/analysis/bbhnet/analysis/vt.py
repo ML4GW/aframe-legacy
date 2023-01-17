@@ -56,9 +56,7 @@ def calculate_astrophysical_volume(
     # calculate the volume of the universe
     # over which injections have been made
     integrand = (
-        lambda z: 1.0
-        / (1 + z)
-        * (cosmology.differential_comoving_volume(z)).value
+        lambda z: 1.0 * (cosmology.differential_comoving_volume(z)).value
     )
     volume, _ = quad(integrand, zmin, zmax) * u.Mpc**3 * omega
     return volume
@@ -72,7 +70,7 @@ class VolumeTimeIntegral:
     Args:
         source:
             Bilby PriorDict of the source distribution
-            used to create injections
+            used to create the injections
         recovered_parameters:
             Dictionary of recovered parameters
         n_injections:
@@ -95,7 +93,6 @@ class VolumeTimeIntegral:
             dict(zip(self.recovered_parameters, col))
             for col in zip(*self.recovered_parameters.values())
         ]
-
         dl_prior = self.source["luminosity_distance"]
         dl_min, dl_max = [dl_prior.minimum, dl_prior.maximum]
 
@@ -151,13 +148,19 @@ class VolumeTimeIntegral:
                 Bilby PriorDict of the target distribution
                 used for importance sampling. If None, the source
                 distribution is used.
+
+        Returns tuple of (vt, std, n_eff)
         """
         weights = self.weights(target)
+
         mu = np.sum(weights) / self.n_injections
+
         v0 = self.livetime * YEARS_PER_SECOND * self.volume
         vt = mu * v0
-        uncertainty = v0**2 * (
+        variance = v0**2 * (
             (np.sum(weights**2) / self.n_injections**2)
             - (mu**2 / self.n_injections)
         )
-        return vt.value, np.sqrt(uncertainty.value)
+        std = np.sqrt(variance)
+        n_eff = vt**2 / variance
+        return vt.value, std.value, n_eff.value
