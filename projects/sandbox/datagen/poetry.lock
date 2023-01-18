@@ -86,6 +86,8 @@ develop = true
 [package.dependencies]
 astropy = "<5.0.0"
 bilby = "<1.2"
+numpy = ">=1.22.0,<1.22.4"
+scipy = "<1.10"
 
 [package.source]
 type = "directory"
