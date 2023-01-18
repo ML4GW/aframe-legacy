@@ -6,6 +6,7 @@ import bilby
 import pytest
 
 from bbhnet.analysis.vt import (
+    YEARS_PER_SECOND,
     VolumeTimeIntegral,
     calculate_astrophysical_volume,
 )
@@ -51,7 +52,7 @@ def test_volume_time_integral(prior):
     # should just return the livetime for the vt calculation
     vt.volume = 1 * u.Mpc**3
     volume_time, _, _ = vt.calculate_vt()
-    assert volume_time == 100
+    assert volume_time == (100 * YEARS_PER_SECOND)
 
     # TODO: add test for calculating vt with non-trivial target
 
