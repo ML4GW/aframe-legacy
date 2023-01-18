@@ -56,7 +56,9 @@ def calculate_astrophysical_volume(
     # calculate the volume of the universe
     # over which injections have been made
     integrand = (
-        lambda z: 1 / (1 + z) * (cosmology.differential_comoving_volume(z)).value
+        lambda z: 1
+        / (1 + z)
+        * (cosmology.differential_comoving_volume(z)).value
     )
     volume, _ = quad(integrand, zmin, zmax) * u.Mpc**3 * omega
     return volume
