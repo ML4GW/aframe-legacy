@@ -41,7 +41,9 @@ libs/trainer/:
   - 'libs/data/**'   
   - 'libs/architectures/**'
   - 'libs/logging/**'
-
+libs/prior:
+  - *workflow
+  - '/libs/prior/**'
 
 # projects
 projects/sandbox/export/:
