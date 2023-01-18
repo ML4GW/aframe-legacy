@@ -282,8 +282,8 @@ numpy = ">=1.13.3"
 
 [[package]]
 name = "numpy"
-version = "1.24.1"
-description = "Fundamental package for array computing in Python"
+version = "1.22.3"
+description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
 optional = false
 python-versions = ">=3.8"
@@ -522,7 +522,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "def1f37f5e1a391d236b1c99d2fc87f67ede014dff4ba4f777f4bee3b466f7a1"
+content-hash = "1360b601ddb4ec01a2b856c8c7b7fbf6bbb8e7cc5e335b7f309bbb92d5f667b8"
 
 [metadata.files]
 astropy = []
