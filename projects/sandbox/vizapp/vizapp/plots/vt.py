@@ -39,10 +39,7 @@ class VolumeTimeVsFAR:
         self.logger = logging.getLogger("VT vs FAR")
         self.logger.debug(self.fars)
 
-    def configure_plots(
-        self,
-    ):
-
+    def configure_plots(self):
         self.figure = figure(
             height=self.height,
             width=self.width,

@@ -152,15 +152,15 @@ class VolumeTimeIntegral:
         Returns tuple of (vt, std, n_eff)
         """
         weights = self.weights(target)
-
         mu = np.sum(weights) / self.n_injections
 
         v0 = self.livetime * YEARS_PER_SECOND * self.volume
         vt = mu * v0
-        variance = v0**2 * (
-            (np.sum(weights**2) / self.n_injections**2)
-            - (mu**2 / self.n_injections)
-        )
+
+        variance = np.sum(weights**2) / self.n_injections**2
+        variance -= mu**2 / self.n_injections
+        variance *= v0**2
+
         std = np.sqrt(variance)
         n_eff = vt**2 / variance
         return vt.value, std.value, n_eff.value
