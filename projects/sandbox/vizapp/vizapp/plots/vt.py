@@ -16,9 +16,9 @@ from bokeh.models import (
     Range1d,
 )
 from bokeh.plotting import figure
-from vizapp.priors import gaussian_masses
 
 from bbhnet.analysis.vt import VolumeTimeIntegral
+from bbhnet.priors.priors import gaussian_masses
 
 MPC3_TO_GPC3 = 1e-9
 
