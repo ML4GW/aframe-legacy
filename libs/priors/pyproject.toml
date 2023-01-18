@@ -9,6 +9,7 @@ packages = [{include = "bbhnet"}]
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 bilby = "^1.4.1"
+astropy = "^5.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
