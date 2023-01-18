@@ -1,23 +1,19 @@
 [[package]]
 name = "astropy"
-version = "5.2.1"
+version = "4.3.1"
 description = "Astronomy and astrophysics core library"
 category = "main"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.7"
 
 [package.dependencies]
-numpy = ">=1.20"
-packaging = ">=19.0"
-pyerfa = ">=2.0"
-PyYAML = ">=3.13"
+numpy = ">=1.17"
+pyerfa = ">=1.7.3"
 
 [package.extras]
-all = ["scipy (>=1.5)", "matplotlib (>=3.1,!=3.4.0,!=3.5.2)", "certifi", "dask", "h5py", "pyarrow (>=5.0.0)", "beautifulsoup4", "html5lib", "bleach", "pandas", "sortedcontainers", "pytz", "jplephem", "mpmath", "asdf (>=2.10.0)", "bottleneck", "ipython (>=4.2)", "pytest (>=7.0)", "typing-extensions (>=3.10.0.1)", "fsspec[http] (>=2022.8.2)", "s3fs (>=2022.8.2)"]
-docs = ["sphinx", "sphinx-astropy (>=1.6)", "pytest (>=7.0)", "scipy (>=1.3)", "matplotlib (>=3.1,!=3.4.0,!=3.5.2)", "towncrier (<22.12.0)", "sphinx-changelog (>=1.2.0)", "Jinja2 (>=3.0)"]
-recommended = ["scipy (>=1.5)", "matplotlib (>=3.1,!=3.4.0,!=3.5.2)"]
-test = ["pytest (>=7.0)", "pytest-doctestplus (>=0.12)", "pytest-astropy-header (>=0.2.1)", "pytest-astropy (>=0.10)", "pytest-xdist"]
-test_all = ["pytest (>=7.0)", "pytest-doctestplus (>=0.12)", "pytest-astropy-header (>=0.2.1)", "pytest-astropy (>=0.10)", "pytest-xdist", "objgraph", "ipython (>=4.2)", "coverage", "skyfield (>=1.20)", "sgp4 (>=2.3)"]
+all = ["scipy (>=1.1)", "certifi", "dask", "h5py", "beautifulsoup4", "html5lib", "bleach", "PyYAML (>=3.13)", "pandas", "sortedcontainers", "pytz", "jplephem", "matplotlib (>=3.0,!=3.4.0)", "mpmath", "asdf (>=2.6)", "bottleneck", "ipython (>=4.2)", "pytest"]
+docs = ["sphinx (<4)", "sphinx-astropy (>=1.3)", "pytest", "PyYAML (>=3.13)", "scipy (>=1.1)", "matplotlib (>=3.1,!=3.4.0)", "sphinx-changelog (>=1.1.0)", "packaging"]
+test = ["pytest-astropy (>=0.8)", "pytest-xdist", "objgraph", "ipython (>=4.2)", "coverage", "skyfield (>=1.20)", "sgp4 (>=2.3)", "packaging"]
 
 [[package]]
 name = "attrs"
@@ -37,41 +33,41 @@ tests_no_zope = ["hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist", "c
 
 [[package]]
 name = "bilby"
-version = "1.4.1"
+version = "1.1.5"
 description = "A user-friendly Bayesian inference library"
 category = "main"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.7"
 
 [package.dependencies]
+astropy = "*"
 attrs = "*"
-"bilby.cython" = ">=0.3.0"
 corner = "*"
 dill = "*"
-dynesty = ">=2"
+dynesty = "<1.1"
 emcee = "*"
 h5py = "*"
 matplotlib = ">=2.1"
+mock = "*"
 numpy = "*"
 pandas = "*"
 scipy = ">=1.5"
+tables = "*"
 tqdm = "*"
 
 [package.extras]
-all = ["cpnest (>=0.9.4)", "dynesty", "emcee", "nestle", "ptmcmcsampler (!=0.0.0,!=2.1.0)", "ptemcee", "pymc (>=4.0.0)", "pymultinest", "kombine", "ultranest (>=3.0.0)", "dnest4", "nessai (>=0.7.0)", "schwimmbad", "zeus-mcmc (>=2.3.0)", "astropy (>=5)", "lalsuite", "gwpy", "tables", "pyfftw", "scikit-learn", "nflows", "celerite", "george", "plotly"]
-gw = ["astropy (>=5)", "lalsuite", "gwpy", "tables", "pyfftw"]
-mcmc = ["scikit-learn", "nflows"]
+gw = ["astropy", "gwpy", "lalsuite"]
 
 [[package]]
-name = "bilby.cython"
-version = "0.4.0"
-description = "Optimized functionality for Bilby"
+name = "blosc2"
+version = "2.0.0"
+description = "Python wrapper for the C-Blosc2 library."
 category = "main"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.8, <4"
 
 [package.dependencies]
-numpy = "*"
+msgpack = "*"
 
 [[package]]
 name = "colorama"
@@ -125,6 +121,14 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "cython"
+version = "0.29.33"
+description = "The Cython compiler for writing C extensions for the Python language."
+category = "main"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+
+[[package]]
 name = "dill"
 version = "0.3.6"
 description = "serialize all of python"
@@ -137,11 +141,17 @@ graph = ["objgraph (>=1.7.2)"]
 
 [[package]]
 name = "dynesty"
-version = "2.0.3"
+version = "1.0.1"
 description = "A dynamic nested sampling package for computing Bayesian posteriors and evidences."
 category = "main"
 optional = false
 python-versions = "*"
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+scipy = "*"
+six = "*"
 
 [[package]]
 name = "emcee"
@@ -239,6 +249,38 @@ python-dateutil = ">=2.7"
 setuptools_scm = ">=7"
 
 [[package]]
+name = "mock"
+version = "5.0.1"
+description = "Rolling backport of unittest.mock for all Pythons"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+build = ["twine", "wheel", "blurb"]
+docs = ["sphinx"]
+test = ["pytest", "pytest-cov"]
+
+[[package]]
+name = "msgpack"
+version = "1.0.4"
+description = "MessagePack serializer"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "numexpr"
+version = "2.8.4"
+description = "Fast numerical expression evaluator for NumPy"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+numpy = ">=1.13.3"
+
+[[package]]
 name = "numpy"
 version = "1.24.1"
 description = "Fundamental package for array computing in Python"
@@ -296,6 +338,14 @@ python-versions = ">=3.6"
 [package.extras]
 dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
+
+[[package]]
+name = "py-cpuinfo"
+version = "9.0.0"
+description = "Get CPU info with pure Python"
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "pyerfa"
@@ -363,14 +413,6 @@ optional = false
 python-versions = "*"
 
 [[package]]
-name = "pyyaml"
-version = "6.0"
-description = "YAML parser and emitter for Python"
-category = "main"
-optional = false
-python-versions = ">=3.6"
-
-[[package]]
 name = "scipy"
 version = "1.10.0"
 description = "Fundamental algorithms for scientific computing in Python"
@@ -426,6 +468,25 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "tables"
+version = "3.8.0"
+description = "Hierarchical datasets for Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+blosc2 = ">=2.0.0,<2.1.0"
+cython = ">=0.29.21"
+numexpr = ">=2.6.2"
+numpy = ">=1.19.0"
+packaging = "*"
+py-cpuinfo = "*"
+
+[package.extras]
+doc = ["sphinx (>=1.1)", "sphinx-rtd-theme", "numpydoc", "ipython"]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -461,17 +522,18 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "61c0e5a8cee126e8bf3f77a6f365d740d6b236d547db2e2e1c8ed492f8e03064"
+content-hash = "05cfe80ed3e17d91e68f6e480a4c8704043ff9a2e0215be2fe5134c00edd7b08"
 
 [metadata.files]
 astropy = []
 attrs = []
 bilby = []
-"bilby.cython" = []
+blosc2 = []
 colorama = []
 contourpy = []
 corner = []
 cycler = []
+cython = []
 dill = []
 dynesty = []
 emcee = []
@@ -481,21 +543,25 @@ h5py = []
 iniconfig = []
 kiwisolver = []
 matplotlib = []
+mock = []
+msgpack = []
+numexpr = []
 numpy = []
 packaging = []
 pandas = []
 pillow = []
 pluggy = []
+py-cpuinfo = []
 pyerfa = []
 pyparsing = []
 pytest = []
 python-dateutil = []
 pytz = []
-pyyaml = []
 scipy = []
 setuptools = []
 setuptools-scm = []
 six = []
+tables = []
 tomli = []
 tqdm = []
 typing-extensions = []

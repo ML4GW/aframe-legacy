@@ -94,6 +94,7 @@ python-versions = ">=3.8,<3.11"
 develop = true
 
 [package.dependencies]
+astropy = "^5.2.1"
 bilby = "^1.4.1"
 
 [package.source]
