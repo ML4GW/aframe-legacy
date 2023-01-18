@@ -50,7 +50,7 @@ def test_volume_time_integral(prior):
     # all weights are 1, so setting the volume to 1
     # should just return the livetime for the vt calculation
     vt.volume = 1 * u.Mpc**3
-    volume_time, uncertainty = vt.calculate_vt()
+    volume_time, _, _ = vt.calculate_vt()
     assert volume_time == 100
 
     # TODO: add test for calculating vt with non-trivial target
