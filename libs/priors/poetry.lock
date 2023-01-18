@@ -522,7 +522,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "05cfe80ed3e17d91e68f6e480a4c8704043ff9a2e0215be2fe5134c00edd7b08"
+content-hash = "def1f37f5e1a391d236b1c99d2fc87f67ede014dff4ba4f777f4bee3b466f7a1"
 
 [metadata.files]
 astropy = []

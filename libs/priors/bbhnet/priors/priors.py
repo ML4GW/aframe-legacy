@@ -107,7 +107,7 @@ def nonspin_bbh() -> BBHPriorDict:
     prior = uniform_extrinsic()
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
-    prior["mass_ratio"] = Constraint(0.2, 5)
+    prior["mass_ratio"] = Constraint(0, 1)
     prior["redshift"] = UniformSourceFrame(0, 0.5, unit=mpc, name="redshift")
     prior["psi"] = 0
     prior["a_1"] = 0
