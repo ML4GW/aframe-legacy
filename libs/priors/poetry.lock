@@ -1,0 +1,400 @@
+[[package]]
+name = "attrs"
+version = "22.2.0"
+description = "Classes Without Boilerplate"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+cov = ["attrs", "coverage-enable-subprocess", "coverage[toml] (>=5.3)"]
+dev = ["attrs"]
+docs = ["furo", "sphinx", "myst-parser", "zope.interface", "sphinx-notfound-page", "sphinxcontrib-towncrier", "towncrier"]
+tests = ["attrs", "zope.interface"]
+tests-no-zope = ["hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist", "cloudpickle", "mypy (>=0.971,<0.990)", "pytest-mypy-plugins"]
+tests_no_zope = ["hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist", "cloudpickle", "mypy (>=0.971,<0.990)", "pytest-mypy-plugins"]
+
+[[package]]
+name = "bilby"
+version = "1.4.1"
+description = "A user-friendly Bayesian inference library"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+attrs = "*"
+"bilby.cython" = ">=0.3.0"
+corner = "*"
+dill = "*"
+dynesty = ">=2"
+emcee = "*"
+h5py = "*"
+matplotlib = ">=2.1"
+numpy = "*"
+pandas = "*"
+scipy = ">=1.5"
+tqdm = "*"
+
+[package.extras]
+all = ["cpnest (>=0.9.4)", "dynesty", "emcee", "nestle", "ptmcmcsampler (!=0.0.0,!=2.1.0)", "ptemcee", "pymc (>=4.0.0)", "pymultinest", "kombine", "ultranest (>=3.0.0)", "dnest4", "nessai (>=0.7.0)", "schwimmbad", "zeus-mcmc (>=2.3.0)", "astropy (>=5)", "lalsuite", "gwpy", "tables", "pyfftw", "scikit-learn", "nflows", "celerite", "george", "plotly"]
+gw = ["astropy (>=5)", "lalsuite", "gwpy", "tables", "pyfftw"]
+mcmc = ["scikit-learn", "nflows"]
+
+[[package]]
+name = "bilby.cython"
+version = "0.4.0"
+description = "Optimized functionality for Bilby"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+description = "Cross-platform colored terminal text."
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
+
+[[package]]
+name = "contourpy"
+version = "1.0.7"
+description = "Python library for calculating contours of 2D quadrilateral grids"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = ">=1.16"
+
+[package.extras]
+bokeh = ["bokeh", "chromedriver", "selenium"]
+docs = ["furo", "sphinx-copybutton"]
+mypy = ["contourpy", "docutils-stubs", "mypy (==0.991)", "types-pillow"]
+test = ["matplotlib", "pillow", "pytest"]
+test-no-images = ["pytest"]
+
+[[package]]
+name = "corner"
+version = "2.2.1"
+description = "Make some beautiful corner plots"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+matplotlib = ">=2.1"
+
+[package.extras]
+arviz = ["arviz (>=0.9)"]
+dev = ["pytest (>=3.6)", "pytest-cov (>=2.6.1)", "black", "isort", "toml", "arviz (>=0.9)", "sphinx (>=1.7.5)", "pandoc", "myst-nb", "sphinx-book-theme", "pre-commit", "flake8", "pep517", "twine"]
+docs = ["arviz (>=0.9)", "sphinx (>=1.7.5)", "pandoc", "myst-nb", "sphinx-book-theme"]
+test = ["pytest (>=3.6)", "pytest-cov (>=2.6.1)", "black", "isort", "toml"]
+
+[[package]]
+name = "cycler"
+version = "0.11.0"
+description = "Composable style cycles"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[[package]]
+name = "dill"
+version = "0.3.6"
+description = "serialize all of python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+graph = ["objgraph (>=1.7.2)"]
+
+[[package]]
+name = "dynesty"
+version = "2.0.3"
+description = "A dynamic nested sampling package for computing Bayesian posteriors and evidences."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "emcee"
+version = "3.1.3"
+description = "The Python ensemble sampling toolkit for MCMC"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+extras = ["h5py", "scipy"]
+tests = ["pytest", "pytest-cov", "coverage"]
+
+[[package]]
+name = "fonttools"
+version = "4.38.0"
+description = "Tools to manipulate font files"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+all = ["fs (>=2.2.0,<3)", "lxml (>=4.0,<5)", "zopfli (>=0.1.4)", "lz4 (>=1.7.4.2)", "matplotlib", "sympy", "skia-pathops (>=0.5.0)", "uharfbuzz (>=0.23.0)", "brotlicffi (>=0.8.0)", "scipy", "brotli (>=1.0.1)", "munkres", "unicodedata2 (>=14.0.0)", "xattr"]
+graphite = ["lz4 (>=1.7.4.2)"]
+interpolatable = ["scipy", "munkres"]
+lxml = ["lxml (>=4.0,<5)"]
+pathops = ["skia-pathops (>=0.5.0)"]
+plot = ["matplotlib"]
+repacker = ["uharfbuzz (>=0.23.0)"]
+symfont = ["sympy"]
+type1 = ["xattr"]
+ufo = ["fs (>=2.2.0,<3)"]
+unicode = ["unicodedata2 (>=14.0.0)"]
+woff = ["zopfli (>=0.1.4)", "brotlicffi (>=0.8.0)", "brotli (>=1.0.1)"]
+
+[[package]]
+name = "h5py"
+version = "3.7.0"
+description = "Read and write HDF5 files from Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+numpy = ">=1.14.5"
+
+[[package]]
+name = "kiwisolver"
+version = "1.4.4"
+description = "A fast implementation of the Cassowary constraint solver"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
+name = "matplotlib"
+version = "3.6.3"
+description = "Python plotting package"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+contourpy = ">=1.0.1"
+cycler = ">=0.10"
+fonttools = ">=4.22.0"
+kiwisolver = ">=1.0.1"
+numpy = ">=1.19"
+packaging = ">=20.0"
+pillow = ">=6.2.0"
+pyparsing = ">=2.2.1"
+python-dateutil = ">=2.7"
+setuptools_scm = ">=7"
+
+[[package]]
+name = "numpy"
+version = "1.24.1"
+description = "Fundamental package for array computing in Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[[package]]
+name = "packaging"
+version = "23.0"
+description = "Core utilities for Python packages"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
+name = "pandas"
+version = "1.5.2"
+description = "Powerful data structures for data analysis, time series, and statistics"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = [
+    {version = ">=1.20.3", markers = "python_version < \"3.10\""},
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+]
+python-dateutil = ">=2.8.1"
+pytz = ">=2020.1"
+
+[package.extras]
+test = ["hypothesis (>=5.5.3)", "pytest (>=6.0)", "pytest-xdist (>=1.31)"]
+
+[[package]]
+name = "pillow"
+version = "9.4.0"
+description = "Python Imaging Library (Fork)"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-inline-tabs", "sphinx-issues (>=3.0.1)", "sphinx-removed-in", "sphinxext-opengraph"]
+tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
+
+[[package]]
+name = "pyparsing"
+version = "3.0.9"
+description = "pyparsing module - Classes and methods to define and execute parsing grammars"
+category = "main"
+optional = false
+python-versions = ">=3.6.8"
+
+[package.extras]
+diagrams = ["railroad-diagrams", "jinja2"]
+
+[[package]]
+name = "python-dateutil"
+version = "2.8.2"
+description = "Extensions to the standard Python datetime module"
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+
+[package.dependencies]
+six = ">=1.5"
+
+[[package]]
+name = "pytz"
+version = "2022.7.1"
+description = "World timezone definitions, modern and historical"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "scipy"
+version = "1.9.3"
+description = "Fundamental algorithms for scientific computing in Python"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = ">=1.18.5,<1.26.0"
+
+[package.extras]
+test = ["pytest", "pytest-cov", "pytest-xdist", "asv", "mpmath", "gmpy2", "threadpoolctl", "scikit-umfpack"]
+doc = ["sphinx (!=4.1.0)", "pydata-sphinx-theme (==0.9.0)", "sphinx-panels (>=0.5.2)", "matplotlib (>2)", "numpydoc", "sphinx-tabs"]
+dev = ["mypy", "typing-extensions", "pycodestyle", "flake8"]
+
+[[package]]
+name = "setuptools"
+version = "66.0.0"
+description = "Easily download, build, install, upgrade, and uninstall Python packages"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+docs = ["sphinx (>=3.5)", "jaraco.packaging (>=9)", "rst.linker (>=1.9)", "furo", "sphinx-lint", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-reredirects", "sphinxcontrib-towncrier", "sphinx-notfound-page (==0.8.3)", "sphinx-hoverxref (<2)"]
+testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "flake8 (<5)", "pytest-enabler (>=1.3)", "pytest-perf", "flake8-2020", "virtualenv (>=13.0.0)", "wheel", "pip (>=19.1)", "jaraco.envs (>=2.2)", "pytest-xdist", "jaraco.path (>=3.2.0)", "build", "filelock (>=3.4.0)", "pip-run (>=8.8)", "ini2toml[lite] (>=0.9)", "tomli-w (>=1.0.0)", "pytest-timeout", "pytest-black (>=0.3.7)", "pytest-cov", "pytest-mypy (>=0.9.1)", "pytest-flake8"]
+testing-integration = ["pytest", "pytest-xdist", "pytest-enabler", "virtualenv (>=13.0.0)", "tomli", "wheel", "jaraco.path (>=3.2.0)", "jaraco.envs (>=2.2)", "build", "filelock (>=3.4.0)"]
+
+[[package]]
+name = "setuptools-scm"
+version = "7.1.0"
+description = "the blessed package to manage your versions by scm tags"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+packaging = ">=20.0"
+setuptools = "*"
+tomli = {version = ">=1.0.0", markers = "python_version < \"3.11\""}
+typing-extensions = "*"
+
+[package.extras]
+test = ["pytest (>=6.2)", "virtualenv (>20)"]
+toml = ["setuptools (>=42)"]
+
+[[package]]
+name = "six"
+version = "1.16.0"
+description = "Python 2 and 3 compatibility utilities"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+
+[[package]]
+name = "tomli"
+version = "2.0.1"
+description = "A lil' TOML parser"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
+name = "tqdm"
+version = "4.64.1"
+description = "Fast, Extensible Progress Meter"
+category = "main"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+dev = ["py-make (>=0.1.0)", "twine", "wheel"]
+notebook = ["ipywidgets (>=6)"]
+slack = ["slack-sdk"]
+telegram = ["requests"]
+
+[[package]]
+name = "typing-extensions"
+version = "4.4.0"
+description = "Backported and Experimental Type Hints for Python 3.7+"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.9"
+content-hash = "9b35d347444de7803d24ae6072b986b80c5df8f77dfb0b78ae68b152614903f6"
+
+[metadata.files]
+attrs = []
+bilby = []
+"bilby.cython" = []
+colorama = []
+contourpy = []
+corner = []
+cycler = []
+dill = []
+dynesty = []
+emcee = []
+fonttools = []
+h5py = []
+kiwisolver = []
+matplotlib = []
+numpy = []
+packaging = []
+pandas = []
+pillow = []
+pyparsing = []
+python-dateutil = []
+pytz = []
+scipy = []
+setuptools = []
+setuptools-scm = []
+six = []
+tomli = []
+tqdm = []
+typing-extensions = []

@@ -93,7 +93,7 @@ def read_priors_from_file(event_file: Path, *parameters: str) -> BBHPriorDict:
     return prior
 
 
-def uniform_extrinsic():
+def uniform_extrinsic() -> BBHPriorDict:
     prior = BBHPriorDict()
     prior["dec"] = Cosine()
     prior["ra"] = Uniform(0, 2 * np.pi)
@@ -103,7 +103,7 @@ def uniform_extrinsic():
     return prior
 
 
-def nonspin_bbh():
+def nonspin_bbh() -> BBHPriorDict:
     prior = uniform_extrinsic()
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
@@ -120,7 +120,7 @@ def nonspin_bbh():
     return prior
 
 
-def end_o3_ratesandpops():
+def end_o3_ratesandpops() -> BBHPriorDict:
     prior = uniform_extrinsic()
     prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=2, maximum=100, unit=msun)
     prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
