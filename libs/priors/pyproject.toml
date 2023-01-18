@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Standardized priors for BBHnet"
 authors = ["William Benoit, Ethan Jacob Marx <ethan.marx@ligo.org>"]
 license = "MIT"
-readme = "README.md"
 packages = [{include = "bbhnet"}]
 
 [tool.poetry.dependencies]
