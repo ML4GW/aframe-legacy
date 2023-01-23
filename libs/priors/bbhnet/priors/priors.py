@@ -179,8 +179,13 @@ def gaussian_masses(m1: float, m2: float, sigma: float = 2):
     prior_dict = BBHPriorDict()
     prior_dict["mass_1"] = Gaussian(name="mass_1", mu=m1, sigma=sigma)
     prior_dict["mass_2"] = Gaussian(name="mass_2", mu=m1, sigma=sigma)
+    prior_dict["mass_ratio"] = Constraint(0, 1)
     prior_dict["luminosity_distance"] = UniformSourceFrame(
-        name="luminosity_distance", minimum=100, maximum=3000, unit="Mpc"
+        name="luminosity_distance",
+        minimum=100,
+        maximum=3000,
+        unit="Mpc",
+        cosmology=cosmo.Planck15,
     )
     prior_dict["dec"] = Cosine(name="dec")
     prior_dict["ra"] = Uniform(
