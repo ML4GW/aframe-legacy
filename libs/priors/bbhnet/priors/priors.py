@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Sequence, Tuple
 
+import astropy.cosmology as cosmo
 import h5py
 import numpy as np
 from bilby.core.prior import (
@@ -12,11 +13,7 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import (
-    BBHPriorDict,
-    UniformComovingVolume,
-    UniformSourceFrame,
-)
+from bilby.gw.prior import BBHPriorDict, UniformSourceFrame
 
 # Unit names
 msun = r"$M_{\odot}$"
@@ -108,7 +105,9 @@ def nonspin_bbh() -> BBHPriorDict:
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0, 1)
-    prior["redshift"] = UniformSourceFrame(0, 0.5, unit=mpc, name="redshift")
+    prior["redshift"] = UniformSourceFrame(
+        0, 0.5, unit=mpc, name="redshift", cosmology=cosmo.Planck15
+    )
     prior["psi"] = 0
     prior["a_1"] = 0
     prior["a_2"] = 0
@@ -120,12 +119,33 @@ def nonspin_bbh() -> BBHPriorDict:
     return prior
 
 
+def spin_bbh() -> BBHPriorDict:
+    prior = uniform_extrinsic()
+    prior["mass_1"] = Uniform(5, 100, unit=msun)
+    prior["mass_2"] = Uniform(5, 100, unit=msun)
+    prior["mass_ratio"] = Constraint(0, 1)
+    prior["redshift"] = UniformSourceFrame(
+        0, 0.5, unit=mpc, name="redshift", cosmology=cosmo.Planck15
+    )
+    prior["psi"] = 0
+    prior["a_1"] = Uniform(0, 0.998)
+    prior["a_2"] = Uniform(0, 0.998)
+    prior["tilt_1"] = Sine(unit=rad)
+    prior["tilt_2"] = Sine(unit=rad)
+    prior["phi_12"] = Uniform(0, 2 * np.pi)
+    prior["phi_jl"] = 0
+
+    return prior
+
+
 def end_o3_ratesandpops() -> BBHPriorDict:
     prior = uniform_extrinsic()
     prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=2, maximum=100, unit=msun)
     prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
     prior["mass_ratio"] = Constraint(0.02, 1)
-    prior["redshift"] = UniformComovingVolume(0, 2, unit=mpc, name="redshift")
+    prior["redshift"] = UniformSourceFrame(
+        0, 2, unit=mpc, name="redshift", cosmology=cosmo.Planck15
+    )
     prior["psi"] = 0
     prior["a_1"] = Uniform(0, 0.998)
     prior["a_2"] = Uniform(0, 0.998)

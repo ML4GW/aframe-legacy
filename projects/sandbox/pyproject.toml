@@ -32,7 +32,7 @@ inference_batch_size = 128
 minimum_frequency = 20
 reference_frequency = 50
 highpass = 32
-prior = "bbhnet.priors.priors.nonspin_bbh"
+timeslide_prior = "bbhnet.priors.priors.end_o3_ratesandpops"
 fduration = 1
 valid_frac = 0.25
 
@@ -79,7 +79,7 @@ reference_frequency = "${base.reference_frequency}"
 datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 n_samples = 10000
-prior = "${base.prior}"
+prior = "bbhnet.priors.priors.spin_bbh""
 sample_rate = "${base.sample_rate}" 
 waveform_duration = 8
 force_generation = "${base.force_generation}"
@@ -177,7 +177,7 @@ shifts = [0, 1]
 n_slides = 10
 
 # injection parameters
-prior = "${base.prior}"
+prior = "bbhnet.priors.priors.end_o3_ratesandpops"
 minimum_frequency = "${base.minimum_frequency}"
 reference_frequency = "${base.reference_frequency}"
 highpass = "${base.highpass}"
@@ -221,8 +221,8 @@ log_file = "${base.logdir}/analyze.log"
 verbose = false
 
 [tool.typeo.scripts.vizapp]
-source_prior = "bbhnet.priors.priors.nonspin_bbh"
-timeslides_results_dir = "${base.basedir}/timeslide_injections/"
+source_prior = "${base.timeslide_prior}"
+timeslides_results_dir = "${base.basedir}/timeslide_injections-epoch=080/"
 timeslides_strain_dir = "${base.datadir}/timeslide_injections"
 ifos = "${base.ifos}"
 start = "${base.train_stop}"
@@ -233,5 +233,5 @@ train_data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "${base.basedir}"
+logdir = "./" #"${base.basedir}"
 verbose = true
