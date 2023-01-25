@@ -14,7 +14,7 @@ from torch import Tensor
 def get_norm_layer(groups: int) -> nn.Module:
     class GroupNorm(nn.GroupNorm):
         def __init__(self, num_channels: int) -> None:
-            if num_channels == -1:
+            if groups == -1:
                 num_groups = num_channels
             else:
                 num_groups = min(num_channels, groups)
