@@ -35,7 +35,7 @@ cryptography = "<38.0"
 
 # hard-pin the tensorrt version for compatability with
 # Triton. This corresponds to Triton container 22.12-py3
-nvidia-tensorrt = "8.5.1.7"
+tensorrt = "8.5.1.7"
 
 torch = {version = "^1.10", source = "torch"}
 ml4gw = {path = "../../../ml4gw", develop = true}
