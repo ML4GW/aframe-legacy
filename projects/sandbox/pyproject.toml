@@ -7,7 +7,8 @@ steps = [
     "export:export-model:resnet",
     "datagen:generate-timeslides",
     "infer:infer",
-    "analyze:analyze"
+    "analyze:analyze",
+    "vizapp:vizapp"
 ]
 
 [tool.typeo.base]
@@ -103,17 +104,16 @@ highpass = "${base.minimum_frequency}"
 trigger_distance = -0.5
 waveform_prob = 0.5
 glitch_prob = 0.25
-mean_snr = 10
-std_snr = 4
-min_snr = 2
+mean_snr = 15
+std_snr = 15
+min_snr = 1
 
 # optimization parameters
 batch_size = 512
 batches_per_epoch = 200
 max_epochs = 200
-lr = 4e-3
-min_lr = 1e-5
-decay_steps = 10000
+max_lr = 4e-3
+lr_ramp_epochs = 75 
 weight_decay = 1e-5
 
 # validation parameters
