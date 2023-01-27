@@ -14,11 +14,14 @@ from bokeh.models import (
     LinearAxis,
     NumericInput,
     Range1d,
+    HoverTool,
 )
 from bokeh.plotting import figure
 
 from bbhnet.analysis.vt import VolumeTimeIntegral
 from bbhnet.priors.priors import gaussian_masses
+from bbhnet.priors.priors import log_normal_masses
+
 
 MPC3_TO_GPC3 = 1e-9
 
@@ -48,14 +51,6 @@ class VolumeTimeVsFAR:
             x_axis_label="FAR (yr ^-1)",
             y_axis_label="<VT> Gpc^3 yr",
         )
-
-        self.figure.extra_y_ranges = {"n_eff": Range1d(1, 1000)}
-        axis = LinearAxis(
-            axis_label="Effective samples",
-            axis_label_text_color="blue",
-            y_range_name="n_eff",
-        )
-        self.figure.add_layout(axis, "right")
 
         self.figure.line(
             x="far",
@@ -90,10 +85,17 @@ class VolumeTimeVsFAR:
             high=100,
         )
 
+        self.sd_selector = NumericInput(
+            title="Enter standard deviation",
+            value=2,
+            low=1,
+            high=10,
+        )
+
         self.calculate_button = Button(label="Calculate VT")
         self.calculate_button.on_click(self.calculate_vt)
         self.widgets = column(
-            self.m1_selector, self.m2_selector, self.calculate_button
+            self.m1_selector, self.m2_selector, self.sd_selector, self.calculate_button
         )
 
     def configure_sources(self):
@@ -103,19 +105,21 @@ class VolumeTimeVsFAR:
                 vt=[],
                 error_low=[],
                 error_high=[],
+                uncertainty=[],
             )
         )
 
     def calculate_vt(self, event):
         m1_mean = self.m1_selector.value
         m2_mean = self.m2_selector.value
+        sigma = self.sd_selector.value
 
         if m1_mean < m2_mean:
             self.logger.error("m1 must be greater than m2")
             return
 
-        self.logger.debug(f"Calculating VT for m1 = {m1_mean}, m2 = {m2_mean}")
-        target = gaussian_masses(m1_mean, m2_mean, sigma=3)
+        self.logger.debug(f"Calculating VT for m1 = {m1_mean}, m2 = {m2_mean}, sd = {sigma}")
+        target = gaussian_masses(m1_mean, m2_mean, sigma)
 
         fars = []
         vts = []
@@ -123,7 +127,7 @@ class VolumeTimeVsFAR:
         n_effs = []
         for far in self.fars:
             self.figure.title.text = (
-                f"VT vs FAR for m1 = {m1_mean}, m2 = {m2_mean}"
+                f"VT vs FAR for m1 = {m1_mean}, m2 = {m2_mean},  sd = {sigma}"
             )
             # downselect to injections that are detected at this FAR
             indices = self.foreground.fars < far
@@ -164,7 +168,18 @@ class VolumeTimeVsFAR:
             "error_low": vts - uncertainties,
             "error_high": vts + uncertainties,
             "n_eff": n_effs,
+            "uncertainty": uncertainties,
         }
+
+        # Add hover tool
+        hover = HoverTool(
+            tooltips=[
+                ("VT", "@vt"),
+                ("N_eff", "@n_eff"),
+                ("Uncertainty", "@uncertainty"),
+            ]
+        )
+        self.figure.add_tools(hover)
 
         self.figure.extra_y_ranges["n_eff"].start = 0.5 * n_eff.min()
         self.figure.extra_y_ranges["n_eff"].end = 2 * n_eff.max()
