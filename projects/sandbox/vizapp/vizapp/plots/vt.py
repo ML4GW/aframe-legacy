@@ -20,7 +20,6 @@ from bokeh.plotting import figure
 
 from bbhnet.analysis.vt import VolumeTimeIntegral
 from bbhnet.priors.priors import gaussian_masses
-from bbhnet.priors.priors import log_normal_masses
 
 
 MPC3_TO_GPC3 = 1e-9
