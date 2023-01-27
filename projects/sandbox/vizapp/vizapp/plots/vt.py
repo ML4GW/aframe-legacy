@@ -8,20 +8,11 @@ if TYPE_CHECKING:
 import logging
 
 from bokeh.layouts import column, row
-from bokeh.models import (
-    Button,
-    ColumnDataSource,
-    LinearAxis,
-    NumericInput,
-    Range1d,
-    HoverTool,
-)
+from bokeh.models import Button, ColumnDataSource, HoverTool, NumericInput
 from bokeh.plotting import figure
 
 from bbhnet.analysis.vt import VolumeTimeIntegral
 from bbhnet.priors.priors import gaussian_masses
-from bbhnet.priors.priors import log_normal_masses
-
 
 MPC3_TO_GPC3 = 1e-9
 
@@ -95,7 +86,10 @@ class VolumeTimeVsFAR:
         self.calculate_button = Button(label="Calculate VT")
         self.calculate_button.on_click(self.calculate_vt)
         self.widgets = column(
-            self.m1_selector, self.m2_selector, self.sd_selector, self.calculate_button
+            self.m1_selector,
+            self.m2_selector,
+            self.sd_selector,
+            self.calculate_button,
         )
 
     def configure_sources(self):
@@ -118,7 +112,9 @@ class VolumeTimeVsFAR:
             self.logger.error("m1 must be greater than m2")
             return
 
-        self.logger.debug(f"Calculating VT for m1 = {m1_mean}, m2 = {m2_mean}, sd = {sigma}")
+        self.logger.debug(
+            f"Calculating VT for m1 = {m1_mean}, m2 = {m2_mean}, sd = {sigma}"
+        )
         target = gaussian_masses(m1_mean, m2_mean, sigma)
 
         fars = []
