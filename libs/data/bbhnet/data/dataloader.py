@@ -2,7 +2,6 @@ from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
-
 from ml4gw.dataloading import InMemoryDataset
 
 
