@@ -177,9 +177,6 @@ class VolumeTimeVsFAR:
         )
         self.figure.add_tools(hover)
 
-        self.figure.extra_y_ranges["n_eff"].start = 0.5 * n_eff.min()
-        self.figure.extra_y_ranges["n_eff"].end = 2 * n_eff.max()
-
     def update(self, foreground):
         self.foreground = foreground
         self.n_injections = len(foreground.injection_times)
