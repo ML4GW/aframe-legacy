@@ -6,9 +6,9 @@ from typing import Optional, Tuple, TypeVar
 import h5py
 import numpy as np
 import torch
-
 from train.glitch_sampler import GlitchSampler
 from train.waveform_injection import BBHNetWaveformInjection
+
 from ml4gw.distributions import Cosine, LogNormal, Uniform
 
 Tensor = TypeVar("Tensor", np.ndarray, torch.Tensor)
