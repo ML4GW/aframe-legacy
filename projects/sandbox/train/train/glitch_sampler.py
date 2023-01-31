@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from bbhnet.data.transforms.transform import Transform
+from train.transforms.transform import Transform
 from ml4gw.utils.slicing import sample_kernels
 
 
