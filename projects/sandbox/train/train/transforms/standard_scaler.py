@@ -1,6 +1,6 @@
 import torch
 
-from bbhnet.data.transforms.transform import Transform
+from train.transforms.transform import Transform
 
 
 class StandardScalerTransform(Transform):
