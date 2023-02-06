@@ -1,3 +1,2 @@
-from .dataloader import BBHInMemoryDataset
-from .glitch_sampler import GlitchSampler
+from .data_structures import BBHInMemoryDataset, GlitchSampler
 from .train import main as train

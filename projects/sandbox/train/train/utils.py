@@ -6,8 +6,7 @@ from typing import Optional, Tuple, TypeVar
 import h5py
 import numpy as np
 import torch
-from train.glitch_sampler import GlitchSampler
-from train.waveform_injection import BBHNetWaveformInjection
+from train.data_structures import BBHNetWaveformInjection, GlitchSampler
 
 from ml4gw.distributions import Cosine, LogNormal, Uniform
 
