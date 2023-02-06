@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 import h5py
 import numpy as np
-from train.dataloader import BBHInMemoryDataset
+from train.data_structures import BBHInMemoryDataset
 from train.utils import prepare_augmentation, split
 from train.validation import (
     BackgroundRecall,
