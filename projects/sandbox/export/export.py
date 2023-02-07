@@ -114,6 +114,12 @@ def export(
         fduration=fduration,
         highpass=highpass,
     )
+    preprocessor.whitener.build(
+        time_domain_filter=torch.ones(sample_rate - 1),
+        kernel_length=torch.Tensor(
+            kernel_length,
+        ),
+    )
     nn = torch.nn.Sequential(preprocessor, nn)
     nn.load_state_dict(torch.load(weights, map_location=torch.device("cpu")))
     nn.eval()
