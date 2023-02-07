@@ -18,10 +18,6 @@ workflow: &workflow
 libs/io/:  
   - *workflow
   - 'libs/io/**' 
-libs/data/:
-  - *workflow
-  - 'libs/data/**'
-  - 'ml4gw/**' 
 libs/architectures/:
   - *workflow
   - 'libs/architectures/**'
