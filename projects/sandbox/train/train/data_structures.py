@@ -2,7 +2,6 @@ from typing import Callable, Optional, Tuple
 
 import numpy as np
 import torch
-from train.transforms.transform import Transform
 
 from ml4gw.dataloading import InMemoryDataset
 from ml4gw.transforms.injection import RandomWaveformInjection
@@ -86,16 +85,13 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         return X, y
 
 
-# TODO: generalize to arbitrary ifos
-class GlitchSampler(Transform):
+class GlitchSampler(torch.nn.Module):
     def __init__(
         self, prob: float, max_offset: int, **glitches: np.ndarray
     ) -> None:
         super().__init__()
-        self.glitches = torch.nn.ParameterList()
-        for ifo in glitches.values():
-            param = self.add_parameter(ifo)
-            self.glitches.append(param)
+        for ifo, glitch in glitches.items():
+            self.register_buffer(ifo, torch.Tensor(glitch))
 
         self.prob = prob
         self.max_offset = max_offset
