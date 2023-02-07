@@ -38,7 +38,9 @@ def get_network_weights(weights_dir, architecture):
     def fn(num_ifos, sample_rate, kernel_length, target):
         weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
         if not weights.exists():
-            preprocessor = Preprocessor(num_ifos, sample_rate, kernel_length)
+            preprocessor = Preprocessor(
+                num_ifos, sample_rate, kernel_length, fduration=1
+            )
             bbhnet = architecture(num_ifos)
             model = torch.nn.Sequential(preprocessor, bbhnet)
             torch.save(model.state_dict(prefix=""), weights)
@@ -209,6 +211,7 @@ def test_export_for_shapes(
             inference_sampling_rate=inference_sampling_rate,
             sample_rate=sample_rate,
             batch_size=batch_size,
+            fduration=1,
             weights=weights,
             streams_per_gpu=1,
             instances=1,
@@ -268,6 +271,7 @@ def test_export_for_weights(
         inference_sampling_rate=inference_sampling_rate,
         sample_rate=sample_rate,
         batch_size=1,
+        fduration=1,
         weights=weights,
         streams_per_gpu=1,
         instances=1,
@@ -334,6 +338,7 @@ def test_export_for_scaling(
             inference_sampling_rate=inference_sampling_rate,
             sample_rate=sample_rate,
             batch_size=1,
+            fduration=1,
             weights=weights,
             streams_per_gpu=streams_per_gpu,
             instances=instances,
