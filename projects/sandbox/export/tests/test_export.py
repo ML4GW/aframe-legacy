@@ -173,7 +173,7 @@ def inference_sampling_rate(request):
     return request.param
 
 
-@pytest.fixture(params=[1, 2])
+@pytest.fixture(params=[2, 4])
 def kernel_length(request):
     return request.param
 
@@ -251,7 +251,7 @@ def test_export_for_weights(
     validate_repo,
 ):
     num_ifos = 2
-    kernel_length = 1
+    kernel_length = 2
     sample_rate = 128
     inference_sampling_rate = 4
 
@@ -320,7 +320,7 @@ def test_export_for_scaling(
     get_network_weights,
 ):
     num_ifos = 2
-    kernel_length = 1
+    kernel_length = 2
     sample_rate = 128
     inference_sampling_rate = 4
 
