@@ -41,6 +41,9 @@ def get_network_weights(weights_dir, architecture):
             preprocessor = Preprocessor(
                 num_ifos, sample_rate, kernel_length, fduration=1
             )
+            preprocessor.whitener.build(
+                kernel_length=torch.Tensor((kernel_length,))
+            )
             bbhnet = architecture(num_ifos)
             model = torch.nn.Sequential(preprocessor, bbhnet)
             torch.save(model.state_dict(prefix=""), weights)
