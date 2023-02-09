@@ -156,8 +156,8 @@ def test_glitch_sampler(sample_rate, offset, device, prob):
             assert (inserted[2:] == 0).all().item()
 
 
-def sample(obj, N, dev=None):
-    return torch.ones((N, 2, 128 * 2)), torch.ones((N, 2, 128 * 2))
+def sample(obj, N):
+    return torch.ones((N, 2, 128 * 2)), torch.ones((N, 3))
 
 
 rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
