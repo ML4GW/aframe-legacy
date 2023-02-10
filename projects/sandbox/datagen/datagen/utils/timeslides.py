@@ -5,8 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
+from ml4gw.gw import compute_network_snr
+
 if TYPE_CHECKING:
     import bilby.core.prior.PriorDict
+    import torch
 
 import gwdatafind
 import numpy as np
@@ -47,6 +50,11 @@ class Sampler:
         times = self.signal_times + jitter
 
         params = self.prior.sample(self.num_signals)
+
+        # our testing prior is defined in the source frame, so we
+        # have to convert to detector frame masses.
+        params["mass_1"] = params["mass_1"] * (1 + params["redshift"])
+        params["mass_2"] = params["mass_2"] * (1 + params["redshift"])
         params["geocent_time"] = times
         return params
 
@@ -70,10 +78,29 @@ class WaveformGenerator:
         )
 
 
-def _generate_waveforms(sampler, generator):
-    params = sampler()
-    waveforms = generator(params)
-    return waveforms, params
+def _generate_waveforms(
+    sampler: Sampler,
+    generator: WaveformGenerator,
+    hopeless_snr_threshold: float,
+    psds: "torch.Tensor",
+    sample_rate: float,
+    highpass: float,
+):
+    waveforms = []
+    n_rejected = 0
+    while len(waveforms) < sampler.num_signals:
+        params = sampler()
+        signals = generator(params)
+
+        # crude estimate of snrs using hplus
+        snrs = compute_network_snr(
+            signals[:, 0.0:], psds, sample_rate, highpass
+        )
+        signals = signals[snrs > hopeless_snr_threshold]
+        n_rejected += np.sum([snrs < hopeless_snr_threshold])
+        waveforms.append(signals)
+
+    return waveforms, params, n_rejected
 
 
 def waveform_iterator(
@@ -81,12 +108,32 @@ def waveform_iterator(
     sampler: Sampler,
     generator: WaveformGenerator,
     n_slides: int,
+    hopeless_snr_threshold: float,
+    psds: "torch.Tensor",
+    sample_rate: float,
+    highpass: float,
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
-    future = pool.submit(_generate_waveforms, sampler, generator)
+    future = pool.submit(
+        _generate_waveforms,
+        sampler,
+        generator,
+        hopeless_snr_threshold,
+        psds,
+        sample_rate,
+        highpass,
+    )
     for _ in range(n_slides - 1):
-        waveforms, params = future.result()
-        future = pool.submit(_generate_waveforms, sampler, generator)
-        yield waveforms, params
+        waveforms, params, n_rejected = future.result()
+        future = pool.submit(
+            _generate_waveforms,
+            sampler,
+            generator,
+            hopeless_snr_threshold,
+            psds,
+            sample_rate,
+            highpass,
+        )
+        yield waveforms, params, n_rejected
     yield future.result()
 
 
