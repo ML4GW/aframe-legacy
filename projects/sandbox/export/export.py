@@ -23,7 +23,6 @@ def export(
     repository_directory: str,
     outdir: Path,
     num_ifos: int,
-    kernel_length: float,
     inference_sampling_rate: float,
     sample_rate: float,
     batch_size: int,
@@ -55,8 +54,6 @@ def export(
         num_ifos:
             The number of interferometers contained along the
             channel dimension used to train BBHNet
-        kernel_length:
-            The length, in seconds, of the input to DeepClean
         inference_sampling_rate:
             The rate at which kernels are sampled from the
             h(t) timeseries. This, along with the `sample_rate`,
@@ -90,7 +87,6 @@ def export(
     """
 
     # make relevant directories
-    logging.info(architecture)
     outdir.mkdir(exist_ok=True, parents=True)
 
     # if we didn't specify a weights filename, assume
@@ -103,18 +99,31 @@ def export(
 
     configure_logging(outdir / "export.log", verbose)
 
-    # instantiate the architecture and initialize
-    # its weights with the trained values
-    logging.info(f"Creating model and loading weights from {weights}")
+    # instantiate a new, randomly initialized version
+    # of the network architecture, including preprocessor
+    logging.info("Initializing model architecture")
     nn = architecture(num_ifos)
     preprocessor = Preprocessor(num_ifos, sample_rate, fduration=fduration)
     nn = torch.nn.Sequential(preprocessor, nn)
-    nn.load_state_dict(torch.load(weights, map_location=torch.device("cpu")))
+    logging.info(f"Initialize:\n{nn}")
+
+    # load in a set of trained weights and use the
+    # preprocessor's kernel_length parameter to infer
+    # the expected input dimension along the time axis
+    logging.info(f"Loading parameters from {weights}")
+    state_dict = torch.load(weights, map_location="cpu")
+    nn.load_state_dict(state_dict)
+    kernel_length = preprocessor.whitener.kernel_length.item()
+    logging.info(
+        f"Model will be exported with input kernel length of {kernel_length}s"
+    )
     nn.eval()
 
     # instantiate a model repository at the
-    # indicated location and see if a bbhnet
-    # model already exists in this repository
+    # indicated location. Split up the preprocessor
+    # and the neural network (which we'll call bbhnet)
+    # to export/scale them separately, and start by
+    # seeing if either already exists in the model repo
     repo = qv.ModelRepository(repository_directory, clean)
     try:
         bbhnet = repo.models["bbhnet"]
@@ -127,15 +136,15 @@ def export(
     except KeyError:
         preproc = repo.add("preproc", platform=platform)
 
-    # if we specified a number of bbhnet instances
-    # we want per-gpu at inference time, scale it now
+    # if we specified a number of instances we want per-gpu
+    # for each model at inference time, scale them now
     if bbhnet_instances is not None:
         scale_model(bbhnet, bbhnet_instances)
     if preproc_instances is not None:
         scale_model(preproc, preproc_instances)
 
-    # export this version of the model (with its current
-    # weights), to this entry in the model repository
+    # start by exporting the preprocessor, then  use
+    # its inferred output shape to export the network
     input_dim = int(kernel_length * sample_rate)
     input_shape = (batch_size, num_ifos, input_dim)
     preproc.export_version(
@@ -144,6 +153,9 @@ def export(
         output_names=["whitened"],
     )
 
+    # the network will have some different keyword
+    # arguments required for export depending on
+    # the target inference platform
     # TODO: hardcoding these kwargs for now, but worth
     # thinking about a more robust way to handle this
     kwargs = {}
@@ -156,9 +168,10 @@ def export(
     elif platform == qv.Platform.TENSORRT:
         kwargs["use_fp16"] = True
 
+    input_shape = tuple(preproc.config.output[0].dims)
     bbhnet.export_version(
         nn._modules["1"],
-        input_shapes={"whitened": tuple(preproc.config.output_shape)},
+        input_shapes={"whitened": input_shape},
         output_names=["discriminator"],
         **kwargs,
     )
