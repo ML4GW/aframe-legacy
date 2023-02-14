@@ -105,7 +105,6 @@ def _generate_waveforms(
         signals = signals[snrs > hopeless_snr_threshold]
         n_rejected += np.sum([snrs < hopeless_snr_threshold])
         waveforms.append(signals)
-        print(n_rejected)
 
     waveforms = torch.cat(waveforms)
     waveforms = waveforms[: sampler.num_signals]

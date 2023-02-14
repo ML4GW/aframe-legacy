@@ -187,7 +187,7 @@ spacing = 48
 buffer = 4
 jitter = 2
 cosmology = "${base.cosmology}"
-
+hopeless_snr_threshold = 6
 # misc parameters
 verbose = true
 

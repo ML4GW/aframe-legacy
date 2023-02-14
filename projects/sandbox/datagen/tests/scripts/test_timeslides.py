@@ -14,10 +14,10 @@ from gwpy.segments import (
 from gwpy.timeseries import TimeSeries
 
 from bbhnet.io.timeslides import TimeSlide
-from bbhnet.priors.priors import nonspin_bbh
+from bbhnet.priors.priors import end_o3_ratesandpops
 
 
-@pytest.fixture(params=[nonspin_bbh])
+@pytest.fixture(params=[end_o3_ratesandpops])
 def prior(request):
     return request.param
 
