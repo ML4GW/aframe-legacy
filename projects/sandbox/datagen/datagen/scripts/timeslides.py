@@ -149,7 +149,6 @@ def main(
     # extract cosmology and instantiate prior with it
     cosmology = cosmology()
     prior = prior(cosmology)
-
     # set up some pools for doing our data IO/injection
     with AsyncExecutor(4, thread=False) as pool:
         for segment_start, segment_stop in segments:
@@ -208,7 +207,10 @@ def main(
                 )
                 psds.append(psd)
 
+            psds = torch.tensor(np.stack(psds), dtype=torch.float64)
+
             logging.debug(f"Completed download of segment {seg_str}")
+
             waveform_it = waveform_iterator(
                 pool,
                 sampler,
@@ -219,6 +221,7 @@ def main(
                 sample_rate,
                 highpass,
             )
+
             # set up array of times for all shifts
 
             t = np.arange(segment_start, segment_start + dur, stride)

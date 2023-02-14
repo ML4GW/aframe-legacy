@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 import pytest
 from astropy.cosmology import Planck15
-from datagen.scripts import generate_timeslides
+from datagen.scripts.timeslides import main as generate_timeslides
 from gwpy.segments import (
     DataQualityDict,
     DataQualityFlag,
@@ -92,9 +92,15 @@ def cosmology():
 
 def submit_mock(f, *args, **kwargs):
     result = Mock()
-    result.result = Mock(return_value=f(*args, **kwargs))
+    value = f(*args, **kwargs)
+    result.result = Mock(return_value=value)
     result._state = FINISHED
     return result
+
+
+def mock_exit(self, *exc_args):
+    # return False to process exceptions!
+    return False
 
 
 pool_mock = Mock()
@@ -102,10 +108,9 @@ pool_mock.submit = submit_mock
 
 
 @patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__")
+@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_no_segments(
     mock1,
-    mock2,
     logdir,
     datadir,
     prior,
@@ -181,10 +186,9 @@ def test_timeslide_injections_no_segments(
 
 
 @patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__")
+@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_chunked_segments(
     mock1,
-    mock2,
     logdir,
     datadir,
     prior,
@@ -290,10 +294,9 @@ def test_timeslide_injections_chunked_segments(
 
 
 @patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__")
+@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_with_segments(
     mock1,
-    mock2,
     logdir,
     datadir,
     prior,

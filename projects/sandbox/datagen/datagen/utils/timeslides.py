@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
+import torch
+
 from ml4gw.gw import compute_network_snr
 
 if TYPE_CHECKING:
     import bilby.core.prior.PriorDict
-    import torch
 
 import gwdatafind
 import numpy as np
@@ -45,10 +46,11 @@ class Sampler:
     def num_signals(self):
         return len(self.signal_times)
 
-    def __call__(self):
+    def __call__(self, n_signals: int = None):
         jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
         times = self.signal_times + jitter
 
+        n_signals = n_signals or self.num_signals
         params = self.prior.sample(self.num_signals)
 
         # our testing prior is defined in the source frame, so we
@@ -86,19 +88,27 @@ def _generate_waveforms(
     sample_rate: float,
     highpass: float,
 ):
+
     waveforms = []
     n_rejected = 0
     while len(waveforms) < sampler.num_signals:
-        params = sampler()
-        signals = generator(params)
+        params = sampler(sampler.num_signals * 10)
+        signals = torch.Tensor(generator(params))
 
-        # crude estimate of snrs using hplus
-        snrs = compute_network_snr(
-            signals[:, 0.0:], psds, sample_rate, highpass
-        )
+        # crude estimate of snrs using hplus and hcross.
+        # using full network snr would require refactoring
+        # that is not worth it at this moment given we will be
+        # refactoring this code soon. (also, this was good enough
+        # for the rates and pops group, so good enough for me)
+        snrs = compute_network_snr(signals, psds, sample_rate, highpass)
+        snrs = snrs.numpy()
         signals = signals[snrs > hopeless_snr_threshold]
         n_rejected += np.sum([snrs < hopeless_snr_threshold])
         waveforms.append(signals)
+        print(n_rejected)
+
+    waveforms = torch.cat(waveforms)
+    waveforms = waveforms[: sampler.num_signals]
 
     return waveforms, params, n_rejected
 
