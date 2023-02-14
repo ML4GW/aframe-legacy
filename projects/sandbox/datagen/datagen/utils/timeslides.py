@@ -12,6 +12,8 @@ from ml4gw.gw import compute_network_snr
 if TYPE_CHECKING:
     import bilby.core.prior.PriorDict
 
+from collections import defaultdict
+
 import gwdatafind
 import numpy as np
 from datagen.utils.injection import generate_gw
@@ -46,11 +48,10 @@ class Sampler:
     def num_signals(self):
         return len(self.signal_times)
 
-    def __call__(self, n_signals: int = None):
+    def __call__(self):
         jitter = np.random.uniform(-1, 1, self.num_signals) * self.jitter
         times = self.signal_times + jitter
 
-        n_signals = n_signals or self.num_signals
         params = self.prior.sample(self.num_signals)
 
         # our testing prior is defined in the source frame, so we
@@ -90,26 +91,33 @@ def _generate_waveforms(
 ):
 
     waveforms = []
+    parameters = defaultdict(list)
     n_rejected = 0
     while len(waveforms) < sampler.num_signals:
-        params = sampler(sampler.num_signals * 10)
+        params = sampler()
         signals = torch.Tensor(generator(params))
 
-        # crude estimate of snrs using hplus and hcross.
-        # using full network snr would require refactoring
+        # crude estimate of snrs using hplus and hcross
+        # as a proxy for H1 and L1 signals.
+        # Using full network snr would require refactoring
         # that is not worth it at this moment given we will be
-        # refactoring this code soon. (also, this was good enough
+        # rewriting this code soon. (also, this was good enough
         # for the rates and pops group, so good enough for me)
         snrs = compute_network_snr(signals, psds, sample_rate, highpass)
         snrs = snrs.numpy()
-        signals = signals[snrs > hopeless_snr_threshold]
-        n_rejected += np.sum([snrs < hopeless_snr_threshold])
+        mask = snrs > hopeless_snr_threshold
+        signals = signals[mask]
+        n_rejected += np.sum(~mask)
         waveforms.append(signals)
+        for key, value in params.items():
+            parameters[key].extend(list(value[mask]))
 
     waveforms = torch.cat(waveforms)
     waveforms = waveforms[: sampler.num_signals]
+    for key, value in params.items():
+        parameters[key] = value[: sampler.num_signals]
 
-    return waveforms, params, n_rejected
+    return waveforms, parameters, n_rejected
 
 
 def waveform_iterator(

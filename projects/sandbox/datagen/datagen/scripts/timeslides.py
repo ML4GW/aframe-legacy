@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Optional
 import h5py
 import numpy as np
 import torch
+from bilby.core.utils.log import setup_logger
 from datagen.utils.injection import inject_waveforms
 from datagen.utils.timeslides import (
     Sampler,
@@ -30,6 +31,9 @@ from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor
 from ml4gw.gw import compute_ifo_snr, compute_observed_strain, get_ifo_geometry
 from ml4gw.spectral import normalize_psd
+
+# suppress annoying bilby log when calling .sample
+setup_logger(log_level="WARNING")
 
 
 @scriptify
@@ -230,13 +234,13 @@ def main(
             it = zip(waveform_it, segment_shifts)
             # keep track of the total number of waveforms
             # we've rejected as hopeless
-            total_rejected = 0
+
             for (waveforms, parameters, n_rejected), shift in it:
                 logging.debug(
                     "Creating timeslide for segment {} "
                     "with shifts {}".format(seg_str, shift)
                 )
-                total_rejected += n_rejected
+
                 # 1. start by creating all the directories we'll need
                 root = datadir / f"dt-{shift}"
                 root.mkdir(exist_ok=True, parents=True)
@@ -354,11 +358,18 @@ def main(
                             dataset.resize(len(dataset) + len(v), axis=0)
                             dataset[-len(v) :] = v
 
-                        f.attrs.update(
-                            {
-                                "n_rejected": total_rejected,
-                            }
-                        )
+                    # update total amount of rejected waveforms for this shift
+                    try:
+                        total_rejected = f.attrs["n_rejected"]
+                    except KeyError:
+                        total_rejected = 0
+
+                    total_rejected += n_rejected
+                    f.attrs.update(
+                        {
+                            "n_rejected": total_rejected,
+                        }
+                    )
 
             # don't move on until we've finished writing
             # everything so that we don't accidentally
