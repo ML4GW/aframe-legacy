@@ -38,9 +38,7 @@ def get_network_weights(weights_dir, architecture):
     def fn(num_ifos, sample_rate, kernel_length, target):
         weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
         if not weights.exists():
-            preprocessor = Preprocessor(
-                num_ifos, sample_rate, kernel_length, fduration=1
-            )
+            preprocessor = Preprocessor(num_ifos, sample_rate, fduration=1)
             preprocessor.whitener.build(
                 kernel_length=torch.Tensor((kernel_length,))
             )
@@ -76,12 +74,14 @@ def load_config(config_path: Path):
 @pytest.fixture
 def validate_repo(repo_dir):
     def fn(
-        expected_instances,
+        expected_bbhnet_instances,
+        expected_preproc_instances,
         expected_snapshots,
         expected_versions,
         expected_num_ifos,
         expected_stream_size,
         expected_kernel_size,
+        expected_crop,
         expected_batch_size,
     ):
         for i, model in enumerate(repo_dir.iterdir()):
@@ -116,7 +116,17 @@ def validate_repo(repo_dir):
 
                 assert (model / "1" / "model.onnx").exists()
                 assert not (model / "2").is_dir()
-            elif model.name == "bbhnet":
+            elif model.name in ("bbhnet", "preprocessor"):
+                if model.name == "bbhnet":
+                    expected_instances = expected_bbhnet_instances
+                    expected_input_dim = expected_kernel_size - expected_crop
+                    expected_output_dim = 1
+                    assert config.optimization.graph.level == -1
+                else:
+                    expected_instances = expected_preproc_instances
+                    expected_input_dim = expected_kernel_size
+                    expected_output_dim = expected_kernel_size - expected_crop
+
                 try:
                     instance_group = config.instance_group[0]
                 except IndexError:
@@ -136,9 +146,12 @@ def validate_repo(repo_dir):
                 assert config.input[0].dims == [
                     expected_batch_size,
                     expected_num_ifos,
-                    expected_kernel_size,
+                    expected_input_dim,
                 ]
-                assert config.output[0].dims == [expected_batch_size, 1]
+                assert config.output[0].dims == [
+                    expected_batch_size,
+                    expected_output_dim,
+                ]
 
                 for j in range(expected_versions):
                     assert (model / str(j + 1) / "model.onnx").is_file()
@@ -210,22 +223,24 @@ def test_export_for_shapes(
             str(repo_dir),
             output_dir,
             num_ifos=num_ifos,
-            kernel_length=kernel_length,
             inference_sampling_rate=inference_sampling_rate,
             sample_rate=sample_rate,
             batch_size=batch_size,
             fduration=1,
             weights=weights,
             streams_per_gpu=1,
-            instances=1,
+            bbh_instances=1,
+            preproc_instances=1,
         )
         validate_repo(
-            expected_instances=1,
+            expected_bbhnet_instances=1,
+            expected_preproc_instances=1,
             expected_snapshots=1,
             expected_versions=1,
             expected_num_ifos=num_ifos,
             expected_stream_size=int(sample_rate / inference_sampling_rate),
             expected_kernel_size=int(sample_rate * kernel_length),
+            expected_fduration=int(sample_rate),
             expected_batch_size=batch_size,
         )
 
@@ -270,22 +285,24 @@ def test_export_for_weights(
         str(repo_dir),
         output_dir,
         num_ifos=num_ifos,
-        kernel_length=kernel_length,
         inference_sampling_rate=inference_sampling_rate,
         sample_rate=sample_rate,
         batch_size=1,
         fduration=1,
         weights=weights,
         streams_per_gpu=1,
-        instances=1,
+        bbhnet_instances=1,
+        preproc_instances=1,
     )
     validate_repo(
-        expected_instances=1,
+        expected_bbhnet_instances=1,
+        expected_preproc_instances=1,
         expected_snapshots=1,
         expected_versions=1,
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
+        expected_fduration=int(sample_rate),
         expected_batch_size=1,
     )
 
@@ -293,7 +310,12 @@ def test_export_for_weights(
 # now test how different values of scaling parameters
 # lead to different configs
 @pytest.fixture(params=[None, 1])
-def instances(request):
+def bbhnet_instances(request):
+    return request.param
+
+
+@pytest.fixture(params=[None, 1])
+def preproc_instances(request):
     return request.param
 
 
@@ -313,7 +335,8 @@ def test_export_for_scaling(
     repo_dir,
     output_dir,
     streams_per_gpu,
-    instances,
+    bbhnet_instances,
+    preproc_instances,
     clean,
     architecture,
     validate_repo,
@@ -331,38 +354,41 @@ def test_export_for_scaling(
         p = repo_dir / "dummy_file.txt"
         p.write_text("dummy text")
 
-    def run_export(instances=instances, clean=clean):
+    def run_export(instances=bbhnet_instances, clean=clean):
         export(
             architecture,
             str(repo_dir),
             output_dir,
             num_ifos=num_ifos,
-            kernel_length=kernel_length,
             inference_sampling_rate=inference_sampling_rate,
             sample_rate=sample_rate,
             batch_size=1,
             fduration=1,
             weights=weights,
             streams_per_gpu=streams_per_gpu,
-            instances=instances,
+            bbhnet_instances=instances,
+            preproc_instances=instances,
             clean=clean,
         )
 
     run_export()
     validate_repo(
-        expected_instances=instances,
+        expected_bbhnet_instances=bbhnet_instances,
+        expected_preproc_instances=preproc_instances,
         expected_snapshots=streams_per_gpu,
         expected_versions=1,
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
+        expected_fduration=int(sample_rate),
         expected_batch_size=1,
     )
 
     # now check what happens if the repo already exists
     run_export()
     validate_repo(
-        expected_instances=instances,
+        expected_bbhnet_instances=bbhnet_instances,
+        expected_preproc_instances=preproc_instances,
         expected_snapshots=streams_per_gpu,
         expected_versions=1 if clean else 2,
         expected_num_ifos=num_ifos,
@@ -410,7 +436,7 @@ def test_export_for_scaling(
     # bbhnet version if things go wrong?
     shutil.rmtree(repo_dir / "bbbhnet")
     validate_repo(
-        expected_instances=instances,
+        expected_instances=bbhnet_instances,
         expected_snapshots=streams_per_gpu,
         expected_versions=1,
         expected_num_ifos=num_ifos,
