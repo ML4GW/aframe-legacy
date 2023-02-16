@@ -55,10 +55,10 @@ class ChannelNorm(torch.nn.Module):
         # roll the mean and variance into the
         # weight and bias so that we have to do
         # fewer computations along the full time axis
-        var = (sq_mean - mean**2 + self.eps) ** 0.5
-        weight = self.weight / var
-        bias = self.bias - weight * mean
-        return bias + x * weight
+        std = (sq_mean - mean**2 + self.eps) ** 0.5
+        scale = self.weight / std
+        shift = self.bias - scale * mean
+        return shift + x * scale
 
 
 def get_norm_layer(groups: Optional[int] = None) -> nn.Module:
