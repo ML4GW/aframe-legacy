@@ -354,7 +354,11 @@ def test_export_for_scaling(
         p = repo_dir / "dummy_file.txt"
         p.write_text("dummy text")
 
-    def run_export(instances=bbhnet_instances, clean=clean):
+    def run_export(
+        bbhnet_instances=bbhnet_instances,
+        preproc_instances=preproc_instances,
+        clean=clean,
+    ):
         export(
             architecture,
             str(repo_dir),
@@ -366,8 +370,8 @@ def test_export_for_scaling(
             fduration=1,
             weights=weights,
             streams_per_gpu=streams_per_gpu,
-            bbhnet_instances=instances,
-            preproc_instances=instances,
+            bbhnet_instances=bbhnet_instances,
+            preproc_instances=preproc_instances,
             clean=clean,
         )
 
@@ -399,9 +403,12 @@ def test_export_for_scaling(
 
     # now make sure if we change the scale
     # we get another version and the config changes
-    run_export(instances=3, clean=False)
+    run_export(
+        bbhnet_instances=3, preproc_instances=preproc_instances, clean=False
+    )
     validate_repo(
-        expected_instances=3,
+        expected_bbhnet_instances=3,
+        expected_preproc_instances=preproc_instances,
         expected_snapshots=streams_per_gpu,
         expected_versions=2 if clean else 3,
         expected_num_ifos=num_ifos,
@@ -428,7 +435,7 @@ def test_export_for_scaling(
     assert str(exc_info.value).endswith("model 'bbhnet'")
 
     # ensure that bbhnet got exported before things
-    # went wrong with thet ensemble. TODO: this is
+    # went wrong with the ensemble. TODO: this is
     # actually probably undesirable behavior, but I'm
     # not sure the best way to handle it elegantly in
     # the export function. I guess a try-catch on the
@@ -436,7 +443,8 @@ def test_export_for_scaling(
     # bbhnet version if things go wrong?
     shutil.rmtree(repo_dir / "bbbhnet")
     validate_repo(
-        expected_instances=bbhnet_instances,
+        expected_bbhnet_instances=bbhnet_instances,
+        expected_preproc_instances=preproc_instances,
         expected_snapshots=streams_per_gpu,
         expected_versions=1,
         expected_num_ifos=num_ifos,
