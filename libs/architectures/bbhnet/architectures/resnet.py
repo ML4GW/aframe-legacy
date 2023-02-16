@@ -44,7 +44,9 @@ class ChannelNorm(torch.nn.Module):
         # reshape back to full channel dimension
         if self.num_groups != self.num_channels:
             mean = torch.stack([mean, sq_mean], dim=1)
-            mean = mean.reshape(-1, 2, self.num_group, self.channels_per_group)
+            mean = mean.reshape(
+                -1, 2, self.num_groups, self.channels_per_group
+            )
             mean = mean.mean(-1, keepdims=True)
             mean = mean.expand(-1, -1, -1, self.channels_per_group)
             mean = mean.reshape(-1, 2, self.num_channels, 1)
