@@ -132,7 +132,7 @@ def export(
 
     # do the same for preprocessor
     try:
-        preproc = repo.models["preprocessor"]
+        preproc = repo.models["preproc"]
     except KeyError:
         preproc = repo.add("preproc", platform=platform)
 

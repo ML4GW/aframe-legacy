@@ -116,16 +116,21 @@ def validate_repo(repo_dir):
 
                 assert (model / "1" / "model.onnx").exists()
                 assert not (model / "2").is_dir()
-            elif model.name in ("bbhnet", "preprocessor"):
+            elif model.name in ("bbhnet", "preproc"):
                 if model.name == "bbhnet":
                     expected_instances = expected_bbhnet_instances
                     expected_input_dim = expected_kernel_size - expected_crop
-                    expected_output_dim = 1
+                    expected_output_shape = [expected_batch_size, 1]
                     assert config.optimization.graph.level == -1
                 else:
                     expected_instances = expected_preproc_instances
                     expected_input_dim = expected_kernel_size
-                    expected_output_dim = expected_kernel_size - expected_crop
+                    output_dim = expected_kernel_size - expected_crop
+                    expected_output_shape = [
+                        expected_batch_size,
+                        expected_num_ifos,
+                        output_dim,
+                    ]
 
                 try:
                     instance_group = config.instance_group[0]
@@ -148,23 +153,25 @@ def validate_repo(repo_dir):
                     expected_num_ifos,
                     expected_input_dim,
                 ]
-                assert config.output[0].dims == [
-                    expected_batch_size,
-                    expected_output_dim,
-                ]
+                assert config.output[0].dims == expected_output_shape
 
-                for j in range(expected_versions):
+                if isinstance(expected_versions, tuple):
+                    idx = 0 if model.name == "bbhnet" else 1
+                    versions = expected_versions[idx]
+                else:
+                    versions = expected_versions
+
+                for j in range(versions):
                     assert (model / str(j + 1) / "model.onnx").is_file()
                 assert not (model / str(j + 2)).is_dir()
 
-                assert config.optimization.graph.level == -1
             elif model.name == "bbhnet-stream":
                 assert (model / "1").is_dir()
                 assert not (model / "2").is_dir()
             else:
                 raise ValueError(f"Unexpected model {model.name} in repo")
 
-        assert i == 2, f"Wrong number of models {i + 1}"
+        assert i == 3, f"Wrong number of models {i + 1}"
 
     return fn
 
@@ -229,7 +236,7 @@ def test_export_for_shapes(
             fduration=1,
             weights=weights,
             streams_per_gpu=1,
-            bbh_instances=1,
+            bbhnet_instances=1,
             preproc_instances=1,
         )
         validate_repo(
@@ -240,7 +247,7 @@ def test_export_for_shapes(
             expected_num_ifos=num_ifos,
             expected_stream_size=int(sample_rate / inference_sampling_rate),
             expected_kernel_size=int(sample_rate * kernel_length),
-            expected_fduration=int(sample_rate),
+            expected_crop=int(sample_rate),
             expected_batch_size=batch_size,
         )
 
@@ -302,7 +309,7 @@ def test_export_for_weights(
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
-        expected_fduration=int(sample_rate),
+        expected_crop=int(sample_rate),
         expected_batch_size=1,
     )
 
@@ -384,7 +391,7 @@ def test_export_for_scaling(
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
-        expected_fduration=int(sample_rate),
+        expected_crop=int(sample_rate),
         expected_batch_size=1,
     )
 
@@ -399,6 +406,7 @@ def test_export_for_scaling(
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
         expected_batch_size=1,
+        expected_crop=int(sample_rate),
     )
 
     # now make sure if we change the scale
@@ -415,6 +423,7 @@ def test_export_for_scaling(
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
         expected_batch_size=1,
+        expected_crop=int(sample_rate),
     )
 
     # now test to make sure an error gets raised if the
@@ -446,9 +455,10 @@ def test_export_for_scaling(
         expected_bbhnet_instances=bbhnet_instances,
         expected_preproc_instances=preproc_instances,
         expected_snapshots=streams_per_gpu,
-        expected_versions=1,
+        expected_versions=(1, 3) if clean else (1, 4),
         expected_num_ifos=num_ifos,
         expected_stream_size=int(sample_rate / inference_sampling_rate),
         expected_kernel_size=int(sample_rate * kernel_length),
         expected_batch_size=1,
+        expected_crop=int(sample_rate),
     )
