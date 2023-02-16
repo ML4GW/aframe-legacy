@@ -1,8 +1,13 @@
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
 import torch
-
-from bbhnet.data.dataloader import BBHInMemoryDataset
+from train.data_structures import (
+    BBHInMemoryDataset,
+    BBHNetWaveformInjection,
+    GlitchSampler,
+)
 
 
 @pytest.fixture
@@ -110,3 +115,73 @@ def test_bbhnet_in_memory_dataloader_with_preprocessor(
 
         assert (y[::2] == 1).all().item()
         assert (y[1::2] == 0).all().item()
+
+
+@pytest.fixture(params=[0, 0.25, 1])
+def prob(request):
+    return request.param
+
+
+def get_rand_patch(size):
+    probs = torch.linspace(0, 0.99, size[1])
+    return torch.stack([probs] * size[0])
+
+
+def test_glitch_sampler(sample_rate, offset, device, prob):
+    glitches = torch.arange(512 * 2 * 10, dtype=torch.float32)
+    glitches = glitches.reshape(10, 512 * 2) + 1
+    sampler = GlitchSampler(
+        prob=prob,
+        max_offset=offset,
+        h1=glitches,
+        l1=-1 * glitches[:9],
+    )
+    sampler.to(device)
+    for glitch in sampler.buffers():
+        assert glitch.device.type == device
+
+    X = torch.zeros((8, 2, 512), dtype=torch.float32).to(device)
+    probs = get_rand_patch((2, 8)).to(device)
+    with patch("torch.rand", return_value=probs):
+        inserted, _ = sampler(X, None)
+
+        # TODO: the tests could be more extensive, but
+        # then are we functionally just testing sample_kernels?
+        if prob == 0:
+            assert (inserted == 0).all().item()
+        elif prob == 1:
+            assert (inserted != 0).all().item()
+        else:
+            assert (inserted[:2] != 0).all().item()
+            assert (inserted[2:] == 0).all().item()
+
+
+def sample(obj, N):
+    return torch.ones((N, 2, 128 * 2)), torch.ones((N, 3))
+
+
+rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
+
+
+@patch("ml4gw.transforms.injection.RandomWaveformInjection.sample", new=sample)
+@patch("torch.rand", return_value=rand_value)
+def test_bbhnet_waveform_injection(rand_mock):
+    tform = BBHNetWaveformInjection(
+        sample_rate=128,
+        ifos=["H1", "L1"],
+        dec=MagicMock(),
+        psi=MagicMock(),
+        phi=MagicMock(),
+        prob=0.5,
+        plus=torch.zeros((1, 128 * 2)),
+        cross=torch.zeros((1, 128 * 2)),
+    )
+
+    X = torch.zeros((32, 2, 128 * 1))
+    y = torch.zeros((32, 1))
+
+    X, y = tform(X, y)
+    assert (X[::2] == 1).all().item()
+    assert (X[1::2] == 0).all().item()
+    assert (y[::2] == 1).all().item()
+    assert (y[1::2] == 0).all().item()

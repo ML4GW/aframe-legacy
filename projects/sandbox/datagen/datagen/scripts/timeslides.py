@@ -49,6 +49,7 @@ def main(
     sample_rate: float,
     frame_type: str,
     channel: str,
+    cosmology: Callable,
     min_segment_length: Optional[float] = None,
     chunk_length: Optional[float] = None,
     waveform_duration: float = 8,
@@ -86,6 +87,7 @@ def main(
         reference_frequency: reference frequency for generating waveforms
         waveform_approximant: waveform model to inject
         fftlength: fftlength for calculating psd
+        cosmology: Callable that returns an astropy.cosmology object
         state_flag: name of segments to query from segment database
     """
 
@@ -127,6 +129,10 @@ def main(
     max_shift = max(shifts) * n_slides
     shifts = make_shifts(ifos, shifts, n_slides)
 
+    # extract cosmology and instantiate prior with it
+    cosmology = cosmology()
+    prior, detector_frame_prior = prior(cosmology)
+
     # grab some parameters we'll need for waveform injection
     stride = 1 / sample_rate
     waveform_generator = WaveformGenerator(
@@ -135,6 +141,7 @@ def main(
         sample_rate,
         waveform_duration,
         waveform_approximant,
+        detector_frame_prior,
     )
     tensors, vertices = get_ifo_geometry(*ifos)
 
@@ -156,6 +163,7 @@ def main(
                 min_segment_length,
                 force_generation,
             )
+
             if segment_shifts is None:
                 logging.info(f"Segment {seg_str} too short, skipping")
                 continue
@@ -168,6 +176,7 @@ def main(
 
             # create an iterator which will generate raw
             # waveforms in a separate process
+
             sampler = Sampler(
                 prior,
                 segment_start,
@@ -192,12 +201,16 @@ def main(
                 segment_start,
                 segment_stop,
             )
+
             logging.debug(f"Completed download of segment {seg_str}")
 
             # set up array of times for all shifts
+
             t = np.arange(segment_start, segment_start + dur, stride)
+
             futures = []
             it = zip(waveform_it, segment_shifts)
+
             for (waveforms, parameters), shift in it:
                 logging.debug(
                     "Creating timeslide for segment {} "
@@ -304,6 +317,19 @@ def main(
                 # the corresponding injection directory
                 future = submit_write(pool, injection_ts, t, **injected_data)
                 futures.append(future)
+
+                # infer luminosity distance based on redshift and cosmology
+                parameters[
+                    "luminosity_distance"
+                ] = cosmology.luminosity_distance(parameters["redshift"])
+
+                # Use redshift to convert sampled masses to source frame
+                parameters["mass1_source"] = parameters["mass_1"] / (
+                    1 + parameters["redshift"]
+                )
+                parameters["mass2_source"] = parameters["mass_2"] / (
+                    1 + parameters["redshift"]
+                )
 
                 # 7. Write the injection parameters to the injection
                 # directory as metadata for downstream processes
