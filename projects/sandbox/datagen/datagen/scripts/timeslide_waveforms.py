@@ -1,10 +1,11 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, Iterable, List, Tuple
 
 import h5py
 import numpy as np
 import torch
+from mldatafind.segments import query_segments
 from typeo import scriptify
 
 from bbhnet.injection import generate_gw
@@ -102,7 +103,7 @@ def main(
             tensors,
             vertices,
             sample_rate,
-            **polarizations
+            **polarizations,
         )
         snrs = compute_network_snr(projected, psds, sample_rate, highpass)
         snrs = snrs.numpy()
@@ -129,3 +130,57 @@ def main(
             }
         )
     return output_fname
+
+
+def calc_shifts_required(
+    segments: List[Tuple[int, int]], Tb: float, shifts: Iterable[float]
+):
+    """
+    Based off of the lengths of the segments and the
+    amount of data that will need to be sloughed off
+    the ends due to shifting, calculate how many shifts
+    will be required to achieve Tb seconds worth of background
+    """
+
+    shift = max(shifts)
+    livetime = np.sum([stop - start for start, stop in segments])
+    n_segments = len(segments)
+    shifts_required = 0
+    while True:
+        max_shift = shift * shifts_required
+        total_livetime = (livetime - n_segments * max_shift) * shifts_required
+        if total_livetime < Tb:
+            shifts_required += 1
+            continue
+        break
+
+    return shifts_required
+
+
+# until typeo update gets in just take all the same parameter as main
+@scriptify
+def deploy(
+    start: float,
+    stop: float,
+    state_flag: str,
+    Tb: float,
+    shifts: Iterable[float],
+    spacing: float,
+    buffer: float,
+    waveform_duration: float,
+    prior: Callable,
+    minimum_frequency: float,
+    reference_frequency: float,
+    sample_rate: float,
+    waveform_approximant: str,
+    highpass: float,
+    snr_threshold: float,
+    ifos: List[str],
+):
+
+    state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
+    segments = query_segments(state_flags, start, stop)
+    shifts_required = calc_shifts_required(segments, Tb, shifts)
+
+    for i in range(shifts_required):
+        pass
