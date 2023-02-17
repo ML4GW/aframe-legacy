@@ -5,12 +5,7 @@ import h5py
 import numpy as np
 from train.data_structures import BBHInMemoryDataset
 from train.utils import prepare_augmentation, split
-from train.validation import (
-    BackgroundRecall,
-    GlitchRecall,
-    Recorder,
-    Validator,
-)
+from train.validation import BackgroundAUROC, GlitchRecall, Recorder, Validator
 
 from bbhnet.architectures import Preprocessor
 from bbhnet.logging import configure_logging
@@ -240,10 +235,10 @@ def main(
         background, valid_background = split(background, 1 - valid_frac, -1)
 
         # build a couple validation metrics to evaluate during training
-        background_recall = BackgroundRecall(
+        background_recall = BackgroundAUROC(
             kernel_size=int(4 / valid_stride),
             stride=int(4 / valid_stride),
-            k=5,
+            thresholds=[0.001, 0.1, 0.1],
         )
         glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
 
