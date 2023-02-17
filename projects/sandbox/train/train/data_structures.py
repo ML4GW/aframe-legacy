@@ -97,10 +97,12 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         if not self.training:
             return X, y
 
-        # y == -2 means one glitch, y == -4 means two
-        probs = self.prob * self.downweight ** (-y / 2)
+        # y == -2 means one glitch, y == -6 means two
+        probs = torch.ones_like(y)[:, 0] * self.prog
+        probs[y < 0] *= self.downweight
+        probs[y < -2] *= self.downweight
         rvs = torch.rand(size=X.shape[:1], device=probs.device)
-        mask = rvs < probs[:, 0]
+        mask = rvs < probs
 
         # sample the desired number of waveforms and inject them
         N = mask.sum().item()
@@ -165,7 +167,11 @@ class GlitchSampler(torch.nn.Module):
             # replace the appropriate channel in our
             # strain data with the sampled glitches
             X[mask, i] = glitches[:, 0]
-            y[mask] -= 2
+
+            # use bash file permissions style
+            # numbers to indicate which channels
+            # go inserted on
+            y[mask] -= 2**i
         return X, y
 
 
