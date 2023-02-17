@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas as pd
 
 if TYPE_CHECKING:
     import bilby
@@ -9,7 +10,14 @@ if TYPE_CHECKING:
 import logging
 
 from bokeh.layouts import column, row
-from bokeh.models import Button, ColumnDataSource, HoverTool, NumericInput
+from bokeh.models import (
+    Button,
+    ColumnDataSource,
+    DataTable,
+    HoverTool,
+    NumericInput,
+    TableColumn,
+)
 from bokeh.plotting import figure
 
 from bbhnet.analysis.sensitivity import SensitiveVolumeCalculator
@@ -69,7 +77,44 @@ class VolumeTimeVsFAR:
             line_width=2,
         )
 
-        self.layout = row(self.widgets, self.figure)
+        self.data_table = DataTable(
+            source=ColumnDataSource(
+                pd.DataFrame(
+                    {
+                        "m1_m2": [
+                            "35  35",
+                            "35  20",
+                            "20  20",
+                            "20  10",
+                            "10  10",
+                            "10  5",
+                        ],
+                        "Py_CBC": [
+                            "4.3",
+                            "2.5",
+                            "1.42",
+                            "0.65",
+                            "0.28",
+                            "0.11",
+                        ],
+                        "Gst_LAL": [
+                            "4.1",
+                            "2.3",
+                            "1.34",
+                            "0.6",
+                            "0.26",
+                            "0.10",
+                        ],
+                    }
+                )
+            ),
+            columns=[
+                TableColumn(field="m1_m2", title="Masses: m1 m2"),
+                TableColumn(field="Py_CBC", title="PyCBC"),
+                TableColumn(field="Gst_LAL", title="GstLAL"),
+            ],
+        )
+        self.layout = row(self.widgets, self.figure, self.data_table)
 
     def configure_widgets(self):
         self.m1_selector = NumericInput(
