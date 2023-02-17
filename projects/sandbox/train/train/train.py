@@ -48,6 +48,7 @@ def main(
     # data generation args
     glitch_prob: float,
     waveform_prob: float,
+    glitch_downweight: float,
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
@@ -220,6 +221,7 @@ def main(
         waveform_dataset,
         glitch_prob=glitch_prob,
         waveform_prob=waveform_prob,
+        glitch_downweight=glitch_downweight,
         sample_rate=sample_rate,
         highpass=highpass,
         mean_snr=mean_snr,
