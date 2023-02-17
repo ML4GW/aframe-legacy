@@ -22,7 +22,7 @@ def prior(request):
     return request.param
 
 
-@pytest.fixture(params=[0, 60])
+@pytest.fixture(params=[30, 60])
 def spacing(request):
     return request.param
 
