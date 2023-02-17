@@ -238,7 +238,7 @@ def main(
         background_recall = BackgroundAUROC(
             kernel_size=int(4 / valid_stride),
             stride=int(4 / valid_stride),
-            thresholds=[0.001, 0.1, 0.1],
+            thresholds=[0.001, 0.01, 0.1],
         )
         glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
 

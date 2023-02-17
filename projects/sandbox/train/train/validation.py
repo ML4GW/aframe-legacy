@@ -84,6 +84,7 @@ class MultiThresholdAUROC(Metric):
     def call(self, signal_preds, background_preds):
         x = torch.cat([signal_preds, background_preds])
         y = torch.zeros_like(x)
+        thresholds = torch.Tensor(self.thresholds).to(y.device)
         y[: len(signal_preds)] = 1
 
         idx = torch.argsort(x, descending=True)
@@ -94,7 +95,7 @@ class MultiThresholdAUROC(Metric):
         dfpr = fpr.diff()
         dtpr = tpr.diff()
 
-        mask = fpr[:-1, None] <= self.thresholds
+        mask = fpr[:-1, None] <= thresholds
         dfpr = dfpr[:, None] * mask
         integral = (tpr[:-1, None] + dtpr[:, None] * 0.5) * dfpr
         return integral.sum(0)
