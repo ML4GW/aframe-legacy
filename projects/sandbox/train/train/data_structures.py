@@ -98,11 +98,11 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
             return X, y
 
         # y == -2 means one glitch, y == -6 means two
-        probs = torch.ones_like(y)[:, 0] * self.prog
+        probs = torch.ones_like(y) * self.prob
         probs[y < 0] *= self.downweight
         probs[y < -2] *= self.downweight
         rvs = torch.rand(size=X.shape[:1], device=probs.device)
-        mask = rvs < probs
+        mask = rvs < probs[:, 0]
 
         # sample the desired number of waveforms and inject them
         N = mask.sum().item()
@@ -171,7 +171,7 @@ class GlitchSampler(torch.nn.Module):
             # use bash file permissions style
             # numbers to indicate which channels
             # go inserted on
-            y[mask] -= 2**i
+            y[mask] -= 2 ** (i + 1)
         return X, y
 
 
