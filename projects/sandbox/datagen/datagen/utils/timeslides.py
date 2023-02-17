@@ -53,11 +53,6 @@ class Sampler:
         times = self.signal_times + jitter
 
         params = self.prior.sample(self.num_signals)
-
-        # our testing prior is defined in the source frame, so we
-        # have to convert to detector frame masses.
-        params["mass_1"] = params["mass_1"] * (1 + params["redshift"])
-        params["mass_2"] = params["mass_2"] * (1 + params["redshift"])
         params["geocent_time"] = times
         return params
 
