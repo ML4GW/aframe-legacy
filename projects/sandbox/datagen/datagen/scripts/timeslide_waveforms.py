@@ -1,11 +1,11 @@
 import shutil
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple
 
 import h5py
 import numpy as np
-import pycondor
 import torch
 from datagen.utils.injection import generate_gw
 from mldatafind.segments import query_segments
@@ -55,6 +55,33 @@ def calc_segment_injection_times(
     spacing = waveform_duration + spacing
     injection_times = np.arange(start + buffer, stop - buffer, spacing)
     return injection_times
+
+
+def create_submit_file(
+    executable,
+    condor_dir,
+    accounting_group,
+    accounting_group_user,
+    request_memory,
+    request_disk,
+    arguments,
+):
+
+    logdir = condor_dir / "logs"
+    subfile = f"""
+        universe = vanilla
+        executable = {executable}
+        arguments = {arguments}
+        log = {logdir}/timeslide_waveforms.log
+        output = {logdir}/timeslide_waveforms.out
+        error = {logdir}/timeslide_waveforms.err
+        accounting_group = {accounting_group}
+        accounting_group_user = {accounting_group_user}
+        request_memory = {request_memory}
+        request_disk = {request_disk}
+        queue start,stop from segments.txt
+    """
+    return subfile
 
 
 @scriptify
@@ -207,17 +234,17 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
+    request_memory: int = 1024,
+    request_disk: int = 1024,
 ):
 
     logdir.mkdir(exist_ok=True, parents=True)
-    datadir = datadir / "timeslide_waveforms"
 
     hanford_background = datadir / "H1_background.h5"
     livingston_background = datadir / "L1_background.h5"
 
     # where condor info and sub files will live
     condor_dir = datadir / "condor"
-    condor_log_dir = str(condor_dir / "logs")
 
     # condor_log_dir.mkdir(exist_ok=True, parents=True)
     condor_dir.mkdir(exist_ok=True, parents=True)
@@ -258,25 +285,21 @@ def deploy(
     arguments += f"--prior {prior} --cosmology {cosmology}"
     arguments += f"--output_fname {datadir}/$(ProcID).hdf5"
 
-    extra_lines = ["queue start,stop from segments.txt"]
-    extra_lines.append(f"accounting_group_user = {accounting_group_user}")
-    extra_lines.append(f"accounting_group = {accounting_group}")
-
-    # create pycondor job
-    job = pycondor.Job(
-        name="timeslide_waveforms",
-        executable=executable,
-        universe="vanilla",
-        error=condor_log_dir,
-        output=condor_log_dir,
-        log=condor_log_dir,
-        submit=str(condor_dir),
-        # TODO: can probably do some intelligent memory / disk requests
-        request_memory=4 * 1024,
-        request_disk=1024,
-        getenv=True,
-        arguments=arguments,
-        extra_lines=extra_lines,
+    # create submit file; pycondor doesn't support queue from syntax
+    subfile = create_submit_file(
+        executable,
+        condor_dir,
+        accounting_group,
+        accounting_group_user,
+        request_memory,
+        request_disk,
+        arguments,
     )
 
-    job.build_submit()
+    subfile_path = condor_dir / "timeslide_waveforms.submit"
+    with open(subfile_path) as f:
+        f.write(subfile)
+
+    subprocess.run(
+        ["condor_submit", str(condor_dir / "timeslide_waveforms.submit")]
+    )
