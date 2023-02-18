@@ -1,13 +1,13 @@
 import shutil
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, List, Tuple
+from typing import Callable, Iterable, List, Tuple
 
 import h5py
 import numpy as np
 import pycondor
 import torch
-from datagen.utils import generate_gw
+from datagen.utils.injection import generate_gw
 from mldatafind.segments import query_segments
 from typeo import scriptify
 
@@ -66,6 +66,7 @@ def main(
     spacing: float,
     buffer: float,
     waveform_duration: float,
+    cosmology: Callable,
     prior: Callable,
     minimum_frequency: float,
     reference_frequency: float,
@@ -80,7 +81,9 @@ def main(
     Generates the waveforms for a single segment
     """
 
-    prior, detector_frame_prior = prior()
+    cosmology = cosmology()
+    prior, detector_frame_prior = prior(cosmology)
+
     injection_times = calc_segment_injection_times(
         start, stop, spacing, buffer, waveform_duration
     )
@@ -186,11 +189,13 @@ def deploy(
     stop: float,
     state_flag: str,
     Tb: float,
-    shift: float,
+    shifts: Iterable[float],
     spacing: float,
     buffer: float,
+    min_segment_length: float,
+    cosmology: str,
     waveform_duration: float,
-    prior: Callable,
+    prior: str,
     minimum_frequency: float,
     reference_frequency: float,
     sample_rate: float,
@@ -199,38 +204,48 @@ def deploy(
     snr_threshold: float,
     ifos: List[str],
     datadir: Path,
+    logdir: Path,
+    accounting_group_user: str,
+    accounting_group: str,
 ):
 
-    # where hdf5 files for each process will be stored
+    logdir.mkdir(exist_ok=True, parents=True)
     datadir = datadir / "timeslide_waveforms"
+
+    hanford_background = datadir / "H1_background.h5"
+    livingston_background = datadir / "L1_background.h5"
+
     # where condor info and sub files will live
     condor_dir = datadir / "condor"
-    condor_log_dir = condor_dir / "logs"
+    condor_log_dir = str(condor_dir / "logs")
 
-    condor_log_dir.mkdir(exist_ok=True, parents=True)
+    # condor_log_dir.mkdir(exist_ok=True, parents=True)
     condor_dir.mkdir(exist_ok=True, parents=True)
     datadir.mkdir(exist_ok=True, parents=True)
 
     # query segments and calculate shifts required
     # to accumulate desired background livetime
+
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
-    segments = query_segments(state_flags, start, stop)
-    shifts_required = calc_shifts_required(segments, Tb, shift)
+    segments = query_segments(state_flags, start, stop, min_segment_length)
+    shifts_required = calc_shifts_required(segments, Tb, max(shifts))
 
     # TODO: does this logic generalize to negative shifts?
-    max_shift = shift * shifts_required
+    max_shift = max(shifts) * shifts_required
 
     # create text file from which the condor job will read
     # the start, stop, and shift for each job
-    with open("segments.txt", "w") as f:
+    with open(condor_dir / "segments.txt", "w") as f:
         for start, stop in segments:
             for i in range(shifts_required):
-                f.write(f"{start},{stop - max_shift},{shift}")
+                f.write(f"{start},{stop - max_shift}\n")
 
     executable = shutil.which("generate-timeslide-waveforms")
 
     # TODO: have typeo do this argument construction?
-    arguments = "--start $(start) --stop $(stop) --shift $(shift)"
+    arguments = "--start $(start) --stop $(stop)"
+    arguments += f"--hanford-background {hanford_background}"
+    arguments += f"--livingston-background {livingston_background}"
     arguments += f"--spacing {spacing} --buffer {buffer}"
     arguments += f"--waveform-duration {waveform_duration}"
     arguments += f"--minimum-frequency {minimum_frequency}"
@@ -240,10 +255,12 @@ def deploy(
     arguments += (
         f"--highpass {highpass} --snr_threshold {snr_threshold} --ifos {ifos}"
     )
-    arguments += f"--prior {prior}"
+    arguments += f"--prior {prior} --cosmology {cosmology}"
     arguments += f"--output_fname {datadir}/$(ProcID).hdf5"
 
-    extra_lines = ["queue start,stop,shift from segments.txt"]
+    extra_lines = ["queue start,stop from segments.txt"]
+    extra_lines.append(f"accounting_group_user = {accounting_group_user}")
+    extra_lines.append(f"accounting_group = {accounting_group}")
 
     # create pycondor job
     job = pycondor.Job(
@@ -253,7 +270,7 @@ def deploy(
         error=condor_log_dir,
         output=condor_log_dir,
         log=condor_log_dir,
-        submit=condor_dir,
+        submit=str(condor_dir),
         # TODO: can probably do some intelligent memory / disk requests
         request_memory=4 * 1024,
         request_disk=1024,

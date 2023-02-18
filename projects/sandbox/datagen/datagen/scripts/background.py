@@ -87,7 +87,7 @@ def main(
         )
 
         # resample
-        data = data.resample(sample_rate)
+        data.resample(sample_rate)
 
         if np.isnan(data).any():
             raise ValueError(
