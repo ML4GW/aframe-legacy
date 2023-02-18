@@ -297,7 +297,7 @@ def deploy(
     )
 
     subfile_path = condor_dir / "timeslide_waveforms.submit"
-    with open(subfile_path) as f:
+    with open(subfile_path, "w") as f:
         f.write(subfile)
 
     subprocess.run(
