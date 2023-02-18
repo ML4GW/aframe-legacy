@@ -15,6 +15,10 @@ generate-glitches = "datagen.scripts.glitches:main"
 generate-waveforms = "datagen.scripts.waveforms:main"
 generate-timeslides = "datagen.scripts.timeslides:main"
 
+generate-timeslide-waveforms = "datagen.scripts.timeslide_waveforms:main"
+condorize-timeslide-waveforms = "datagen.scripts.timeslide_waveforms:deploy"
+
+
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 
@@ -33,6 +37,7 @@ bilby = "<1.2"  # set this so ml4gw doesn't update it on accident
 "bbhnet.io" = {path = "../../../libs/io", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 "bbhnet.priors" = {path = "../../../libs/priors", develop = true}
+pycondor = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"

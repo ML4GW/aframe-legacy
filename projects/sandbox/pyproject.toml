@@ -1,14 +1,14 @@
 [tool.pinto]
 steps = [
-    #"datagen:generate-background",
+    "datagen:generate-background",
     #"datagen:generate-waveforms",
     #"datagen:generate-glitches",
     #"train:train:resnet",
     #"export:export-model:resnet",
-    "datagen:generate-timeslides",
-    "infer:infer",
-    "analyze:analyze",
-    "vizapp:vizapp"
+    datagen:condorize-timeslide-waveforms
+    #"infer:infer",
+    #"analyze:analyze",
+    #"vizapp:vizapp"
 ]
 
 [tool.typeo.base]
@@ -158,7 +158,7 @@ clean = true
 # arch parameters
 commands.resnet = "${base.resnet}"
 
-[tool.typeo.scripts.generate-timeslides]
+[tool.typeo.scripts.condorize_timeslide_waveforms]
 # paths and what not
 datadir = "${base.datadir}/timeslide_injections/"
 logdir = "${base.logdir}"

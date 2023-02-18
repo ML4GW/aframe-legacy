@@ -1,19 +1,33 @@
+import shutil
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, List, Tuple
 
 import h5py
 import numpy as np
+import pycondor
 import torch
+from datagen.utils import generate_gw
 from mldatafind.segments import query_segments
 from typeo import scriptify
 
-from bbhnet.injection import generate_gw
 from ml4gw.gw import (
     compute_network_snr,
     compute_observed_strain,
     get_ifo_geometry,
 )
+from ml4gw.spectral import normalize_psd
+
+
+def load_psds(*backgrounds: Path, sample_rate: float, df: float):
+
+    psds = []
+    for fname in backgrounds:
+        with h5py.File(fname, "r") as f:
+            hoft = f["hoft"][:]
+            psd = normalize_psd(hoft, df, sample_rate)
+            psds.append(psd)
+    return torch.stack(psds)
 
 
 def calc_segment_injection_times(
@@ -47,6 +61,8 @@ def calc_segment_injection_times(
 def main(
     start: float,
     stop: float,
+    hanford_background: Path,
+    livingston_background: Path,
     spacing: float,
     buffer: float,
     waveform_duration: float,
@@ -74,7 +90,13 @@ def main(
     parameters = defaultdict(list)
 
     tensors, vertices = get_ifo_geometry(*ifos)
-    psds = "tmp"
+    df = 1 / waveform_duration
+    psds = load_psds(
+        hanford_background,
+        livingston_background,
+        sample_rate,
+        df,
+    )
 
     # loop until we've generated enough signals
     # with large enough snr to fill the segment,
@@ -83,6 +105,7 @@ def main(
     while len(signals) < n_samples:
 
         params = prior.sample(n_samples)
+        params["geocent_time"] = injection_times
         waveforms = generate_gw(
             parameters,
             minimum_frequency,
@@ -133,7 +156,7 @@ def main(
 
 
 def calc_shifts_required(
-    segments: List[Tuple[int, int]], Tb: float, shifts: Iterable[float]
+    segments: List[Tuple[int, int]], Tb: float, shift: float
 ):
     """
     Based off of the lengths of the segments and the
@@ -142,10 +165,9 @@ def calc_shifts_required(
     will be required to achieve Tb seconds worth of background
     """
 
-    shift = max(shifts)
     livetime = np.sum([stop - start for start, stop in segments])
     n_segments = len(segments)
-    shifts_required = 0
+    shifts_required = 1
     while True:
         max_shift = shift * shifts_required
         total_livetime = (livetime - n_segments * max_shift) * shifts_required
@@ -164,7 +186,7 @@ def deploy(
     stop: float,
     state_flag: str,
     Tb: float,
-    shifts: Iterable[float],
+    shift: float,
     spacing: float,
     buffer: float,
     waveform_duration: float,
@@ -176,11 +198,68 @@ def deploy(
     highpass: float,
     snr_threshold: float,
     ifos: List[str],
+    datadir: Path,
 ):
 
+    # where hdf5 files for each process will be stored
+    datadir = datadir / "timeslide_waveforms"
+    # where condor info and sub files will live
+    condor_dir = datadir / "condor"
+    condor_log_dir = condor_dir / "logs"
+
+    condor_log_dir.mkdir(exist_ok=True, parents=True)
+    condor_dir.mkdir(exist_ok=True, parents=True)
+    datadir.mkdir(exist_ok=True, parents=True)
+
+    # query segments and calculate shifts required
+    # to accumulate desired background livetime
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
     segments = query_segments(state_flags, start, stop)
-    shifts_required = calc_shifts_required(segments, Tb, shifts)
+    shifts_required = calc_shifts_required(segments, Tb, shift)
 
-    for i in range(shifts_required):
-        pass
+    # TODO: does this logic generalize to negative shifts?
+    max_shift = shift * shifts_required
+
+    # create text file from which the condor job will read
+    # the start, stop, and shift for each job
+    with open("segments.txt", "w") as f:
+        for start, stop in segments:
+            for i in range(shifts_required):
+                f.write(f"{start},{stop - max_shift},{shift}")
+
+    executable = shutil.which("generate-timeslide-waveforms")
+
+    # TODO: have typeo do this argument construction?
+    arguments = "--start $(start) --stop $(stop) --shift $(shift)"
+    arguments += f"--spacing {spacing} --buffer {buffer}"
+    arguments += f"--waveform-duration {waveform_duration}"
+    arguments += f"--minimum-frequency {minimum_frequency}"
+    arguments += f"--reference-frequency {reference_frequency}"
+    arguments += f"--sample-rate {sample_rate}"
+    arguments += f"--waveform-approximant {waveform_approximant}"
+    arguments += (
+        f"--highpass {highpass} --snr_threshold {snr_threshold} --ifos {ifos}"
+    )
+    arguments += f"--prior {prior}"
+    arguments += f"--output_fname {datadir}/$(ProcID).hdf5"
+
+    extra_lines = ["queue start,stop,shift from segments.txt"]
+
+    # create pycondor job
+    job = pycondor.Job(
+        name="timeslide_waveforms",
+        executable=executable,
+        universe="vanilla",
+        error=condor_log_dir,
+        output=condor_log_dir,
+        log=condor_log_dir,
+        submit=condor_dir,
+        # TODO: can probably do some intelligent memory / disk requests
+        request_memory=4 * 1024,
+        request_disk=1024,
+        getenv=True,
+        arguments=arguments,
+        extra_lines=extra_lines,
+    )
+
+    job.build_submit()
