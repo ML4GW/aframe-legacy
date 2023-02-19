@@ -1,7 +1,9 @@
+import re
 import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
+from textwrap import dedent
 from typing import Callable, Iterable, List, Tuple
 
 import h5py
@@ -17,6 +19,11 @@ from ml4gw.gw import (
     get_ifo_geometry,
 )
 from ml4gw.spectral import normalize_psd
+
+# re for extracting cluster id from condor_submit output
+# stolen from pyomicron:
+# https://github.com/ML4GW/pyomicron/blob/master/omicron/condor.py
+re_dagman_cluster = re.compile(r"(?<=submitted\sto\scluster )[0-9]+")
 
 
 def load_psds(*backgrounds: Path, sample_rate: float, df: float):
@@ -69,7 +76,9 @@ def create_submit_file(
 ):
 
     logdir = condor_dir / "logs"
-    subfile = f"""
+    logdir.mkdir(exist_ok=True, parents=True)
+    subfile = dedent(
+        f"""\
         universe = vanilla
         executable = {executable}
         arguments = {arguments}
@@ -80,8 +89,9 @@ def create_submit_file(
         accounting_group_user = {accounting_group_user}
         request_memory = {request_memory}
         request_disk = {request_disk}
-        queue start,stop from segments.txt
+        queue start,stop from {condor_dir}/segments.txt
     """
+    )
     return subfile
 
 
@@ -160,6 +170,8 @@ def main(
             sample_rate,
             **polarizations,
         )
+
+        # TODO: compute individual ifo snr so we can store that data
         snrs = compute_network_snr(projected, psds, sample_rate, highpass)
         snrs = snrs.numpy()
         mask = snrs > snr_threshold
@@ -169,6 +181,8 @@ def main(
 
         for key, value in params.items():
             parameters[key].extend(list(value[mask]))
+
+        parameters["snr"].extend(list(snrs))
 
     signals = torch.cat(signals)
     signals = signals[:n_samples]
@@ -212,6 +226,27 @@ def calc_shifts_required(
     return shifts_required
 
 
+def merge_output(datadir: Path):
+    files = datadir.glob("*.hdf5")
+    datasets = defaultdict(list)
+    n_rejected = 0
+    for f in files:
+        with h5py.File(f, "r") as h5f:
+            for key, value in h5f.items():
+                datasets[key].extend(value)
+            n_rejected += h5f.attrs["n_rejected"]
+        f.unlink()
+
+    with h5py.File(datadir / "timeslide_waveforms.hdf5", "w") as f:
+        for key, value in datasets.items():
+            f.create_dataset(key, data=value)
+        f.attrs.update(
+            {
+                "n_rejected": n_rejected,
+            }
+        )
+
+
 # until typeo update gets in just take all the same parameter as main
 @scriptify
 def deploy(
@@ -251,15 +286,13 @@ def deploy(
 
     # where condor info and sub files will live
     condor_dir = outdir / "condor"
-
-    # condor_log_dir.mkdir(exist_ok=True, parents=True)
     condor_dir.mkdir(exist_ok=True, parents=True)
 
     # query segments and calculate shifts required
     # to accumulate desired background livetime
 
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
-    segments = query_segments(state_flags, start, stop, min_segment_length)
+    segments = query_segments(state_flags, start, stop, min_segment_length)[:1]
     shifts_required = calc_shifts_required(segments, Tb, max(shifts))
 
     # TODO: does this logic generalize to negative shifts?
@@ -274,7 +307,7 @@ def deploy(
 
     executable = shutil.which("generate-timeslide-waveforms")
 
-    # TODO: have typeo do this argument construction?
+    # TODO: have typeo do this CLI argument construction?
     arguments = "--start $(start) --stop $(stop) "
     arguments += f"--hanford-background {hanford_background} "
     arguments += f"--livingston-background {livingston_background} "
@@ -290,7 +323,8 @@ def deploy(
     arguments += f"--prior {prior} --cosmology {cosmology} "
     arguments += f"--output-fname {outdir}/$(ProcID).hdf5 "
 
-    # create submit file; pycondor doesn't support queue from syntax
+    # create submit file by hand: pycondor doesn't support
+    # "queue ... from" syntax
     subfile = create_submit_file(
         executable,
         condor_dir,
@@ -305,6 +339,27 @@ def deploy(
     with open(subfile_path, "w") as f:
         f.write(subfile)
 
-    subprocess.run(
-        ["condor_submit", str(condor_dir / "timeslide_waveforms.submit")]
+    # launch the jobs via condor_submit,
+    # extract the dag id from the output,
+    # and monitor the dag with condor_watch_q
+    condor_submit = shutil.which("condor_submit")
+    out = subprocess.check_output(
+        [str(condor_submit), str(condor_dir / "timeslide_waveforms.submit")]
+    ).decode("utf-8")
+
+    dagid = int(re_dagman_cluster.search(out).group())
+    cwq = shutil.which("condor_watch_q")
+    subprocess.check_call(
+        [
+            cwq,
+            "-exit",
+            "all,done,0",
+            "-exit",
+            "any,held,1",
+            "-clusters",
+            str(dagid),
+        ]
     )
+
+    # once all jobs are done, merge the output files
+    merge_output(outdir)
