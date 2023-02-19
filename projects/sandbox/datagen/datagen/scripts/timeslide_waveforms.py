@@ -112,7 +112,7 @@ def main(
         for key, value in params.items():
             parameters[key].extend(list(value[mask]))
 
-        parameters["snr"].extend(list(snrs))
+        parameters["snr"].extend(list(snrs[mask]))
 
     signals = torch.cat(signals)
     signals = signals[:n_samples]
@@ -177,7 +177,7 @@ def deploy(
     # to accumulate desired background livetime
 
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
-    segments = query_segments(state_flags, start, stop, min_segment_length)[:1]
+    segments = query_segments(state_flags, start, stop, min_segment_length)
     shifts_required = utils.calc_shifts_required(segments, Tb, max(shifts))
 
     # TODO: does this logic generalize to negative shifts?
