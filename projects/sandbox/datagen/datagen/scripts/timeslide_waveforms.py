@@ -3,9 +3,9 @@ import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
-from textwrap import dedent
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, Iterable, List
 
+import datagen.utils.timeslide_waveforms as utils
 import h5py
 import numpy as np
 import torch
@@ -18,81 +18,11 @@ from ml4gw.gw import (
     compute_observed_strain,
     get_ifo_geometry,
 )
-from ml4gw.spectral import normalize_psd
 
 # re for extracting cluster id from condor_submit output
 # stolen from pyomicron:
 # https://github.com/ML4GW/pyomicron/blob/master/omicron/condor.py
 re_dagman_cluster = re.compile(r"(?<=submitted\sto\scluster )[0-9]+")
-
-
-def load_psds(*backgrounds: Path, sample_rate: float, df: float):
-
-    psds = []
-    for fname in backgrounds:
-        with h5py.File(fname, "r") as f:
-            hoft = f["hoft"][:]
-            psd = normalize_psd(hoft, df, sample_rate)
-            psds.append(psd)
-    psds = torch.tensor(np.stack(psds), dtype=torch.float64)
-    return psds
-
-
-def calc_segment_injection_times(
-    start: float,
-    stop: float,
-    spacing: float,
-    buffer: float,
-    waveform_duration: float,
-):
-    """
-    Calculate the times at which to inject signals into a segment
-
-    Args:
-        start: The start time of the segment
-        stop: The stop time of the segment
-        spacing: The spacing between signals
-        jitter: The jitter to apply to the signal times
-        buffer: The buffer to apply to the start and end of the segment
-        waveform_duration: The duration of the waveform
-
-    Returns np.ndarray of injection times
-    """
-
-    buffer += waveform_duration // 2 + buffer
-    spacing = waveform_duration + spacing
-    injection_times = np.arange(start + buffer, stop - buffer, spacing)
-    return injection_times
-
-
-def create_submit_file(
-    executable,
-    condor_dir,
-    accounting_group,
-    accounting_group_user,
-    request_memory,
-    request_disk,
-    arguments,
-):
-
-    logdir = condor_dir / "logs"
-    logdir.mkdir(exist_ok=True, parents=True)
-    subfile = dedent(
-        f"""\
-        universe = vanilla
-        executable = {executable}
-        arguments = {arguments}
-        log = {logdir}/timeslide_waveforms.log
-        output = {logdir}/timeslide_waveforms.out
-        error = {logdir}/timeslide_waveforms.err
-        accounting_group = {accounting_group}
-        accounting_group_user = {accounting_group_user}
-        request_memory = {request_memory}
-        request_disk = {request_disk}
-        queue start,stop from {condor_dir}/segments.txt
-    """
-    )
-    return subfile
 
 
 @scriptify
@@ -122,7 +52,7 @@ def main(
     cosmology = cosmology()
     prior, detector_frame_prior = prior(cosmology)
 
-    injection_times = calc_segment_injection_times(
+    injection_times = utils.calc_segment_injection_times(
         start, stop, spacing, buffer, waveform_duration
     )
     n_samples = len(injection_times)
@@ -132,7 +62,7 @@ def main(
 
     tensors, vertices = get_ifo_geometry(*ifos)
     df = 1 / waveform_duration
-    psds = load_psds(
+    psds = utils.load_psds(
         hanford_background,
         livingston_background,
         sample_rate=sample_rate,
@@ -202,51 +132,6 @@ def main(
     return output_fname
 
 
-def calc_shifts_required(
-    segments: List[Tuple[int, int]], Tb: float, shift: float
-):
-    """
-    Based off of the lengths of the segments and the
-    amount of data that will need to be sloughed off
-    the ends due to shifting, calculate how many shifts
-    will be required to achieve Tb seconds worth of background
-    """
-
-    livetime = np.sum([stop - start for start, stop in segments])
-    n_segments = len(segments)
-    shifts_required = 1
-    while True:
-        max_shift = shift * shifts_required
-        total_livetime = (livetime - n_segments * max_shift) * shifts_required
-        if total_livetime < Tb:
-            shifts_required += 1
-            continue
-        break
-
-    return shifts_required
-
-
-def merge_output(datadir: Path):
-    files = datadir.glob("*.hdf5")
-    datasets = defaultdict(list)
-    n_rejected = 0
-    for f in files:
-        with h5py.File(f, "r") as h5f:
-            for key, value in h5f.items():
-                datasets[key].extend(value)
-            n_rejected += h5f.attrs["n_rejected"]
-        f.unlink()
-
-    with h5py.File(datadir / "timeslide_waveforms.hdf5", "w") as f:
-        for key, value in datasets.items():
-            f.create_dataset(key, data=value)
-        f.attrs.update(
-            {
-                "n_rejected": n_rejected,
-            }
-        )
-
-
 # until typeo update gets in just take all the same parameter as main
 @scriptify
 def deploy(
@@ -293,7 +178,7 @@ def deploy(
 
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
     segments = query_segments(state_flags, start, stop, min_segment_length)[:1]
-    shifts_required = calc_shifts_required(segments, Tb, max(shifts))
+    shifts_required = utils.calc_shifts_required(segments, Tb, max(shifts))
 
     # TODO: does this logic generalize to negative shifts?
     max_shift = max(shifts) * shifts_required
@@ -325,7 +210,7 @@ def deploy(
 
     # create submit file by hand: pycondor doesn't support
     # "queue ... from" syntax
-    subfile = create_submit_file(
+    subfile = utils.create_submit_file(
         executable,
         condor_dir,
         accounting_group,
@@ -362,4 +247,4 @@ def deploy(
     )
 
     # once all jobs are done, merge the output files
-    merge_output(outdir)
+    utils.merge_output(outdir)
