@@ -27,7 +27,8 @@ def load_psds(*backgrounds: Path, sample_rate: float, df: float):
             hoft = f["hoft"][:]
             psd = normalize_psd(hoft, df, sample_rate)
             psds.append(psd)
-    return torch.stack(psds)
+    psds = torch.tensor(np.stack(psds), dtype=torch.float64)
+    return psds
 
 
 def calc_segment_injection_times(
@@ -124,8 +125,8 @@ def main(
     psds = load_psds(
         hanford_background,
         livingston_background,
-        sample_rate,
-        df,
+        sample_rate=sample_rate,
+        df=df,
     )
 
     # loop until we've generated enough signals
@@ -137,7 +138,7 @@ def main(
         params = prior.sample(n_samples)
         params["geocent_time"] = injection_times
         waveforms = generate_gw(
-            parameters,
+            params,
             minimum_frequency,
             reference_frequency,
             sample_rate,
@@ -149,6 +150,7 @@ def main(
             "cross": torch.Tensor(waveforms[:, 0, :]),
             "plus": torch.Tensor(waveforms[:, 1, :]),
         }
+
         projected = compute_observed_strain(
             torch.Tensor(params["dec"]),
             torch.Tensor(params["psi"]),
@@ -163,17 +165,18 @@ def main(
         mask = snrs > snr_threshold
         projected = projected[mask]
         n_rejected += np.sum(~mask)
-        signals.append(waveforms)
+        signals.append(projected)
 
         for key, value in params.items():
             parameters[key].extend(list(value[mask]))
 
-    waveforms = torch.cat(waveforms)
-    waveforms = waveforms[:n_samples]
+    signals = torch.cat(signals)
+    signals = signals[:n_samples]
     for key, value in params.items():
         parameters[key] = value[:n_samples]
 
-    with h5py.File(output_fname, "a") as f:
+    with h5py.File(output_fname, "w") as f:
+        f.create_dataset("signals", data=signals)
         for k, v in parameters.items():
             f.create_dataset(k, data=v)
 
@@ -234,21 +237,23 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
-    request_memory: int = 1024,
+    request_memory: int = 4096,
     request_disk: int = 1024,
 ):
 
+    outdir = datadir / "timeslide_waveforms"
+
+    outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
 
     hanford_background = datadir / "H1_background.h5"
     livingston_background = datadir / "L1_background.h5"
 
     # where condor info and sub files will live
-    condor_dir = datadir / "condor"
+    condor_dir = outdir / "condor"
 
     # condor_log_dir.mkdir(exist_ok=True, parents=True)
     condor_dir.mkdir(exist_ok=True, parents=True)
-    datadir.mkdir(exist_ok=True, parents=True)
 
     # query segments and calculate shifts required
     # to accumulate desired background livetime
@@ -270,20 +275,20 @@ def deploy(
     executable = shutil.which("generate-timeslide-waveforms")
 
     # TODO: have typeo do this argument construction?
-    arguments = "--start $(start) --stop $(stop)"
-    arguments += f"--hanford-background {hanford_background}"
-    arguments += f"--livingston-background {livingston_background}"
-    arguments += f"--spacing {spacing} --buffer {buffer}"
-    arguments += f"--waveform-duration {waveform_duration}"
-    arguments += f"--minimum-frequency {minimum_frequency}"
-    arguments += f"--reference-frequency {reference_frequency}"
-    arguments += f"--sample-rate {sample_rate}"
-    arguments += f"--waveform-approximant {waveform_approximant}"
-    arguments += (
-        f"--highpass {highpass} --snr_threshold {snr_threshold} --ifos {ifos}"
-    )
-    arguments += f"--prior {prior} --cosmology {cosmology}"
-    arguments += f"--output_fname {datadir}/$(ProcID).hdf5"
+    arguments = "--start $(start) --stop $(stop) "
+    arguments += f"--hanford-background {hanford_background} "
+    arguments += f"--livingston-background {livingston_background} "
+    arguments += f"--spacing {spacing} --buffer {buffer} "
+    arguments += f"--waveform-duration {waveform_duration} "
+    arguments += f"--minimum-frequency {minimum_frequency} "
+    arguments += f"--reference-frequency {reference_frequency} "
+    arguments += f"--sample-rate {sample_rate} "
+    arguments += f"--waveform-approximant {waveform_approximant} "
+    arguments += f"--highpass {highpass} --snr-threshold {snr_threshold} "
+    for ifo in ifos:
+        arguments += f"--ifos {ifo} "
+    arguments += f"--prior {prior} --cosmology {cosmology} "
+    arguments += f"--output-fname {outdir}/$(ProcID).hdf5 "
 
     # create submit file; pycondor doesn't support queue from syntax
     subfile = create_submit_file(
