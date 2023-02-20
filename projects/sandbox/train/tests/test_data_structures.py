@@ -197,6 +197,50 @@ def test_bbhnet_waveform_injection(rand_mock):
     assert (y[1::2] == 0).all().item()
 
 
+@pytest.mark.parametrize("downweight", [0, 0.5, 1])
+def test_bbhnet_waveform_injection_with_downweight(downweight):
+    tform = BBHNetWaveformInjection(
+        sample_rate=128,
+        ifos=["H1", "L1"],
+        dec=lambda N: torch.zeros((N,)),
+        psi=lambda N: torch.zeros((N,)),
+        phi=lambda N: torch.zeros((N,)),
+        prob=0.5,
+        glitch_prob=0.25,
+        downweight=downweight,
+        plus=torch.zeros((100, 128 * 2)),
+        cross=torch.zeros((100, 128 * 2)),
+    )
+
+    if downweight == 1:
+        assert tform.prob == 0.5
+    elif downweight == 0:
+        assert tform.prob == (0.5 / 0.75**2)
+    else:
+        assert tform.prob > 0.5
+
+    X = torch.zeros((32, 2, 128 * 1))
+    y = torch.zeros((32, 1))
+    y[:8] = -2
+    y[8:16] = -4
+    y[16:24] = -6
+
+    value = 0.99 * tform.prob
+    if (downweight != 0) and (downweight) != 1:
+        value = value * downweight
+    with patch("torch.rand", return_value=value):
+        X, y = tform(X, y)
+        if downweight == 1:
+            assert (y > 0).all().item()
+        elif downweight == 0:
+            assert (y[:24] < 0).all().item()
+            assert (y[24:] == 1).all().item()
+        else:
+            assert (y[:16] > 0).all().item()
+            assert (y[16:24] < 0).all().item()
+            assert (y[24:] > 0).all().item()
+
+
 @pytest.fixture(params=[0.0, 0.25, 0.5, 1])
 def flip_prob(request):
     return request.param

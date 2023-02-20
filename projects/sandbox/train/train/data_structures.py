@@ -100,7 +100,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         # y == -2 means one glitch, y == -6 means two
         probs = torch.ones_like(y) * self.prob
         probs[y < 0] *= self.downweight
-        probs[y < -2] *= self.downweight
+        probs[y < -4] *= self.downweight
         rvs = torch.rand(size=X.shape[:1], device=probs.device)
         mask = rvs < probs[:, 0]
 
