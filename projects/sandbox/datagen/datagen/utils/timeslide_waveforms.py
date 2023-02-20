@@ -27,9 +27,9 @@ def calc_shifts_required(
     Returns the number of shifts required to achieve Tb seconds of background
     """
 
-    livetime = np.sum([stop - start for start, stop in segments])
+    livetime = sum([stop - start for start, stop in segments])
     n_segments = len(segments)
-    shifts_required = 1
+    shifts_required = 0
     while True:
         max_shift = shift * shifts_required
         total_livetime = (livetime - n_segments * max_shift) * shifts_required
@@ -102,13 +102,13 @@ def calc_segment_injection_times(
 
 
 def create_submit_file(
-    executable,
-    condor_dir,
-    accounting_group,
-    accounting_group_user,
-    request_memory,
-    request_disk,
-    arguments,
+    executable: str,
+    condor_dir: Path,
+    accounting_group: str,
+    accounting_group_user: str,
+    request_memory: int,
+    request_disk: int,
+    arguments: str,
 ):
 
     logdir = condor_dir / "logs"
