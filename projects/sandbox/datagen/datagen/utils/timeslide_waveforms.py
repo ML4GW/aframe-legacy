@@ -95,8 +95,8 @@ def calc_segment_injection_times(
     Returns np.ndarray of injection times
     """
 
-    buffer += waveform_duration // 2 + buffer
-    spacing = waveform_duration + spacing
+    buffer += waveform_duration // 2
+    spacing += waveform_duration
     injection_times = np.arange(start + buffer, stop - buffer, spacing)
     return injection_times
 

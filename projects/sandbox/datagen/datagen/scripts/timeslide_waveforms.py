@@ -57,7 +57,7 @@ def main(
     )
     n_samples = len(injection_times)
 
-    signals = []
+    signals = torch.Tensor()
     parameters = defaultdict(list)
 
     tensors, vertices = get_ifo_geometry(*ifos)
@@ -104,17 +104,17 @@ def main(
         # TODO: compute individual ifo snr so we can store that data
         snrs = compute_network_snr(projected, psds, sample_rate, highpass)
         snrs = snrs.numpy()
+        # add all snrs: masking will take place in for loop below
+        params["snr"] = snrs
         mask = snrs > snr_threshold
+
         projected = projected[mask]
         n_rejected += np.sum(~mask)
-        signals.append(projected)
+        signals = torch.cat((signals, projected))
 
         for key, value in params.items():
             parameters[key].extend(list(value[mask]))
 
-        parameters["snr"].extend(list(snrs[mask]))
-
-    signals = torch.cat(signals)
     signals = signals[:n_samples]
     for key, value in params.items():
         parameters[key] = value[:n_samples]
