@@ -144,7 +144,7 @@ class SignalInverter(torch.nn.Module):
         if not self.training:
             mask = torch.rand(size=X.shape[:-1]) < self.prob
             X[mask] *= -1
-        return X
+        return X, y
 
 
 class SignalReverser(torch.nn.Module):
