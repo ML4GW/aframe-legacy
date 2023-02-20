@@ -130,6 +130,6 @@ def prepare_augmentation(
     # be called at data-loading time (i.e. won't be
     # used on validation data).
     augmenter = MultiInputSequential(
-        glitch_inserter, injector, SignalInverter(), SignalReverser()
+        glitch_inserter, SignalInverter(), SignalReverser(), injector
     )
     return augmenter, valid_glitches, valid_injector
