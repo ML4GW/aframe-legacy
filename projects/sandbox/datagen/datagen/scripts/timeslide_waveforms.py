@@ -157,7 +157,7 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
-    request_memory: int = 4096,
+    request_memory: int = 6000,
     request_disk: int = 1024,
 ):
 

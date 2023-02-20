@@ -18,6 +18,13 @@ def calc_shifts_required(
     amount of data that will need to be sloughed off
     the ends due to shifting, calculate how many shifts
     will be required to achieve Tb seconds worth of background
+
+    Args:
+        segments: A list of tuples of the start and stop times of the segments
+        Tb: The amount of background data to generate
+        shift: The increment to shift the data by
+
+    Returns the number of shifts required to achieve Tb seconds of background
     """
 
     livetime = np.sum([stop - start for start, stop in segments])
