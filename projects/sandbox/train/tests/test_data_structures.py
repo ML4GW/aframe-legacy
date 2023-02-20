@@ -143,19 +143,27 @@ def test_glitch_sampler(sample_rate, offset, device, prob):
         assert glitch.device.type == device
 
     X = torch.zeros((8, 2, 512), dtype=torch.float32).to(device)
+    y = torch.zeros((8, 1))
     probs = get_rand_patch((2, 8)).to(device)
     with patch("torch.rand", return_value=probs):
-        inserted, _ = sampler(X, None)
+        inserted, y = sampler(X, y)
 
         # TODO: the tests could be more extensive, but
         # then are we functionally just testing sample_kernels?
         if prob == 0:
             assert (inserted == 0).all().item()
+            assert (y == 0).all().item()
         elif prob == 1:
             assert (inserted != 0).all().item()
+            assert (y == -6).all().item()
         else:
+            # TODO: how do we edit the patch so that
+            # each ifo samples different indices?
             assert (inserted[:2] != 0).all().item()
+            assert (y[:2] == -6).all().item()
+
             assert (inserted[2:] == 0).all().item()
+            assert (y[2:] == 0).all().item()
 
 
 def sample(obj, N):
