@@ -166,3 +166,9 @@ def test_main(
             for key in f.keys():
                 data = f[key][:]
                 assert len(data) == shape[0]
+                if key == "snr":
+                    assert all(data > snr_threshold)
+
+
+def test_deploy():
+    pass

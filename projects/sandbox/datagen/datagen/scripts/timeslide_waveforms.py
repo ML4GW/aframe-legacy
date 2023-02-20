@@ -116,7 +116,7 @@ def main(
             parameters[key].extend(list(value[mask]))
 
     signals = signals[:n_samples]
-    for key, value in params.items():
+    for key, value in parameters.items():
         parameters[key] = value[:n_samples]
 
     with h5py.File(output_fname, "w") as f:
