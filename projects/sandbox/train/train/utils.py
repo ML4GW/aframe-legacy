@@ -1,6 +1,6 @@
 from math import pi
 from pathlib import Path
-from typing import Optional, Tuple, TypeVar
+from typing import List, Optional, Tuple, TypeVar
 
 import h5py
 import numpy as np
@@ -50,6 +50,8 @@ def split(X: Tensor, frac: float, axis: int) -> Tuple[Tensor, Tensor]:
 def prepare_augmentation(
     glitch_dataset: Path,
     waveform_dataset: Path,
+    ifos: List[str],
+    train_stop: float,
     glitch_prob: float,
     waveform_prob: float,
     glitch_downweight: float,
@@ -64,22 +66,24 @@ def prepare_augmentation(
     # build a glitch sampler from a pre-saved bank of
     # glitches which will randomly insert them into
     # either or both interferometer channels
+    glitch_dict = {}
+    valid_glitches = []
     with h5py.File(glitch_dataset, "r") as f:
-        h1_glitches = f["H1_glitches"][:]
-        l1_glitches = f["L1_glitches"][:]
+        for ifo in ifos:
+            glitches = f[ifo]["glitches"][:]
+            times = f[ifo]["times"][:]
 
-    if valid_frac is not None:
-        h1_glitches, valid_h1_glitches = split(h1_glitches, 1 - valid_frac, 0)
-        l1_glitches, valid_l1_glitches = split(l1_glitches, 1 - valid_frac, 0)
-        valid_glitches = [valid_h1_glitches, valid_l1_glitches]
-    else:
-        valid_glitches = None
+            if valid_frac is not None:
+                glitch_dict[ifo] = glitches[times <= train_stop]
+                valid_glitches.append(glitches[times > train_stop])
+            else:
+                glitch_dict[ifo] = glitches
+                valid_glitches = None
 
     glitch_inserter = GlitchSampler(
         prob=glitch_prob,
         max_offset=int(trigger_distance * sample_rate),
-        H1=h1_glitches,
-        L1=l1_glitches,
+        **glitch_dict
     )
 
     # initiate a waveform sampler from a pre-saved bank
@@ -113,7 +117,7 @@ def prepare_augmentation(
     # instantiate source parameters as callable
     # distributions which will produce samples
     injector = BBHNetWaveformInjection(
-        ifos=["H1", "L1"],
+        ifos=ifos,
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
