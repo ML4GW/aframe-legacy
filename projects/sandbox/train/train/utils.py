@@ -57,7 +57,8 @@ def prepare_augmentation(
     glitch_dataset: Path,
     waveform_dataset: Path,
     ifos: List[str],
-    train_stop: float,
+    train_val_start: float,
+    train_val_stop: float,
     glitch_prob: float,
     waveform_prob: float,
     glitch_downweight: float,
@@ -71,14 +72,19 @@ def prepare_augmentation(
     # either or both interferometer channels
     glitch_dict = {}
     valid_glitches = []
+
+    # calculate the time at which the validation set starts
+    valid_start = (1 - valid_frac) * (
+        train_val_stop - train_val_start
+    ) + train_val_start
     with h5py.File(glitch_dataset, "r") as f:
         for ifo in ifos:
             glitches = f[ifo]["glitches"][:]
             times = f[ifo]["times"][:]
 
             if valid_frac is not None:
-                train_gitches = glitches[times <= train_stop]
-                valid_glitches = glitches[times > train_stop]
+                train_gitches = glitches[times <= valid_start]
+                valid_glitches = glitches[times > valid_start]
                 logging.info(f"{len(train_gitches)} train glitches for {ifo}")
                 logging.info(f"{len(valid_glitches)} valid glitches for {ifo}")
                 glitch_dict[ifo] = train_gitches
