@@ -47,7 +47,8 @@ def main(
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
-    highpass: Optional[float] = None,
+    highpass: float,
+    train_stop: float,
     batches_per_epoch: Optional[int] = None,
     # preproc args
     fduration: Optional[float] = None,
@@ -124,6 +125,10 @@ def main(
         batch_size:
             Number of samples to over which to compute each
             gradient update during training.
+        train_stop:
+            The gpstime that indicates the end
+            of the training background. This will be used to ensure
+            glitches from the training set don't leak into the validation set
         highpass:
             Minimum frequency over which to compute SNR values
             for waveform injection, in Hz. If left as `None`, the
@@ -198,6 +203,7 @@ def main(
     augmenter, valid_glitches, valid_injector = prepare_augmentation(
         glitch_dataset,
         waveform_dataset,
+        train_stop,
         glitch_prob=glitch_prob,
         waveform_prob=waveform_prob,
         glitch_downweight=glitch_downweight,
