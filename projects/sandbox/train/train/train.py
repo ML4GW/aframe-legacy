@@ -47,7 +47,8 @@ def main(
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
-    train_stop: float,
+    train_val_start: float,
+    train_val_stop: float,
     mean_snr: float = 8,
     std_snr: float = 4,
     min_snr: Optional[float] = None,
@@ -128,10 +129,16 @@ def main(
         batch_size:
             Number of samples to over which to compute each
             gradient update during training.
-        train_stop:
+        train_val_start:
+            The gpstime that indicates the start
+            of the contiguous training + validation background.
+            This will be used to ensure glitches from the training set
+            don't leak into the validation set when they are split.
+        train_val_stop:
             The gpstime that indicates the end
-            of the training background. This will be used to ensure
-            glitches from the training set don't leak into the validation set
+            of the contiguous training + validation background.
+            This will be used to ensure glitches from the training set
+            don't leak into the validation set when they are split.
         mean_snr:
             Mean SNR of the log-normal distribution from which
             to sample SNR values for injected waveforms at
@@ -219,7 +226,8 @@ def main(
     augmenter, valid_glitches, valid_injector = prepare_augmentation(
         glitch_dataset,
         waveform_dataset,
-        train_stop,
+        train_val_start,
+        train_val_stop,
         glitch_prob=glitch_prob,
         waveform_prob=waveform_prob,
         glitch_downweight=glitch_downweight,
