@@ -1,3 +1,4 @@
+import logging
 from math import pi
 from pathlib import Path
 from typing import List, Optional, Tuple, TypeVar
@@ -74,16 +75,21 @@ def prepare_augmentation(
             times = f[ifo]["times"][:]
 
             if valid_frac is not None:
-                glitch_dict[ifo] = glitches[times <= train_stop]
-                valid_glitches.append(glitches[times > train_stop])
+                train_gitches = glitches[times <= train_stop]
+                valid_glitches = glitches[times > train_stop]
+                logging.info(f"{len(train_gitches)} train glitches for {ifo}")
+                logging.info(f"{len(valid_glitches)} valid glitches for {ifo}")
+                glitch_dict[ifo] = train_gitches
+                valid_glitches.append(valid_glitches)
             else:
+                logging.info(f"{len(train_gitches)} train glitches for {ifo}")
                 glitch_dict[ifo] = glitches
                 valid_glitches = None
 
     glitch_inserter = GlitchSampler(
         prob=glitch_prob,
         max_offset=int(trigger_distance * sample_rate),
-        **glitch_dict
+        **glitch_dict,
     )
 
     # initiate a waveform sampler from a pre-saved bank
