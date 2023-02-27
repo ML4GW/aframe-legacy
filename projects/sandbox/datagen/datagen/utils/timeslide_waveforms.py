@@ -1,4 +1,3 @@
-from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Tuple
@@ -43,19 +42,24 @@ def calc_shifts_required(
 
 def merge_output(datadir: Path):
     files = datadir.glob("*.hdf5")
-    datasets = defaultdict(list)
     n_rejected = 0
-    for f in files:
-        with h5py.File(f, "r") as h5f:
-            for key, value in h5f.items():
-                datasets[key].extend(value)
-            n_rejected += h5f.attrs["n_rejected"]
-        f.unlink()
+    with h5py.File(datadir / "timeslide_waveforms.h5", "w") as out:
+        for f in files:
+            with h5py.File(f, "r") as h5f:
+                n_rejected += h5f.attrs["n_rejected"]
+                for k, v in h5f.items():
+                    if k not in out:
+                        max_shape = (None,)
+                        if v.ndim > 1:
+                            max_shape += v.shape[1:]
+                        out.create_dataset(k, data=v, maxshape=max_shape)
+                    else:
+                        dataset = out[k]
+                        dataset.resize(len(dataset) + len(v), axis=0)
+                        dataset[-len(v) :] = v
+            f.unlink()
 
-    with h5py.File(datadir / "timeslide_waveforms.hdf5", "w") as f:
-        for key, value in datasets.items():
-            f.create_dataset(key, data=value)
-        f.attrs.update(
+        out.attrs.update(
             {
                 "n_rejected": n_rejected,
             }
