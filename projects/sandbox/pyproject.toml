@@ -165,7 +165,7 @@ commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.condorize-timeslide-waveforms]
 # paths and what not
-datadir = "${base.datadir}/timeslide_waveforms/"
+datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 accounting_group = "${base.accounting_group}"
 accounting_group_user = "${base.accounting_group_user}"
@@ -180,7 +180,7 @@ min_segment_length = 1024
 
 # timeslide parameters
 shifts = [0, 1]
-Tb = 10000
+Tb = 3.14e+7 
 
 # injection parameters
 prior = "${base.testing_prior}"
