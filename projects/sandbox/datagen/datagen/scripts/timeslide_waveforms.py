@@ -68,7 +68,6 @@ def main(
         sample_rate=sample_rate,
         df=df,
     )
-
     # loop until we've generated enough signals
     # with large enough snr to fill the segment,
     # keeping track of the number of signals rejected
@@ -100,18 +99,18 @@ def main(
             sample_rate,
             **polarizations,
         )
-
         # TODO: compute individual ifo snr so we can store that data
         snrs = compute_network_snr(projected, psds, sample_rate, highpass)
         snrs = snrs.numpy()
+
         # add all snrs: masking will take place in for loop below
         params["snr"] = snrs
         mask = snrs > snr_threshold
 
         projected = projected[mask]
         n_rejected += np.sum(~mask)
-        signals = torch.cat((signals, projected))
 
+        signals = torch.cat((signals, projected))
         for key, value in params.items():
             parameters[key].extend(list(value[mask]))
 
@@ -165,7 +164,6 @@ def deploy(
 
     outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
-
     hanford_background = datadir / "H1_background.h5"
     livingston_background = datadir / "L1_background.h5"
 
@@ -203,8 +201,7 @@ def deploy(
     arguments += f"--sample-rate {sample_rate} "
     arguments += f"--waveform-approximant {waveform_approximant} "
     arguments += f"--highpass {highpass} --snr-threshold {snr_threshold} "
-    for ifo in ifos:
-        arguments += f"--ifos {ifo} "
+    arguments += f"--ifos {' '.join(ifos)} "
     arguments += f"--prior {prior} --cosmology {cosmology} "
     arguments += f"--output-fname {outdir}/$(ProcID).hdf5 "
 

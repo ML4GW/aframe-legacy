@@ -156,7 +156,7 @@ def test_main(
         )
         assert output_fname.exists()
         with h5py.File(output_fname, "r") as f:
-            shape = f["signals"][:].shape
+            shape = f["signals"].shape
             assert shape == (
                 expected_n_signals,
                 2,
