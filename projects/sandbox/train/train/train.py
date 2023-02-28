@@ -5,12 +5,7 @@ import h5py
 import numpy as np
 from train.data_structures import BBHInMemoryDataset
 from train.utils import prepare_augmentation, split
-from train.validation import (
-    BackgroundRecall,
-    GlitchRecall,
-    Recorder,
-    Validator,
-)
+from train.validation import BackgroundAUROC, GlitchRecall, Recorder, Validator
 
 from bbhnet.architectures import Preprocessor
 from bbhnet.logging import configure_logging
@@ -48,12 +43,10 @@ def main(
     # data generation args
     glitch_prob: float,
     waveform_prob: float,
+    glitch_downweight: float,
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
-    mean_snr: float = 8,
-    std_snr: float = 4,
-    min_snr: Optional[float] = None,
     highpass: Optional[float] = None,
     batches_per_epoch: Optional[int] = None,
     # preproc args
@@ -131,19 +124,6 @@ def main(
         batch_size:
             Number of samples to over which to compute each
             gradient update during training.
-        mean_snr:
-            Mean SNR of the log-normal distribution from which
-            to sample SNR values for injected waveforms at
-            data loading-time.
-        std_snr:
-            Standard deviation of the log-normal distribution
-            from which to sample SNR values for injected waveforms
-            at data loading-time.
-        min_snr:
-            Minimum SNR to use for SNR values for injected waveforms
-            at data loading-time. Samples drawn from the log-normal
-            SNR distribution below this value will be clipped to it.
-            If left as `None`, all sampled SNRs will be used as-is.
         highpass:
             Minimum frequency over which to compute SNR values
             for waveform injection, in Hz. If left as `None`, the
@@ -220,11 +200,9 @@ def main(
         waveform_dataset,
         glitch_prob=glitch_prob,
         waveform_prob=waveform_prob,
+        glitch_downweight=glitch_downweight,
         sample_rate=sample_rate,
         highpass=highpass,
-        mean_snr=mean_snr,
-        std_snr=std_snr,
-        min_snr=min_snr,
         trigger_distance=trigger_distance,
         valid_frac=valid_frac,
     )
@@ -238,10 +216,10 @@ def main(
         background, valid_background = split(background, 1 - valid_frac, -1)
 
         # build a couple validation metrics to evaluate during training
-        background_recall = BackgroundRecall(
+        background_recall = BackgroundAUROC(
             kernel_size=int(4 / valid_stride),
             stride=int(4 / valid_stride),
-            k=5,
+            thresholds=[0.001, 0.01, 0.1],
         )
         glitch_recall = GlitchRecall(specs=[0.75, 0.9, 1])
 
@@ -287,8 +265,11 @@ def main(
 
     # fit our waveform injector to this background
     # to facilitate the SNR remapping
-    augmenter._modules["injector"].fit(*background)
     for module in augmenter._modules.values():
+        try:
+            module.fit(*background)
+        except AttributeError:
+            pass
         module.to(device)
 
     # create full training dataloader
@@ -307,11 +288,7 @@ def main(
     # we just expose this as an arg? How will this fit in
     # to the broader-generalization scheme?
     preprocessor = Preprocessor(
-        2,
-        sample_rate,
-        kernel_length,
-        highpass=highpass,
-        fduration=fduration,
+        2, sample_rate=sample_rate, fduration=fduration
     )
 
     # fit the whitening module to the background then

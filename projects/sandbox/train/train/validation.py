@@ -8,6 +8,7 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    List,
     Optional,
     Sequence,
     Tuple,
@@ -74,6 +75,47 @@ class Metric(torch.nn.Module):
 
     def __contains__(self, threshold):
         return threshold in self.thresholds
+
+
+class MultiThresholdAUROC(Metric):
+    name = "AUROC"
+    param = "max_fpr"
+
+    def call(self, signal_preds, background_preds):
+        x = torch.cat([signal_preds, background_preds])
+        y = torch.zeros_like(x)
+        thresholds = torch.Tensor(self.thresholds).to(y.device)
+        y[: len(signal_preds)] = 1
+
+        idx = torch.argsort(x, descending=True)
+        y = y[idx]
+
+        tpr = torch.cumsum(y, -1) / y.sum()
+        fpr = torch.cumsum(1 - y, -1) / (1 - y).sum()
+        dfpr = fpr.diff()
+        dtpr = tpr.diff()
+
+        mask = fpr[:-1, None] <= thresholds
+        dfpr = dfpr[:, None] * mask
+        integral = (tpr[:-1, None] + dtpr[:, None] * 0.5) * dfpr
+        return integral.sum(0)
+
+
+class BackgroundAUROC(MultiThresholdAUROC):
+    def __init__(
+        self, kernel_size: int, stride: int, thresholds: List[float]
+    ) -> None:
+        super().__init__(thresholds)
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+    def call(self, background, _, signal):
+        background = background.unsqueeze(0)
+        background = torch.nn.functional.max_pool1d(
+            background, kernel_size=self.kernel_size, stride=self.stride
+        )
+        background = background[0]
+        return super().call(signal, background)
 
 
 class BackgroundRecall(Metric):
@@ -303,6 +345,12 @@ def make_glitches(
     num_h1, num_l1 = len(h1_glitches), len(l1_glitches)
     num_glitches = num_h1 + num_l1
     num_coinc = int(glitch_frac**2 * num_glitches / (1 + glitch_frac**2))
+    if num_coinc > min(num_h1, num_l1):
+        raise ValueError(
+            f"There are more coincident glitches ({num_coinc}) that there "
+            "are glitches in one of the ifo glitch datasets. Hanford: "
+            "{num_h1}, Livingston: {num_l1}"
+        )
 
     h1_coinc, h1_glitches = split(h1_glitches, num_coinc / num_h1, 0)
     l1_coinc, l1_glitches = split(l1_glitches, num_coinc / num_l1, 0)

@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from math import pi
 from pathlib import Path
 from typing import Optional, Tuple, TypeVar
@@ -6,9 +5,14 @@ from typing import Optional, Tuple, TypeVar
 import h5py
 import numpy as np
 import torch
-from train.data_structures import BBHNetWaveformInjection, GlitchSampler
+from train.data_structures import (
+    BBHNetWaveformInjection,
+    GlitchSampler,
+    SignalInverter,
+    SignalReverser,
+)
 
-from ml4gw.distributions import Cosine, LogNormal, Uniform
+from ml4gw.distributions import Cosine, Uniform
 
 Tensor = TypeVar("Tensor", np.ndarray, torch.Tensor)
 
@@ -36,6 +40,11 @@ def split(X: Tensor, frac: float, axis: int) -> Tuple[Tensor, Tensor]:
     """
 
     size = int(frac * X.shape[axis])
+    # Catches fp error that sometimes happens when size should be an exact int
+    # Is there a better way to do this?
+    if np.abs(frac * X.shape[axis] - size - 1) < 1e-10:
+        size += 1
+
     if isinstance(X, np.ndarray):
         return np.split(X, [size], axis=axis)
     else:
@@ -48,16 +57,12 @@ def prepare_augmentation(
     waveform_dataset: Path,
     glitch_prob: float,
     waveform_prob: float,
+    glitch_downweight: float,
     sample_rate: float,
     highpass: float,
-    mean_snr: float,
-    std_snr: float,
-    min_snr: Optional[float] = None,
     trigger_distance: float = 0,
     valid_frac: Optional[float] = None,
 ):
-    augmentation_layers = OrderedDict()
-
     # build a glitch sampler from a pre-saved bank of
     # glitches which will randomly insert them into
     # either or both interferometer channels
@@ -72,7 +77,7 @@ def prepare_augmentation(
     else:
         valid_glitches = None
 
-    augmentation_layers["glitch_inserter"] = GlitchSampler(
+    glitch_inserter = GlitchSampler(
         prob=glitch_prob,
         max_offset=int(trigger_distance * sample_rate),
         H1=h1_glitches,
@@ -109,15 +114,17 @@ def prepare_augmentation(
 
     # instantiate source parameters as callable
     # distributions which will produce samples
-    augmentation_layers["injector"] = BBHNetWaveformInjection(
+    injector = BBHNetWaveformInjection(
         ifos=["H1", "L1"],
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
-        snr=LogNormal(mean_snr, std_snr, min_snr),
+        snr=-1,
         sample_rate=sample_rate,
         highpass=highpass,
         prob=waveform_prob,
+        glitch_prob=glitch_prob,
+        downweight=glitch_downweight,
         trigger_offset=trigger_distance,
         plus=plus,
         cross=cross,
@@ -127,5 +134,7 @@ def prepare_augmentation(
     # a single random augmentation object which will
     # be called at data-loading time (i.e. won't be
     # used on validation data).
-    augmenter = MultiInputSequential(augmentation_layers)
+    augmenter = MultiInputSequential(
+        glitch_inserter, SignalInverter(), SignalReverser(), injector
+    )
     return augmenter, valid_glitches, valid_injector

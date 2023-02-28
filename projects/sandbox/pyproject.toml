@@ -27,7 +27,6 @@ state_flag = "DCS-ANALYSIS_READY_C01:1"
 resnet = {layers = [2, 2, 2, 2], norm_groups = 8}
 repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
-kernel_length = 2
 inference_sampling_rate = 16
 inference_batch_size = 128
 minimum_frequency = 20
@@ -38,6 +37,7 @@ testing_prior = "bbhnet.priors.priors.end_o3_ratesandpops"
 fduration = 1
 valid_frac = 0.25
 cosmology = "bbhnet.priors.cosmologies.planck"
+streams_per_gpu = 3
 
 [tool.typeo.scripts.generate-background]
 datadir = "${base.datadir}"
@@ -99,16 +99,14 @@ outdir = "${base.basedir}/training"
 
 # data generation and processing parameters
 sample_rate = "${base.sample_rate}"
-kernel_length = "${base.kernel_length}"
+kernel_length = 2
 fduration = "${base.fduration}"
 
 highpass = "${base.minimum_frequency}"
 trigger_distance = -0.5
 waveform_prob = 0.5
 glitch_prob = 0.25
-mean_snr = 15
-std_snr = 15
-min_snr = 1
+glitch_downweight = 0.5
 
 # optimization parameters
 batch_size = 512
@@ -122,8 +120,8 @@ weight_decay = 1e-5
 valid_frac = "${base.valid_frac}"
 valid_stride = 0.0625
 early_stop = 20
-monitor_metric = "glitch"
-threshold = 1.0
+monitor_metric = "background"
+threshold = 0.01
 checkpoint_every = 5
 
 # misc params
@@ -142,16 +140,15 @@ weights = "${base.basedir}/training/weights.pt"
 
 # input-output mapping info
 num_ifos = 2 
-kernel_length = "${base.kernel_length}" 
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
-highpass = "${base.highpass}"
 batch_size = "${base.inference_batch_size}"
 
 # repo/triton parameters
-instances = 2
-streams_per_gpu = 4
+bbhnet_instances = 4
+preproc_instances = 6
+streams_per_gpu = "${base.streams_per_gpu}"
 platform = "tensorrt_plan"
 verbose = false
 clean = true
@@ -187,7 +184,7 @@ spacing = 48
 buffer = 4
 jitter = 2
 cosmology = "${base.cosmology}"
-
+hopeless_snr_threshold = 6
 # misc parameters
 verbose = true
 
@@ -205,8 +202,8 @@ batch_size = "${base.inference_batch_size}"
 model_version = -1
 base_sequence_id = 1001
 log_file = "${base.logdir}/infer.log"
-throughput_per_gpu = 1600
-streams_per_gpu = 4
+throughput_per_gpu = 1000
+streams_per_gpu = "${base.streams_per_gpu}"
 num_workers = 4
 fduration = "${base.fduration}"
 verbose = false
