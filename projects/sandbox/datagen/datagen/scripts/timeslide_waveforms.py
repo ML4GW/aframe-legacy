@@ -1,3 +1,4 @@
+import logging
 import re
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ from datagen.utils.injection import generate_gw
 from mldatafind.segments import query_segments
 from typeo import scriptify
 
+from bbhnet.logging import configure_logging
 from ml4gw.gw import (
     compute_network_snr,
     compute_observed_strain,
@@ -158,12 +160,14 @@ def deploy(
     accounting_group: str,
     request_memory: int = 6000,
     request_disk: int = 1024,
+    verbose: bool = False,
 ):
 
     outdir = datadir / "timeslide_waveforms"
 
     outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
+    configure_logging(logdir / "timeslide_waveforms.log", verbose=verbose)
     hanford_background = datadir / "H1_background.h5"
     livingston_background = datadir / "L1_background.h5"
 
@@ -231,6 +235,8 @@ def deploy(
 
     dagid = int(re_dagman_cluster.search(out).group())
     cwq = shutil.which("condor_watch_q")
+
+    logging.info("Launching waveform generation jobs")
     subprocess.check_call(
         [
             cwq,
@@ -243,5 +249,8 @@ def deploy(
         ]
     )
 
+    logging.info("Merging output files")
     # once all jobs are done, merge the output files
     utils.merge_output(outdir)
+
+    logging.info("Timeslide waveform generation complete")

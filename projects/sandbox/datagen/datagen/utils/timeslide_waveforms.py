@@ -57,7 +57,7 @@ def merge_output(datadir: Path):
                         dataset = out[k]
                         dataset.resize(len(dataset) + len(v), axis=0)
                         dataset[-len(v) :] = v
-            # f.unlink()
+            f.unlink()
 
         out.attrs.update(
             {
