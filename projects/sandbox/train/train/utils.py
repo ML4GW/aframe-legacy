@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from math import pi
 from pathlib import Path
 from typing import Optional, Tuple, TypeVar
@@ -6,7 +5,12 @@ from typing import Optional, Tuple, TypeVar
 import h5py
 import numpy as np
 import torch
-from train.data_structures import BBHNetWaveformInjection, GlitchSampler
+from train.data_structures import (
+    BBHNetWaveformInjection,
+    GlitchSampler,
+    SignalInverter,
+    SignalReverser,
+)
 
 from ml4gw.distributions import Cosine, LogNormal, Uniform
 
@@ -48,6 +52,7 @@ def prepare_augmentation(
     waveform_dataset: Path,
     glitch_prob: float,
     waveform_prob: float,
+    glitch_downweight: float,
     sample_rate: float,
     highpass: float,
     mean_snr: float,
@@ -56,8 +61,6 @@ def prepare_augmentation(
     trigger_distance: float = 0,
     valid_frac: Optional[float] = None,
 ):
-    augmentation_layers = OrderedDict()
-
     # build a glitch sampler from a pre-saved bank of
     # glitches which will randomly insert them into
     # either or both interferometer channels
@@ -72,7 +75,7 @@ def prepare_augmentation(
     else:
         valid_glitches = None
 
-    augmentation_layers["glitch_inserter"] = GlitchSampler(
+    glitch_inserter = GlitchSampler(
         prob=glitch_prob,
         max_offset=int(trigger_distance * sample_rate),
         H1=h1_glitches,
@@ -109,7 +112,7 @@ def prepare_augmentation(
 
     # instantiate source parameters as callable
     # distributions which will produce samples
-    augmentation_layers["injector"] = BBHNetWaveformInjection(
+    injector = BBHNetWaveformInjection(
         ifos=["H1", "L1"],
         dec=Cosine(),
         psi=Uniform(0, pi),
@@ -118,6 +121,8 @@ def prepare_augmentation(
         sample_rate=sample_rate,
         highpass=highpass,
         prob=waveform_prob,
+        glitch_prob=glitch_prob,
+        downweight=glitch_downweight,
         trigger_offset=trigger_distance,
         plus=plus,
         cross=cross,
@@ -127,5 +132,7 @@ def prepare_augmentation(
     # a single random augmentation object which will
     # be called at data-loading time (i.e. won't be
     # used on validation data).
-    augmenter = MultiInputSequential(augmentation_layers)
+    augmenter = MultiInputSequential(
+        glitch_inserter, SignalInverter(), SignalReverser(), injector
+    )
     return augmenter, valid_glitches, valid_injector

@@ -1,14 +1,15 @@
 [tool.pinto]
 steps = [
     "datagen:generate-background",
-    #"datagen:generate-waveforms",
-    #"datagen:generate-glitches",
-    #"train:train:resnet",
-    #"export:export-model:resnet",
+    "datagen:generate-waveforms",
+    "datagen:generate-glitches",
     "datagen:condorize-timeslide-waveforms",
-    #"infer:infer",
-    #"analyze:analyze",
-    #"vizapp:vizapp"
+    "train:train:resnet",
+    "export:export-model:resnet",
+    "datagen:generate-timeslides",
+    "infer:infer",
+    "analyze:analyze",
+    "vizapp:vizapp"
 ]
 
 [tool.typeo.base]
@@ -111,6 +112,7 @@ highpass = "${base.minimum_frequency}"
 trigger_distance = -0.5
 waveform_prob = 0.5
 glitch_prob = 0.25
+glitch_downweight = 0.5
 mean_snr = 15
 std_snr = 15
 min_snr = 1
@@ -127,8 +129,8 @@ weight_decay = 1e-5
 valid_frac = "${base.valid_frac}"
 valid_stride = 0.0625
 early_stop = 20
-monitor_metric = "glitch"
-threshold = 1.0
+monitor_metric = "background"
+threshold = 0.01
 checkpoint_every = 5
 
 # misc params
