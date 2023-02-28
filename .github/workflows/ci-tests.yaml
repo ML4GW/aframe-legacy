@@ -87,5 +87,7 @@ jobs:
         env:
           test_dir: /github/workspace/${{ matrix.library }}
           CONDA_PREFIX: /opt/conda
-        run: pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
+        run: |
+            pinto -p $test_dir run printenv
+            pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
         shell: bash
