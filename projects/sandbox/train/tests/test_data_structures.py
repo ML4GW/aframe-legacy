@@ -7,6 +7,8 @@ from train.data_structures import (
     BBHInMemoryDataset,
     BBHNetWaveformInjection,
     GlitchSampler,
+    SignalInverter,
+    SignalReverser,
 )
 
 
@@ -141,19 +143,27 @@ def test_glitch_sampler(sample_rate, offset, device, prob):
         assert glitch.device.type == device
 
     X = torch.zeros((8, 2, 512), dtype=torch.float32).to(device)
+    y = torch.zeros((8, 1))
     probs = get_rand_patch((2, 8)).to(device)
     with patch("torch.rand", return_value=probs):
-        inserted, _ = sampler(X, None)
+        inserted, y = sampler(X, y)
 
         # TODO: the tests could be more extensive, but
         # then are we functionally just testing sample_kernels?
         if prob == 0:
             assert (inserted == 0).all().item()
+            assert (y == 0).all().item()
         elif prob == 1:
             assert (inserted != 0).all().item()
+            assert (y == -6).all().item()
         else:
+            # TODO: how do we edit the patch so that
+            # each ifo samples different indices?
             assert (inserted[:2] != 0).all().item()
+            assert (y[:2] == -6).all().item()
+
             assert (inserted[2:] == 0).all().item()
+            assert (y[2:] == 0).all().item()
 
 
 def sample(obj, N):
@@ -185,3 +195,130 @@ def test_bbhnet_waveform_injection(rand_mock):
     assert (X[1::2] == 0).all().item()
     assert (y[::2] == 1).all().item()
     assert (y[1::2] == 0).all().item()
+
+
+@pytest.mark.parametrize("downweight", [0, 0.5, 1])
+def test_bbhnet_waveform_injection_with_downweight(downweight):
+    tform = BBHNetWaveformInjection(
+        sample_rate=128,
+        ifos=["H1", "L1"],
+        dec=lambda N: torch.zeros((N,)),
+        psi=lambda N: torch.zeros((N,)),
+        phi=lambda N: torch.zeros((N,)),
+        prob=0.5,
+        glitch_prob=0.25,
+        downweight=downweight,
+        plus=torch.zeros((100, 128 * 2)),
+        cross=torch.zeros((100, 128 * 2)),
+    )
+
+    if downweight == 1:
+        assert tform.prob == 0.5
+    elif downweight == 0:
+        assert tform.prob == (0.5 / 0.75**2)
+    else:
+        assert tform.prob > 0.5
+
+    X = torch.zeros((32, 2, 128 * 1))
+    y = torch.zeros((32, 1))
+    y[:8] = -2
+    y[8:16] = -4
+    y[16:24] = -6
+
+    value = 0.99 * tform.prob
+    if (downweight != 0) and (downweight) != 1:
+        value = value * downweight
+    with patch("torch.rand", return_value=value):
+        X, y = tform(X, y)
+        if downweight == 1:
+            assert (y > 0).all().item()
+        elif downweight == 0:
+            assert (y[:24] < 0).all().item()
+            assert (y[24:] == 1).all().item()
+        else:
+            assert (y[:16] > 0).all().item()
+            assert (y[16:24] < 0).all().item()
+            assert (y[24:] > 0).all().item()
+
+
+@pytest.fixture(params=[0.0, 0.25, 0.5, 1])
+def flip_prob(request):
+    return request.param
+
+
+@pytest.fixture
+def rvs():
+    return torch.Tensor([[0.0, 0.49], [0.51, 0.1], [0.9, 0.2], [0.1, 0.3]])
+
+
+@pytest.fixture
+def true_idx(flip_prob):
+    if flip_prob in (0, 1):
+        idx = [k for i in range(4) for k in [[i, j] for j in range(2)]]
+        if flip_prob:
+            neg_idx = idx
+            pos_idx = []
+        else:
+            pos_idx = idx
+            neg_idx = []
+    else:
+        if flip_prob == 0.5:
+            neg_idx = [
+                [0, 0],
+                [0, 1],
+                [1, 1],
+                [2, 1],
+                [3, 0],
+                [3, 1],
+            ]
+            pos_idx = [
+                [1, 0],
+                [2, 0],
+            ]
+        else:
+            neg_idx = [[0, 0], [1, 1], [2, 1], [3, 0]]
+            pos_idx = [
+                [0, 1],
+                [1, 0],
+                [2, 0],
+                [3, 1],
+            ]
+
+    return neg_idx, pos_idx
+
+
+def validate_augmenters(X, idx, true, false, prob):
+    neg_idx, pos_idx = idx
+    if neg_idx:
+        neg0, neg1 = zip(*neg_idx)
+        assert (X[neg0, neg1] == true).all()
+    elif prob != 0:
+        raise ValueError("Missing negative indices")
+
+    if pos_idx:
+        pos0, pos1 = zip(*pos_idx)
+        assert (X[pos0, pos1] == false).all()
+    elif prob != 1:
+        raise ValueError("Missing positive indices")
+
+
+def test_signal_inverter(flip_prob, rvs, true_idx):
+    tform = SignalInverter(flip_prob)
+    X = torch.ones((4, 2, 8))
+    with patch("torch.rand", return_value=rvs):
+        X, _ = tform(X, None)
+    X = X.cpu().numpy()
+    validate_augmenters(X, true_idx, -1, 1, flip_prob)
+
+
+def test_signal_reverser(flip_prob, rvs, true_idx):
+    tform = SignalReverser(flip_prob)
+    x = torch.arange(8)
+    X = torch.stack([x] * 2)
+    X = torch.stack([X] * 4)
+    with patch("torch.rand", return_value=rvs):
+        X, _ = tform(X, None)
+    X = X.cpu().numpy()
+
+    x = x.cpu().numpy()
+    validate_augmenters(X, true_idx, x[::-1], x, flip_prob)
