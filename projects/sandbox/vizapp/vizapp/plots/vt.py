@@ -109,9 +109,11 @@ class VolumeTimeVsFAR:
                 )
             ),
             columns=[
-                TableColumn(field="m1_m2", title="Masses: m1 m2"),
-                TableColumn(field="Py_CBC", title="PyCBC"),
-                TableColumn(field="Gst_LAL", title="GstLAL"),
+                TableColumn(
+                    field="m1_m2", title="Masses: m1 m2 (Solar Masses)"
+                ),
+                TableColumn(field="Py_CBC", title="PyCBC (Gpc^3)"),
+                TableColumn(field="Gst_LAL", title="GstLAL (Gpc^3)"),
             ],
         )
         self.layout = row(self.widgets, self.figure, self.data_table)
