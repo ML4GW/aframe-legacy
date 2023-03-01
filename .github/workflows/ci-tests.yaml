@@ -88,6 +88,9 @@ jobs:
           test_dir: /github/workspace/${{ matrix.library }}
           CONDA_PREFIX: /opt/conda
         run: |
+            if [[ "${{ matrix.library }}" == "projects/datagen" ]]; then
+                export LD_LIBRARY_PATH=/opt/conda/envs/bbhnet-datagen
+            fi
             pinto -p $test_dir run printenv
             pinto -p $test_dir run pytest $test_dir/tests ${{matrix.args}}
         shell: bash
