@@ -6,6 +6,7 @@ dependencies:
   - libgcc
   - gwpy
   - astropy
+  - matplotlib
   # frame file I/O dependencies
   - python-ldas-tools-framecpp
   - python-nds2-client
