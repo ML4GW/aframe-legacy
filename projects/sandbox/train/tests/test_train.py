@@ -22,9 +22,13 @@ def non_background_length():
 
 
 @pytest.fixture
-def background(sample_rate):
-    length = 10000
-    times = np.arange(1, length * sample_rate, 1)
+def duration():
+    return 10000
+
+
+@pytest.fixture
+def background(duration, sample_rate):
+    times = np.arange(1, duration * sample_rate, 1)
     background = np.random.normal(size=len(times))
     return background, times
 
@@ -38,6 +42,11 @@ def glitches(sample_rate, num_non_background, non_background_length):
 
 
 @pytest.fixture
+def glitch_times(num_non_background, duration):
+    return np.linspace(0, duration, num_non_background)
+
+
+@pytest.fixture
 def waveforms(sample_rate, num_non_background, non_background_length):
     size = sample_rate * non_background_length
     waveforms = np.arange(2 * size * num_non_background)
@@ -46,13 +55,16 @@ def waveforms(sample_rate, num_non_background, non_background_length):
 
 
 @pytest.fixture
-def h5py_mock(background, glitches, waveforms):
+def h5py_mock(background, glitches, glitch_times, waveforms):
     def mock(fname, _):
         if "background" in fname:
             hoft, times = background
             value = {"hoft": hoft, "t": times}
         elif "glitches" in fname:
-            value = {"H1_glitches": glitches, "L1_glitches": -glitches}
+            value = {
+                "H1": {"glitches": glitches, "times": glitch_times},
+                "L1": {"glitches": -glitches, "times": glitch_times},
+            }
         elif "signals" in fname:
             zeros = np.zeros((len(waveforms),))
             value = {i: zeros for i in ["dec", "ra", "psi"]}
@@ -89,6 +101,7 @@ def outdir(tmp_path):
 
 def test_train(
     outdir,
+    duration,
     background,
     h5py_mock,
     sample_rate,
@@ -99,7 +112,6 @@ def test_train(
     waveforms,
 ):
     num_waveforms = num_glitches = num_non_background
-    duration = 10000
     num_ifos = 2
     kernel_length = 2
     fduration = 1
@@ -117,6 +129,8 @@ def test_train(
         kernel_length=kernel_length,
         sample_rate=sample_rate,
         batch_size=512,
+        train_val_start=0,
+        train_val_stop=duration,
         mean_snr=10,
         std_snr=4,
         min_snr=2,

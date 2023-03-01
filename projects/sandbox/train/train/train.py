@@ -226,8 +226,9 @@ def main(
     augmenter, valid_glitches, valid_injector = prepare_augmentation(
         glitch_dataset,
         waveform_dataset,
-        train_val_start,
-        train_val_stop,
+        ifos=["H1", "L1"],
+        train_val_start=train_val_start,
+        train_val_stop=train_val_stop,
         glitch_prob=glitch_prob,
         waveform_prob=waveform_prob,
         glitch_downweight=glitch_downweight,
