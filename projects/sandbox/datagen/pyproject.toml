@@ -9,6 +9,7 @@ authors = [
 ]
 license = "MIT"
 
+
 [tool.poetry.scripts]
 generate-background = "datagen.scripts.background:main"
 generate-glitches = "datagen.scripts.glitches:main"
@@ -41,6 +42,7 @@ pycondor = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
+ipykernel = "^6.21.2"
 
 [[tool.poetry.source]]
 name = "torch"
