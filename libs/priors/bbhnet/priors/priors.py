@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from bilby.core.prior import (
+    ConditionalPowerLaw,
+    ConditionalPriorDict,
     Constraint,
     Cosine,
     Gaussian,
@@ -11,12 +13,12 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformSourceFrame
+from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
 
-from bbhnet.priors.utils import mass_constraints, read_priors_from_file
+from bbhnet.priors.utils import mass_condition_powerlaw, read_priors_from_file
 
 # Unit names
 msun = r"$M_{\odot}$"
@@ -25,7 +27,7 @@ rad = "rad"
 
 
 def uniform_extrinsic() -> PriorDict:
-    prior = PriorDict(conversion_function=mass_constraints)
+    prior = PriorDict()
     prior["dec"] = Cosine()
     prior["ra"] = Uniform(0, 2 * np.pi)
     prior["theta_jn"] = 0
@@ -76,13 +78,17 @@ def spin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
 
 def end_o3_ratesandpops(
     cosmology: Optional["Cosmology"] = None,
-) -> PriorDict:
-    prior = uniform_extrinsic()
-    prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=2, maximum=100, unit=msun)
-    prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
-    prior["mass_ratio"] = Constraint(0.02, 1)
-    prior["chirp_mass"] = Constraint(10, 100, unit=msun)
-    prior["redshift"] = UniformSourceFrame(
+) -> ConditionalPriorDict:
+    prior = ConditionalPriorDict(uniform_extrinsic())
+    prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=10, maximum=100, unit=msun)
+    prior["mass_2"] = ConditionalPowerLaw(
+        condition_func=mass_condition_powerlaw,
+        alpha=1,
+        minimum=10,
+        maximum=100,
+        unit=msun,
+    )
+    prior["redshift"] = UniformComovingVolume(
         0, 2, name="redshift", cosmology=cosmology
     )
     prior["psi"] = 0
