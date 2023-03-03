@@ -61,6 +61,7 @@ def main(
 
     signals = torch.Tensor()
     parameters = defaultdict(list)
+    parameters["geocent_time"] = injection_times
 
     tensors, vertices = get_ifo_geometry(*ifos)
     df = 1 / waveform_duration
@@ -77,7 +78,6 @@ def main(
     while len(signals) < n_samples:
 
         params = prior.sample(n_samples)
-        params["geocent_time"] = injection_times
         waveforms = generate_gw(
             params,
             minimum_frequency,
