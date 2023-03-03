@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -19,6 +19,11 @@ def num_non_background():
 @pytest.fixture
 def non_background_length():
     return 4
+
+
+@pytest.fixture(params=[["H1", "L1"]])
+def ifos(request):
+    return request.param
 
 
 @pytest.fixture
@@ -55,11 +60,15 @@ def waveforms(sample_rate, num_non_background, non_background_length):
 
 
 @pytest.fixture
-def h5py_mock(background, glitches, glitch_times, waveforms):
+def h5py_mock(background, glitches, glitch_times, waveforms, ifos):
     def mock(fname, _):
         if "background" in fname:
             hoft, times = background
-            value = {"hoft": hoft, "t": times}
+            strain = {ifo: hoft for ifo in ifos}
+            value = MagicMock()
+            value.__getitem__.side_effect = strain.__getitem__
+            value.keys = strain.keys
+            value.attrs = {"t0": times[0]}
         elif "glitches" in fname:
             value = {
                 "H1": {"glitches": glitches, "times": glitch_times},
@@ -117,11 +126,9 @@ def test_train(
     fduration = 1
 
     train_dataset, validator, preprocessor = train(
-        "H1_background.h5",
-        "L1_background.h5",
+        "background.h5",
         "glitches.h5",
         "signals.h5",
-        ["H1", "L1"],
         outdir,
         outdir,
         glitch_prob=glitch_prob,
