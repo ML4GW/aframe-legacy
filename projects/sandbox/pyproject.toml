@@ -94,6 +94,7 @@ livingston_background = "${base.datadir}/L1_background.h5"
 glitch_dataset = "${base.datadir}/glitches.h5"
 
 waveform_dataset = "${base.datadir}/signals.h5"
+ifos = "${base.ifos}"
 logdir = "${base.logdir}"
 outdir = "${base.basedir}/training"
 

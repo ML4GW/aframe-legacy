@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import h5py
 import numpy as np
@@ -38,6 +38,7 @@ def main(
     livingston_background: Path,
     glitch_dataset: Path,
     waveform_dataset: Path,
+    ifos: List[str],
     outdir: Path,
     logdir: Path,
     # data generation args
@@ -209,6 +210,7 @@ def main(
     augmenter, valid_glitches, valid_injector = prepare_augmentation(
         glitch_dataset,
         waveform_dataset,
+        ifos,
         train_val_start,
         train_val_stop,
         glitch_prob=glitch_prob,
