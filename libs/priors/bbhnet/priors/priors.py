@@ -11,7 +11,7 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformSourceFrame
+from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
@@ -82,7 +82,7 @@ def end_o3_ratesandpops(
     prior["mass_2"] = PowerLaw(alpha=1, minimum=2, maximum=100, unit=msun)
     prior["mass_ratio"] = Constraint(0.02, 1)
     prior["chirp_mass"] = Constraint(10, 100, unit=msun)
-    prior["redshift"] = UniformSourceFrame(
+    prior["redshift"] = UniformComovingVolume(
         0, 2, name="redshift", cosmology=cosmology
     )
     prior["psi"] = 0

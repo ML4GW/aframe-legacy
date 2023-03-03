@@ -47,6 +47,7 @@ def main(
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
+    highpass: float,
     train_val_start: float,
     train_val_stop: float,
     batches_per_epoch: Optional[int] = None,

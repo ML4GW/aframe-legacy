@@ -71,7 +71,7 @@ def prepare_augmentation(
     # glitches which will randomly insert them into
     # either or both interferometer channels
     glitch_dict = {}
-    valid_glitches = []
+    valid_glitches_list = []
 
     # calculate the time at which the validation set starts
     valid_start = (1 - valid_frac) * (
@@ -83,16 +83,16 @@ def prepare_augmentation(
             times = f[ifo]["times"][:]
 
             if valid_frac is not None:
-                train_gitches = glitches[times <= valid_start]
+                train_glitches = glitches[times <= valid_start]
                 valid_glitches = glitches[times > valid_start]
-                logging.info(f"{len(train_gitches)} train glitches for {ifo}")
+                logging.info(f"{len(train_glitches)} train glitches for {ifo}")
                 logging.info(f"{len(valid_glitches)} valid glitches for {ifo}")
-                glitch_dict[ifo] = train_gitches
-                valid_glitches.append(valid_glitches)
+                glitch_dict[ifo] = train_glitches
+                valid_glitches_list.append(valid_glitches)
             else:
-                logging.info(f"{len(train_gitches)} train glitches for {ifo}")
+                logging.info(f"{len(train_glitches)} train glitches for {ifo}")
                 glitch_dict[ifo] = glitches
-                valid_glitches = None
+                valid_glitches_list = None
 
     glitch_inserter = GlitchSampler(
         prob=glitch_prob,
@@ -112,7 +112,7 @@ def prepare_augmentation(
 
             slc = slice(-len(valid_signals), None)
             valid_injector = BBHNetWaveformInjection(
-                ifos=["H1", "L1"],
+                ifos=ifos,
                 dec=f["dec"][slc],
                 psi=f["psi"][slc],
                 phi=f["ra"][slc],  # no geocent_time recorded, so just use ra
@@ -153,4 +153,4 @@ def prepare_augmentation(
     augmenter = MultiInputSequential(
         glitch_inserter, SignalInverter(), SignalReverser(), injector
     )
-    return augmenter, valid_glitches, valid_injector
+    return augmenter, valid_glitches_list, valid_injector
