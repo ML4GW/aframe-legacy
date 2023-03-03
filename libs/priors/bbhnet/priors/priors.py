@@ -30,8 +30,8 @@ def uniform_extrinsic() -> PriorDict:
     prior = PriorDict()
     prior["dec"] = Cosine()
     prior["ra"] = Uniform(0, 2 * np.pi)
-    prior["theta_jn"] = 0
-    prior["phase"] = 0
+    prior["theta_jn"] = Sine()
+    prior["phase"] = Uniform(0, 2 * np.pi)
 
     return prior
 
@@ -91,13 +91,13 @@ def end_o3_ratesandpops(
     prior["redshift"] = UniformComovingVolume(
         0, 2, name="redshift", cosmology=cosmology
     )
-    prior["psi"] = 0
+    prior["psi"] = Uniform(0, np.pi)
     prior["a_1"] = Uniform(0, 0.998)
     prior["a_2"] = Uniform(0, 0.998)
     prior["tilt_1"] = Sine(unit=rad)
     prior["tilt_2"] = Sine(unit=rad)
     prior["phi_12"] = Uniform(0, 2 * np.pi)
-    prior["phi_jl"] = 0
+    prior["phi_jl"] = Uniform(0, 2 * np.pi)
 
     detector_frame_prior = False
     return prior, detector_frame_prior
