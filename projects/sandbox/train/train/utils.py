@@ -114,7 +114,6 @@ def prepare_augmentation(
             valid_cross, valid_plus = valid_signals.transpose(1, 0, 2)
 
             slc = slice(-len(valid_signals), None)
-            print("here")
             valid_injector = BBHNetWaveformInjection(
                 ifos=ifos,
                 dec=f["dec"][slc],
@@ -127,11 +126,9 @@ def prepare_augmentation(
                 plus=valid_plus,
                 cross=valid_cross,
             )
-            print(valid_injector)
-            print("here")
+
         else:
             valid_injector = None
-            print(valid_injector)
 
     cross, plus = signals.transpose(1, 0, 2)
     # instantiate source parameters as callable
