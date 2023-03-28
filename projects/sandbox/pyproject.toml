@@ -100,7 +100,7 @@ outdir = "${base.basedir}/training"
 sample_rate = "${base.sample_rate}"
 kernel_length = 2
 fduration = "${base.fduration}"
-
+snr_thresh = "${base.hopeless_snr_thresh}$"
 highpass = "${base.minimum_frequency}"
 trigger_distance = -0.5
 waveform_prob = 0.5
