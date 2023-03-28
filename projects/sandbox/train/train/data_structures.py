@@ -234,8 +234,9 @@ class ChannelSwapper(torch.nn.Module):
         num = num if not num % 2 else num + 1
         indices = torch.randperm(X.shape[0])[:num]
         channel = torch.randint(X.shape[1], size=(num // 2,))
-        print(X.shape, channel.shape, num)
-        X[indices[-num // 2 :], channel] = X[indices[: num // 2], channel]
-        X[indices[: num // 2], channel] = X[indices[-num // 2 :], channel]
+
+        copy = X.copy()
+        X[indices[-num // 2 :], channel] = copy[indices[: num // 2], channel]
+        X[indices[: num // 2], channel] = copy[indices[-num // 2 :], channel]
 
         return X, indices
