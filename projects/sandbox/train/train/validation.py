@@ -494,7 +494,7 @@ class Validator:
         for back in background:
             psd = normalize_psd(background, df, sample_rate)
             psds.append(psd)
-        psds = torch.stack(psds)
+        psds = torch.tensor(np.stack(psds), dtype=torch.float64)
 
         snrs = compute_network_snr(waveforms, background, sample_rate, highpass)
         snrs[snrs < snr_thresh] = snr_thresh
