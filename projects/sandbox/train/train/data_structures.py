@@ -97,7 +97,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
                 raise ValueError(
                     "Probability must be between 0 and 1. "
                     "Adjust the value(s) of waveform_prob, "
-                    "glitch_prob, swap_prob, and/or downweight"
+                    "glitch_prob, swap_frac, and/or downweight"
                 )
             kwargs["prob"] = prob
             self.downweight = downweight
