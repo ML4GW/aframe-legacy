@@ -476,8 +476,23 @@ class Validator:
 
         kernel_size = int(kernel_length * sample_rate)
         stride_size = int(stride * sample_rate)
+        
+        # sample waveforms and rescale snrs below threshold
+        waveforms, _ = injector.sample(-1)
+        df = 1 / (waveforms.shape[-1] / sample_rate)
+        psds = []
+        for back in background:
+            psd = normalize_psd(back, df, sample_rate)
+            psds.append(psd)
+        psds = torch.tensor(np.stack(psds), dtype=torch.float64)
 
-        # create a datset of pure background
+        snrs = compute_network_snr(waveforms, psds, sample_rate, highpass)
+        mask = snrs < snr_thresh
+        logging.info(f"Rescaling {mask.sum()} out of {len(snrs)} waveforms below snr threshold")
+        snrs[mask] = snr_thresh
+        waveforms = reweight_snrs(waveforms, snrs, psds, sample_rate, highpass)
+
+        # create a dataset of pure background
         background = make_background(background, kernel_size, stride_size)
         self.background_loader = self.make_loader(background, batch_size)
 
@@ -485,21 +500,8 @@ class Validator:
         # into either or both interferometer channels
         glitch_background = make_glitches(glitches, background, glitch_frac)
         self.glitch_loader = self.make_loader(glitch_background, batch_size)
-
-        # create a tensor of background with waveforms injected.
-        # calculate the snrs of waveforms and rescale those below threshold
-        waveforms, _ = injector.sample(-1)
-        df = 1 / (waveforms.shape[-1] / sample_rate)
-        psds = []
-        for back in background:
-            psd = normalize_psd(background, df, sample_rate)
-            psds.append(psd)
-        psds = torch.tensor(np.stack(psds), dtype=torch.float64)
-
-        snrs = compute_network_snr(waveforms, background, sample_rate, highpass)
-        snrs[snrs < snr_thresh] = snr_thresh
-        waveforms = reweight_snrs(waveforms, snrs, psds, sample_rate, highpass)
         
+        # create a tensor of background with waveforms injected.
         signal_background = repeat(background, len(waveforms))
 
         start = waveforms.shape[-1] // 2 - kernel_size // 2
