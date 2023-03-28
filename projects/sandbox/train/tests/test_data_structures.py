@@ -6,6 +6,7 @@ import torch
 from train.data_structures import (
     BBHInMemoryDataset,
     BBHNetWaveformInjection,
+    ChannelSwapper,
     GlitchSampler,
     SignalInverter,
     SignalReverser,
@@ -338,3 +339,31 @@ def test_signal_reverser(flip_prob, rvs, true_idx):
 
     x = x.cpu().numpy()
     validate_augmenters(X, true_idx, x[::-1], x, flip_prob)
+
+
+@pytest.fixture(params=[0.5])
+def frac():
+    return 0.5
+
+
+def test_channel_swapper(frac):
+    tform = ChannelSwapper(frac=frac)
+    X = torch.arange(20).repeat(20, 1).transpose(1, 0).reshape(-1, 2, 20)
+    num = int(frac * 10)
+    num = num if not num % 2 else num + 1
+    print(num, num // 2)
+    channels = torch.ones(num // 2, dtype=torch.long)
+    with patch(
+        "torch.randperm",
+        return_value=torch.tensor(torch.arange(num, dtype=torch.long)),
+    ), patch("torch.randint", return_value=channels):
+        X, indices = tform(X)
+
+    X = X.cpu().numpy()
+    indices = indices.cpu().numpy()
+
+    # this seems like a circuitious way to test this
+    assert all(indices == np.arange(num))
+    assert (
+        X[indices[: num // 2], channels] == X[indices[-num // 2 :], channels]
+    ).all()
