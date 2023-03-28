@@ -367,3 +367,10 @@ def test_channel_swapper(frac):
     # this seems like a circuitious way to test this
     assert all(indices == np.arange(num))
     assert (X[indices, channels] == copy[target_indices, channels]).all()
+
+    tform = ChannelSwapper(frac=0)
+    X = torch.arange(6).repeat(6, 1).transpose(1, 0).reshape(-1, 2, 6)
+    copy = torch.clone(X)
+    X, indices = tform(X)
+    assert indices is None
+    assert (X == copy).all()
