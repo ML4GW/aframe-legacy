@@ -17,8 +17,9 @@ from typing import (
 import numpy as np
 import torch
 from train.utils import split
-from ml4gw.spectral import normalize_psd
+
 from ml4gw.gw import compute_network_snr, reweight_snrs
+from ml4gw.spectral import normalize_psd
 
 if TYPE_CHECKING:
     from train.waveform_injection import BBHNetWaveformInjection
@@ -440,7 +441,7 @@ class Validator:
                 on-the-fly SNR reweighting during validation. For now,
                 waveforms are sampled with no SNR reweighting.
             snr_thresh:
-                Lower snr threshold for waveforms. Waveforms that have snrs 
+                Lower snr threshold for waveforms. Waveforms that have snrs
                 below this threshold will be rescaled to this threshold.
             highpass:
                 Low frequency cutoff used when evaluating waveform snr.
@@ -476,7 +477,7 @@ class Validator:
 
         kernel_size = int(kernel_length * sample_rate)
         stride_size = int(stride * sample_rate)
-        
+
         # sample waveforms and rescale snrs below threshold
         waveforms, _ = injector.sample(-1)
         df = 1 / (waveforms.shape[-1] / sample_rate)
@@ -488,7 +489,10 @@ class Validator:
 
         snrs = compute_network_snr(waveforms, psds, sample_rate, highpass)
         mask = snrs < snr_thresh
-        logging.info(f"Rescaling {mask.sum()} out of {len(snrs)} waveforms below snr threshold")
+        logging.info(
+            f"Rescaling {mask.sum()} out of {len(snrs)} "
+            "waveforms below snr threshold"
+        )
         snrs[mask] = snr_thresh
         waveforms = reweight_snrs(waveforms, snrs, psds, sample_rate, highpass)
 
@@ -500,7 +504,7 @@ class Validator:
         # into either or both interferometer channels
         glitch_background = make_glitches(glitches, background, glitch_frac)
         self.glitch_loader = self.make_loader(glitch_background, batch_size)
-        
+
         # create a tensor of background with waveforms injected.
         signal_background = repeat(background, len(waveforms))
 
