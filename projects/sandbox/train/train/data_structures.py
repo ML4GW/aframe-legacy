@@ -79,6 +79,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
     def __init__(self, *args, **kwargs):
         try:
             glitch_prob = kwargs.pop("glitch_prob")
+            swap_frac = kwargs.pop("swap_frac")
             downweight = kwargs.pop("downweight")
             prob = kwargs.pop("prob")
         except KeyError:
@@ -88,13 +89,19 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
             # derivation of this somewhere that I
             # can't quite find at the moment
             prob = prob / (1 - glitch_prob * (1 - downweight)) ** 2
+            # account for the fact that some waveforms will have a channel
+            # swapped with another waveform and labeled as noise
+            prob = prob / (1 - swap_frac)
+
             if not 0 < prob <= 1.0:
                 raise ValueError(
-                    "Probability must be between 0 and 1. Adjust the value(s) "
-                    "of waveform_prob, glitch_prob, and/or downweight"
+                    "Probability must be between 0 and 1. "
+                    "Adjust the value(s) of waveform_prob, "
+                    "glitch_prob, swap_prob, and/or downweight"
                 )
             kwargs["prob"] = prob
             self.downweight = downweight
+            self.channel_swapper = ChannelSwapper(swap_frac)
 
         super().__init__(*args, **kwargs)
 
@@ -118,8 +125,12 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
             max_center_offset=self.trigger_offset,
             coincident=True,
         )
+
+        waveforms, indices = self.channel_swapper(waveforms)
         X[mask] += waveforms
 
+        # make targets negative if they have had a channel swapped
+        mask = mask[np.where(mask)[0]][indices] = 0
         # make targets positive if they're injected
         y[mask] = -y[mask] + 1
         return X, y
@@ -202,3 +213,28 @@ class SignalReverser(torch.nn.Module):
             mask = torch.rand(size=X.shape[:-1]) < self.prob
             X[mask] = X[mask].flip(-1)
         return X, y
+
+
+class ChannelSwapper(torch.nn.Module):
+    """
+    Data augmentation module that randomly swaps channels
+    of batch elements with a given probability.
+
+    Args:
+        prob:
+            Fraction of batch that will have channels swapped.
+    """
+
+    def __init__(self, frac: float = 0.5):
+        super().__init__()
+        self.frac = frac
+
+    def forward(self, X):
+
+        num = int(X.shape[0] * self.frac) // 2
+        indices = torch.randperm(num)
+        channel = torch.randint(X.shape[1], size=(num,))
+        X[indices, channel] = X[indices.flip(0), channel]
+        X[indices.flip(0), channel] = X[indices, channel]
+
+        return X, indices
