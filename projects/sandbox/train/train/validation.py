@@ -498,7 +498,7 @@ class Validator:
 
         snrs = compute_network_snr(waveforms, background, sample_rate, highpass)
         snrs[snrs < snr_thresh] = snr_thresh
-        waveforms = reweight_snrs(waveforms, snrs, psds, sample_Rate, highpass)
+        waveforms = reweight_snrs(waveforms, snrs, psds, sample_rate, highpass)
         
         signal_background = repeat(background, len(waveforms))
 
