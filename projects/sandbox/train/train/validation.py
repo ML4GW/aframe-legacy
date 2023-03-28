@@ -17,6 +17,8 @@ from typing import (
 import numpy as np
 import torch
 from train.utils import split
+from ml4gw.spectral import normalize_psd
+from ml4gw.gw import compute_network_snr, reweight_snrs
 
 if TYPE_CHECKING:
     from train.waveform_injection import BBHNetWaveformInjection
@@ -399,6 +401,8 @@ class Validator:
         background: np.ndarray,
         glitches: Sequence[np.ndarray],
         injector: "BBHNetWaveformInjection",
+        snr_thresh: float,
+        highpass: float,
         kernel_length: float,
         stride: float,
         sample_rate: float,
@@ -435,6 +439,11 @@ class Validator:
                 for the time being so that we can potentially do
                 on-the-fly SNR reweighting during validation. For now,
                 waveforms are sampled with no SNR reweighting.
+            snr_thresh:
+                Lower snr threshold for waveforms. Waveforms that have snrs 
+                below this threshold will be rescaled to this threshold.
+            highpass:
+                Low frequency cutoff used when evaluating waveform snr.
             kernel_length:
                 The length of windows to sample from the background
                 in seconds.
@@ -477,8 +486,20 @@ class Validator:
         glitch_background = make_glitches(glitches, background, glitch_frac)
         self.glitch_loader = self.make_loader(glitch_background, batch_size)
 
-        # 3. create a tensor of background with waveforms injected
+        # create a tensor of background with waveforms injected.
+        # calculate the snrs of waveforms and rescale those below threshold
         waveforms, _ = injector.sample(-1)
+        df = 1 / (waveforms.shape[-1] / sample_rate)
+        psds = []
+        for back in background:
+            psd = normalize_psd(background, df, sample_rate)
+            psds.append(psd)
+        psds = torch.stack(psds)
+
+        snrs = compute_network_snr(waveforms, background, sample_rate, highpass)
+        snrs[snrs < snr_thresh] = snr_thresh
+        waveforms = reweight_snrs(waveforms, snrs, psds, sample_Rate, highpass)
+        
         signal_background = repeat(background, len(waveforms))
 
         start = waveforms.shape[-1] // 2 - kernel_size // 2
