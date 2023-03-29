@@ -25,11 +25,16 @@ class ChannelSwapper(torch.nn.Module):
     def forward(self, X):
         num = int(X.shape[0] * self.frac)
         indices = None
+        print(num, self.frac, X.shape)
         if num > 0:
-            num = num if not num % 2 else num + 1
-            channel = torch.randint(X.shape[1], size=(num // 2,)).repeat(2)
-            indices = torch.randperm(X.shape[0])[:num]
+            num = num if not num % 2 else num - 1
+            num = max(2, num)
+            channel = torch.randint(X.shape[1], size=(num / 2,)).repeat(2)
+            # swap channels from the first num / 2 elements with the
+            # second num / 2 elements
+            indices = torch.arange(num)
             target_indices = torch.roll(indices, shifts=num // 2, dims=0)
+            print(num, indices.shape, target_indices.shape, channel.shape)
             X[indices, channel] = X[target_indices, channel]
 
         return X, indices

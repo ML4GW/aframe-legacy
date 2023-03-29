@@ -348,23 +348,26 @@ def frac():
 
 def test_channel_swapper(frac):
     tform = ChannelSwapper(frac=frac)
-    X = torch.arange(6).repeat(6, 1).transpose(1, 0).reshape(-1, 2, 6)
-    num = int(frac * 3)
-    num = num if not num % 2 else num + 1
+    n_batch = 128
+    X = (
+        torch.arange(n_batch)
+        .repeat(n_batch, 1)
+        .transpose(1, 0)
+        .reshape(n_batch, 2, -1)
+    )
+    num = int(frac * n_batch)
+    num = num if not num % 2 else num - 1
     channels = torch.ones(num // 2, dtype=torch.long)
     copy = torch.clone(X)
-    with patch(
-        "torch.randperm",
-        return_value=torch.tensor(torch.arange(num, dtype=torch.long)),
-    ), patch("torch.randint", return_value=channels):
+    with patch("torch.randint", return_value=channels):
         X, indices = tform(X)
 
-    target_indices = torch.roll(indices, shifts=num // 2)
+    target_indices = torch.roll(indices, shifts=num // 2, dims=0)
     X = X.cpu().numpy()
     copy = copy.cpu().numpy()
     indices = indices.cpu().numpy()
+    channels = channels.repeat(2)
 
-    # this seems like a circuitious way to test this
     assert all(indices == np.arange(num))
     assert (X[indices, channels] == copy[target_indices, channels]).all()
 
