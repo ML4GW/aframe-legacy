@@ -66,7 +66,7 @@ class Metric(torch.nn.Module):
         tab = " " * 8
         string = ""
         for threshold, value in zip(self.thresholds, self.values):
-            string += f"\n{tab}{self.param} = {threshold}: {value:0.3f}"
+            string += f"\n{tab}{self.param} = {threshold}: {value:0.4f}"
         return self.name + " @:" + string
 
     def __getitem__(self, threshold):
