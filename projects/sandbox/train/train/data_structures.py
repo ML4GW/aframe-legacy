@@ -159,7 +159,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
 
         # make targets negative if they have had a channel swapped
         if indices is not None:
-            mask[np.where(mask)[0]][indices] = 0
+            mask[mask][indices] = 0
         # make targets positive if they're injected
         y[mask] = -y[mask] + 1
         return X, y
