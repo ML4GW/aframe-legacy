@@ -103,20 +103,20 @@ fduration = "${base.fduration}"
 snr_thresh = "${base.hopeless_snr_thresh}$"
 highpass = "${base.minimum_frequency}"
 trigger_distance = -0.5
-waveform_prob = 0.5
-glitch_prob = 0.25
-glitch_downweight = 0.5
 mean_snr = 15
 std_snr = 15
 min_snr = 1
+waveform_prob = 0.470644
+glitch_prob = 0.420902
+glitch_downweight = 0.650283 
 
 # optimization parameters
 batch_size = 512
 batches_per_epoch = 200
 max_epochs = 200
-max_lr = 4e-3
-lr_ramp_epochs = 75 
-weight_decay = 1e-5
+max_lr = 0.000181352 
+lr_ramp_epochs = 92
+weight_decay = 2.81536e-06
 
 # validation parameters
 valid_frac = "${base.valid_frac}"
