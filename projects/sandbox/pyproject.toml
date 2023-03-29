@@ -123,7 +123,7 @@ weight_decay = 2.81536e-06
 # validation parameters
 valid_frac = "${base.valid_frac}"
 valid_stride = 0.0625
-early_stop = 20
+early_stop = 50
 monitor_metric = "background"
 threshold = 0.01
 checkpoint_every = 5
