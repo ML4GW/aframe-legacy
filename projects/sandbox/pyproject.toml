@@ -5,9 +5,9 @@ steps = [
     #"datagen:generate-glitches",
     #"train:train:resnet",
     #"export:export-model:resnet",
-    #"datagen:generate-timeslides",
-    #"infer:infer",
-    #"analyze:analyze",
+    #3"datagen:generate-timeslides",
+    #infer:infer",
+    #analyze:analyze",
     "vizapp:vizapp"
 ]
 
@@ -111,7 +111,8 @@ min_snr = 1
 waveform_prob = 0.470644
 glitch_prob = 0.420902
 glitch_downweight = 0.650283 
-swap_frac = 0.2
+swap_frac = 0.15
+mute_frac = 0.15
 
 # optimization parameters
 batch_size = 512
@@ -126,7 +127,7 @@ valid_frac = "${base.valid_frac}"
 valid_stride = 0.0625
 early_stop = 50
 monitor_metric = "background"
-threshold = 0.01
+threshold = 0.1
 checkpoint_every = 5
 
 # misc params

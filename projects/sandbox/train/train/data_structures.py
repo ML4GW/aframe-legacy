@@ -38,6 +38,31 @@ class ChannelSwapper(torch.nn.Module):
         return X, indices
 
 
+class ChannelMuter(torch.nn.Module):
+    """
+    Data augmentation module that randomly mutes 1 channel
+    of a fraction of batch elements.
+
+    Args:
+        frac:
+            Fraction of batch that will have channels swapped.
+    """
+
+    def __init__(self, frac: float = 0.5):
+        super().__init__()
+        self.frac = frac
+
+    def forward(self, X):
+        num = int(X.shape[0] * self.frac)
+        indices = None
+        if num > 0:
+            channel = torch.randint(X.shape[1], size=(num,))
+            indices = torch.randint(X.shape[0], size=(num,))
+            X[indices, channel] = torch.zeros(X.shape[-1], device=X.device)
+
+        return X, indices
+
+
 class BBHInMemoryDataset(InMemoryDataset):
     """
     Dataloader which samples batches of kernels
@@ -111,6 +136,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         *args,
         prob: float = 1.0,
         swap_frac: float = 0.0,
+        mute_frac: float = 0.0,
         downweight: float = 1.0,
         glitch_prob: float = 0.5,
         **kwargs
@@ -123,7 +149,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         prob = prob / (1 - glitch_prob * (1 - downweight)) ** 2
         # account for the fact that some waveforms will have a channel
         # swapped with another waveform and labeled as noise
-        prob = prob / (1 - swap_frac)
+        prob = prob / (1 - (swap_frac + mute_frac))
 
         if not 0 < prob <= 1.0:
             raise ValueError(
@@ -135,6 +161,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
 
         super().__init__(*args, **kwargs)
         self.channel_swapper = ChannelSwapper(frac=swap_frac)
+        self.channel_muter = ChannelMuter(frac=mute_frac)
 
     def forward(self, X: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         if not self.training:
@@ -157,12 +184,17 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
             coincident=True,
         )
 
-        waveforms, indices = self.channel_swapper(waveforms)
+        waveforms, swap_indices = self.channel_swapper(waveforms)
+        waveforms, mute_indices = self.channel_muter(waveforms)
         X[mask] += waveforms
 
-        # make targets negative if they have had a channel swapped
-        if indices is not None:
-            mask[mask][indices] = 0
+        # make targets negative if they have had a channel swapped or muted
+        if mute_indices is not None:
+            mask[mask][mute_indices] = False
+
+        if swap_indices is not None:
+            mask[mask][swap_indices] = False
+
         # make targets positive if they're injected
         y[mask] = -y[mask] + 1
         return X, y
