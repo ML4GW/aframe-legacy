@@ -111,6 +111,7 @@ min_snr = 1
 waveform_prob = 0.470644
 glitch_prob = 0.420902
 glitch_downweight = 0.650283 
+swap_frac = 0.2
 
 # optimization parameters
 batch_size = 512
