@@ -47,7 +47,6 @@ def main(
     waveform_prob: float,
     glitch_downweight: float,
     snr_thresh: float,
-    swap_frac: float,
     kernel_length: float,
     sample_rate: float,
     batch_size: int,
@@ -55,6 +54,7 @@ def main(
     std_snr: float,
     min_snr: float,
     highpass: float,
+    swap_frac: float = 0.0,
     batches_per_epoch: Optional[int] = None,
     # preproc args
     fduration: Optional[float] = None,
