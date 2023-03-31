@@ -71,6 +71,13 @@ class EventSet(TimeSlideEventSet):
 # will already have shift information recorded
 @dataclass
 class RecoveredInjectionSet(TimeSlideEventSet, InterferometerResponseSet):
+    def compare_metadata(self, key, ours, theirs):
+        if key == "num_injections":
+            # enforce that the num_injections parameter be the same,
+            # i.e. that we're recovering injections from the same injection set
+            return Ledger.compare_metadata(self, key, ours or None, theirs)
+        return super().compare_metadata(key, ours, theirs)
+
     @staticmethod
     def get_idx_for_shift(
         event_times: np.ndarray, injection_times: np.ndarray
