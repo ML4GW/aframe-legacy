@@ -151,6 +151,6 @@ class SensitiveVolumeCalculator:
 
             # now attach physical units to quantities
             v = mu * self.volume
-            variance *= v**2
+            variance *= self.volume**2
             std = np.sqrt(variance)
             return v.value, std.value, n_eff
