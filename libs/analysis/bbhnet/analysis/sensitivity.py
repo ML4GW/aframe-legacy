@@ -146,11 +146,11 @@ class SensitiveVolumeCalculator:
             mu = len(recovered_parameters) / num_injections
             variance = len(recovered_parameters) / num_injections**2
 
-            variance -= mu**2 / num_injections
-            n_eff = mu**2 / variance
+        variance -= mu**2 / num_injections
+        n_eff = mu**2 / variance
 
-            # now attach physical units to quantities
-            v = mu * self.volume
-            variance *= self.volume**2
-            std = np.sqrt(variance)
-            return v.value, std.value, n_eff
+        # now attach physical units to quantities
+        v = mu * self.volume
+        variance *= self.volume**2
+        std = np.sqrt(variance)
+        return v.value, std.value, n_eff
