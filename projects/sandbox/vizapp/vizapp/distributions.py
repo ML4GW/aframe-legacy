@@ -94,6 +94,7 @@ def get_foreground(
             ras = f["ra"][:]
             decs = f["dec"][:]
             network_snrs = (h1_snrs**2 + l1_snrs**2) ** 0.5
+            events["n_rejected"].append(f.attrs["n_rejected"])
 
         if norm is not None:
             results_shift = results_dir / shift.name / int_dirname

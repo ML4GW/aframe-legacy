@@ -238,6 +238,8 @@ class VolumeVsFAR:
 
     def update(self, foreground):
         self.foreground = foreground
-        self.n_injections = len(foreground.injection_times)
+        self.n_injections = len(foreground.injection_times) + sum(
+            foreground.n_rejected
+        )
         self.livetime = foreground.livetime
         self.calculate_volume(None)
