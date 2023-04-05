@@ -25,6 +25,21 @@ def mass_constraints(samples):
     return out_samples
 
 
+def get_log_normal_params(mean: float, std: float):
+    """
+    Args:
+        mean: Desired mean of the lognormal distribution
+        std: Desired standard deviation of the lognormal distribution
+
+    Returns:
+        mu: Mean of the association Gaussian distribution
+        sigma: Standard deviation of the association Gaussian distribution
+    """
+    mu = np.log(mean**2 / np.sqrt(mean**2 + std**2))
+    sigma = np.log(1 + (mean / std) ** 2) ** 0.5
+    return mu, sigma
+
+
 def transpose(d: Dict[str, List]):
     return [dict(zip(d, col)) for col in zip(*d.values())]
 

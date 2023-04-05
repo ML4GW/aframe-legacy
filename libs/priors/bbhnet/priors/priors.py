@@ -18,7 +18,11 @@ from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
 
-from bbhnet.priors.utils import mass_condition_powerlaw, read_priors_from_file
+from bbhnet.priors.utils import (
+    get_log_normal_params,
+    mass_condition_powerlaw,
+    read_priors_from_file,
+)
 
 # Unit names
 msun = r"$M_{\odot}$"
@@ -131,7 +135,7 @@ def gaussian_masses(
     prior = PriorDict()
     prior["mass_1"] = Gaussian(name="mass_1", mu=m1, sigma=sigma)
     prior["mass_2"] = Gaussian(name="mass_2", mu=m2, sigma=sigma)
-    prior["redshift"] = UniformSourceFrame(
+    prior["redshift"] = UniformComovingVolume(
         name="redshift", minimum=0, maximum=2, cosmology=cosmology
     )
     prior["dec"] = Cosine(name="dec")
@@ -139,7 +143,7 @@ def gaussian_masses(
         name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
 
-    detector_frame_prior = True
+    detector_frame_prior = False
     return prior, detector_frame_prior
 
 
@@ -159,9 +163,12 @@ def log_normal_masses(
     Returns a PriorDict
     """
     prior = PriorDict()
-    prior["mass_1"] = LogNormal(name="mass_1", mu=m1, sigma=sigma)
-    prior["mass_2"] = LogNormal(name="mass_2", mu=m2, sigma=sigma)
-    prior["redshift"] = UniformSourceFrame(
+    mu1, sigma1 = get_log_normal_params(m1, sigma)
+    prior["mass_1"] = LogNormal(name="mass_1", mu=mu1, sigma=sigma1)
+
+    mu2, sigma2 = get_log_normal_params(m2, sigma)
+    prior["mass_2"] = LogNormal(name="mass_2", mu=mu2, sigma=sigma2)
+    prior["redshift"] = UniformComovingVolume(
         name="redshift", minimum=0, maximum=2, cosmology=cosmology
     )
     prior["dec"] = Cosine(name="dec")
@@ -169,5 +176,5 @@ def log_normal_masses(
         name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
 
-    detector_frame_prior = True
+    detector_frame_prior = False
     return prior, detector_frame_prior
