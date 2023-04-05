@@ -61,6 +61,7 @@ class Foreground:
     decs: np.ndarray
     time_deltas: np.ndarray
     livetime: float
+    n_rejected: np.ndarray
 
     @property
     def chirps(self) -> np.ndarray:
