@@ -133,7 +133,7 @@ checkpoint_every = 5
 
 # misc params
 device = "cuda"
-profile = false
+profile = true
 use_amp = false
 
 # arch parameters
@@ -191,7 +191,7 @@ highpass = "${base.highpass}"
 spacing = 48
 buffer = 4
 cosmology = "${base.cosmology}"
-snr_threshold = 6
+snr_threshold = 4
 waveform_duration = "${base.waveform_duration}"
 waveform_approximant = "${base.waveform_approximant}"
 
@@ -199,7 +199,7 @@ waveform_approximant = "${base.waveform_approximant}"
 # paths
 model_repo_dir = "${base.repository_directory}"
 data_dir = "${base.datadir}/test/background"
-injection_set_file = "${base.datadir}/test/timeslide_waveforms/timeslide_waveforms.h5"
+injection_set_file = "${base.datadir}/test/waveforms.h5"
 output_dir = "${base.basedir}/infer"
 log_dir = "${base.logdir}"
 
@@ -231,7 +231,7 @@ cluster_window_length = 8
 fduration = "${base.fduration}"
 
 # misc
-verbose = "${base.verbose}"
+verbose = true # "${base.verbose}"
 
 [tool.typeo.scripts.analyze]
 data_dir = "${base.basedir}/timeslide_injections/"

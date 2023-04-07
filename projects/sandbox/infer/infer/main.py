@@ -35,6 +35,7 @@ def infer_on_segment(
     num_steps = callback.initialize(start, end)
 
     # load the waveforms specific to this segment/shift
+    logging.debug(f"Loading injection set {injection_set_file}")
     injection_set = LigoResponseSet.read(
         injection_set_file, start=start, end=end, shifts=shifts
     )
@@ -54,12 +55,13 @@ def infer_on_segment(
         sample_rate,
         throughput,
     )
-    logging.info(
-        "Beginning inference on {}s sequence {}".format(
-            int(end - start), str_rep
-        )
-    )
+
+    duration = end - start
+    logging.info(f"Beginning inference on {duration}s sequence {str_rep}")
     for i, (background, injected) in enumerate(batcher):
+        if not (i + 1) % 10:
+            logging.debug(f"Sending request {i + 1}/{num_steps}")
+
         client.infer(
             background,
             request_id=i,
@@ -79,6 +81,7 @@ def infer_on_segment(
         # before proceeding in case the snapshot
         # state requires some warm up
         if not i:
+            logging.debug("Waiting for initial response")
             callback.wait()
 
     # don't start inference on next sequence

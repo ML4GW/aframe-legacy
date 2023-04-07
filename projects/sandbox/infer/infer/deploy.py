@@ -16,6 +16,7 @@ from hermes.aeriel.serve import serve
 from hermes.stillwater import ServerMonitor
 
 re_fname = re.compile(r"([0-9]{10})-([1-9][0-9]*)\.")
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def aggregate_results(output_directory: Path):
