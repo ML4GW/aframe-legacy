@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import List, Tuple
@@ -47,18 +48,83 @@ def io_with_blocking(f, fname, timeout=10):
         try:
             return f(fname)
         except BlockingIOError:
-            if (time.time() - start_time) > 10:
+            if (time.time() - start_time) > timeout:
                 raise
 
 
-def merge_output(results_dir: Path, fname: Path):
-    files = results_dir.glob("tmp-*.h5")
-    response_set = LigoResponseSet()
-    for f in files:
-        fset = io_with_blocking(LigoResponseSet.read, f)
-        response_set.append(fset)
-        f.unlink()
-    response_set.write(fname)
+def get_contents(fname):
+    with h5py.File(fname, "r") as f:
+        metadata = ["length", "num_injections", "sample_rate", "duration"]
+        return tuple([f.attrs[i] for i in metadata])
+
+
+def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
+    # go through our files once up front to infer
+    # a few scalar attributes we'll need to
+    # initialize the full dataset
+    num_waveforms, num_injections = 0, 0
+    for f in results_dir.glob("tmp-*.h5"):
+        waveforms, injections, sample_rate, duration = io_with_blocking(
+            get_contents, f
+        )
+        num_waveforms += waveforms
+        num_injections += injections
+    waveform_size = int(sample_rate * duration)
+
+    # initialize the output file with a bunch of
+    # empty datasets that we'll write to directly
+    fields = LigoResponseSet.__dataclass_fields__
+    with h5py.File(fname, "w") as target:
+        # start with some of the attributes
+        target.attrs["num_injections"] = num_injections
+        target.attrs["length"] = num_waveforms
+        target.attrs["duration"] = duration
+        target.attrs["sample_rate"] = sample_rate
+        waveforms = target.create_group("waveforms")
+        parameters = target.create_group("parameters")
+
+        logging.info(
+            f"Initializing HDF5 structure with {num_waveforms} waveforms"
+        )
+        for key, attr in fields.items():
+            shape = (num_waveforms,)
+
+            if attr.metadata["kind"] == "metadata":
+                continue
+            elif attr.metadata["kind"] == "waveform":
+                shape += (waveform_size,)
+                group = waveforms
+            else:
+                group = parameters
+                if key == "shift":
+                    shape += (2,)
+            group.create_dataset(key, shape=shape, dtype=dtype)
+        logging.info("HDF5 datasets initialized")
+
+        idx = 0
+        for source in results_dir.glob("tmp-*.h5"):
+            with h5py.File(source, "r") as src:
+                length = src.attrs["length"]
+                slc = np.s_[idx : idx + length]
+                for key, attr in fields.items():
+                    if attr.metadata["kind"] == "metadata":
+                        continue
+                    else:
+                        group = attr.metadata["kind"] + "s"
+                        x = src[group][key][:]
+                        target[group][key].write_direct(x, dest_sel=slc)
+            idx += length
+            source.unlink()
+
+
+# def merge_output(results_dir: Path, fname: Path):
+#     files = results_dir.glob("tmp-*.h5")
+#     response_set = LigoResponseSet()
+#     for f in files:
+#         fset = io_with_blocking(LigoResponseSet.read, f)
+#         response_set.append(fset)
+#         f.unlink()
+#     response_set.write(fname)
 
 
 def load_psds(

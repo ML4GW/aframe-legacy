@@ -39,7 +39,6 @@ def main(
     snr_threshold: float,
     ifos: List[str],
     output_fname: Path,
-    expected_frac: float = 0.1,
     log_file: Optional[Path] = None,
     verbose: bool = False,
 ):
@@ -62,14 +61,14 @@ def main(
     n_samples = len(injection_times)
     waveform_size = int(sample_rate * waveform_duration)
 
-    parameters = defaultdict(lambda: np.zeros((n_samples,)))
+    zeros = np.zeros((n_samples,))
+    parameters = defaultdict(lambda: zeros.copy())
     parameters["gps_time"] = injection_times
     parameters["shift"] = np.array([shifts for _ in range(n_samples)])
 
     for ifo in ifos:
         empty = np.zeros((n_samples, waveform_size))
         parameters[ifo.lower()] = empty
-    idx = 0
 
     tensors, vertices = get_ifo_geometry(*ifos)
     df = 1 / waveform_duration
@@ -82,9 +81,9 @@ def main(
     # loop until we've generated enough signals
     # with large enough snr to fill the segment,
     # keeping track of the number of signals rejected
-    num_injections = 0
-    while idx < n_samples:
-        params = prior.sample(int(n_samples / expected_frac))
+    num_injections, idx = 0, 0
+    while n_samples > 0:
+        params = prior.sample(n_samples)
         waveforms = generate_gw(
             params,
             minimum_frequency,
@@ -115,12 +114,17 @@ def main(
         # add all snrs: masking will take place in for loop below
         params["snr"] = snrs
         num_injections += len(snrs)
-        mask = snrs > snr_threshold
-        num_accepted = mask.sum()
+        mask = snrs >= snr_threshold
 
+        num_accepted = mask.sum()
+        if num_accepted == 0:
+            continue
+
+        n_samples -= num_accepted
+        if n_samples < 0:
+            num_accepted += n_samples
         start, stop = idx, idx + num_accepted
-        if stop > n_samples:
-            num_accepted -= stop - n_samples
+
         for key, value in params.items():
             parameters[key][start:stop] = value[mask][:num_accepted]
 

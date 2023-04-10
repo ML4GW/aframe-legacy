@@ -133,7 +133,7 @@ checkpoint_every = 5
 
 # misc params
 device = "cuda"
-profile = true
+profile = false
 use_amp = false
 
 # arch parameters
