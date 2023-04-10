@@ -51,7 +51,7 @@ class Ledger:
 
     def _get_params(self):
         params = []
-        for k, v in self.__dataclass_fields__:
+        for k, v in self.__dataclass_fields__.items():
             if v.metadata["kind"] != "metadata":
                 params.append(k)
         return params

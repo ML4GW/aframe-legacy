@@ -94,11 +94,11 @@ class TestRecoveredInjectionSet:
     @pytest.fixture
     def response_set(self):
         times = np.array([1.4, 8.6, 3.1])
-        params = {"gps_time": times}
+        params = {"gps_time": times, "sample_rate": 2048}
 
         fields = injections.LigoResponseSet.__dataclass_fields__
         for name, attr in fields.items():
-            if name == "gps_time":
+            if name == "gps_time" or name == "sample_rate":
                 continue
             if attr.metadata["kind"] == "parameter":
                 params[name] = np.arange(3)
@@ -106,16 +106,11 @@ class TestRecoveredInjectionSet:
         return injections.InterferometerResponseSet(num_injections=5, **params)
 
     def test_recover_single_shift(self, timeslide_event_set, response_set):
+
         obj = events.RecoveredInjectionSet.recover(
-            timeslide_event_set, response_set, offset=0
+            timeslide_event_set, response_set
         )
         assert len(obj) == 3
         assert (obj.detection_statistic == np.array([6, 14, 8])).all()
         assert obj.Tb == 100
         assert obj.num_injections == 5
-
-        obj = events.RecoveredInjectionSet.recover(
-            timeslide_event_set, response_set, offset=1
-        )
-        assert len(obj) == 3
-        assert (obj.detection_statistic == np.array([7, 14, 9])).all()
