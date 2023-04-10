@@ -46,7 +46,7 @@ def test_sensitive_volume(prior):
         _,
         _,
     ) = sensitive_volume_calculator(recovered_parameters, 100)
-    assert sensitive_volume == sensitive_volume_calculator.volume.value
+    assert sensitive_volume.value == sensitive_volume_calculator.volume.value
 
     # TODO: add test for calculating vt with non-trivial target
 
@@ -68,4 +68,4 @@ def test_calculate_astrophysical_volume():
         )
         # expected answer is 4 pi since the integrand
         # is 1 and the volume is 1 Mpc^3
-        assert volume.value == 4 * math.pi
+        assert volume == 4 * math.pi
