@@ -149,7 +149,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
         prob = prob / (1 - glitch_prob * (1 - downweight)) ** 2
         # account for the fact that some waveforms will have a channel
         # swapped with another waveform and labeled as noise
-        prob = prob / (1 - (swap_frac + mute_frac))
+        prob = prob / (1 - (swap_frac + mute_frac - (swap_frac * mute_frac)))
 
         if not 0 < prob <= 1.0:
             raise ValueError(
