@@ -45,7 +45,7 @@ class ChannelMuter(torch.nn.Module):
 
     Args:
         frac:
-            Fraction of batch that will have channels swapped.
+            Fraction of batch that will have channels muted.
     """
 
     def __init__(self, frac: float = 0.5):
@@ -155,7 +155,7 @@ class BBHNetWaveformInjection(RandomWaveformInjection):
             raise ValueError(
                 "Probability must be between 0 and 1. "
                 "Adjust the value(s) of waveform_prob, "
-                "glitch_prob, swap_frac, and/or downweight"
+                "glitch_prob, swap_frac, mute_frac, and/or downweight"
             )
         kwargs["prob"] = prob
 
