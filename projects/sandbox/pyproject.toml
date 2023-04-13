@@ -231,7 +231,7 @@ cluster_window_length = 8
 fduration = "${base.fduration}"
 
 # misc
-verbose = true # "${base.verbose}"
+verbose = "${base.verbose}"
 
 [tool.typeo.scripts.analyze]
 data_dir = "${base.basedir}/timeslide_injections/"
