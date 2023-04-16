@@ -174,7 +174,7 @@ class IntrinsicWaveformSet(InjectionMetadata, IntrinsicParameterSet):
 
 
 @dataclass
-class InjectionParameterSet(Ledger):
+class EventParameterSet(Ledger):
     """
     Assume GPS times always correspond to un-shifted data
     """
@@ -213,7 +213,12 @@ class SkyLocationParameterSet(Ledger):
 
 
 @dataclass
-class ExtrinsicParameterSet(InjectionParameterSet, SkyLocationParameterSet):
+class InjectionParameterSet(SkyLocationParameterSet, IntrinsicParameterSet):
+    pass
+
+
+@dataclass
+class ExtrinsicParameterSet(EventParameterSet, SkyLocationParameterSet):
     pass
 
 

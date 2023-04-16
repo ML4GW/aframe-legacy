@@ -7,7 +7,10 @@ import h5py
 import numpy as np
 import torch
 
-from bbhnet.analysis.ledger.injections import LigoResponseSet
+from bbhnet.analysis.ledger.injections import (
+    InjectionParameterSet,
+    LigoResponseSet,
+)
 from ml4gw.spectral import normalize_psd
 
 
@@ -52,20 +55,29 @@ def io_with_blocking(f, fname, timeout=10):
                 raise
 
 
-def get_contents(fname):
+def get_waveform_contents(fname):
     with h5py.File(fname, "r") as f:
         metadata = ["length", "num_injections", "sample_rate", "duration"]
         return tuple([f.attrs[i] for i in metadata])
+
+
+def get_rejected_contents(fname):
+    with h5py.File(fname, "r") as f:
+        return f.attrs["length"]
 
 
 def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
     # go through our files once up front to infer
     # a few scalar attributes we'll need to
     # initialize the full dataset
-    num_waveforms, num_injections = 0, 0
+    num_waveforms, num_injections, num_rejected = 0, 0, 0
     for f in results_dir.glob("tmp-*.h5"):
+        if "rejected" in f.name:
+            num_rejected += io_with_blocking(get_rejected_contents, f)
+            continue
+
         waveforms, injections, sample_rate, duration = io_with_blocking(
-            get_contents, f
+            get_waveform_contents, f
         )
         num_waveforms += waveforms
         num_injections += injections
@@ -74,7 +86,10 @@ def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
     # initialize the output file with a bunch of
     # empty datasets that we'll write to directly
     fields = LigoResponseSet.__dataclass_fields__
-    with h5py.File(fname, "w") as target:
+    rejected_fname = fname.parent / "rejected-params.h5"
+    target = h5py.File(fname, "w")
+    rejected = h5py.File(rejected_fname, "w")
+    with target, rejected:
         # start with some of the attributes
         target.attrs["num_injections"] = num_injections
         target.attrs["length"] = num_waveforms
@@ -82,6 +97,9 @@ def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
         target.attrs["sample_rate"] = sample_rate
         waveforms = target.create_group("waveforms")
         parameters = target.create_group("parameters")
+
+        rejected.create_group("parameters")
+        rejected.attrs["length"] = num_rejected
 
         logging.info(
             f"Initializing HDF5 structure with {num_waveforms} waveforms"
@@ -98,13 +116,29 @@ def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
                 group = parameters
                 if key == "shift":
                     shape += (2,)
+
+                if key in InjectionParameterSet.__dataclass_fields__:
+                    rejected["parameters"].create_dataset(
+                        key, shape=(num_rejected,), dtype=dtype
+                    )
             group.create_dataset(key, shape=shape, dtype=dtype)
         logging.info("HDF5 datasets initialized")
 
-        idx = 0
+        idx, ridx = 0, 0
         for source in results_dir.glob("tmp-*.h5"):
             with h5py.File(source, "r") as src:
                 length = src.attrs["length"]
+                if "rejected" in source.name:
+                    slc = np.s_[ridx : ridx + length]
+                    for key in src["parameters"]:
+                        x = src["parameters"][key][:]
+                        rejected["parameters"][key].write_direct(
+                            x, dest_sel=slc
+                        )
+                    ridx += length
+                    # source.unlink()
+                    continue
+
                 slc = np.s_[idx : idx + length]
                 for key, attr in fields.items():
                     if attr.metadata["kind"] == "metadata":
@@ -114,7 +148,7 @@ def merge_output(results_dir: Path, fname: Path, dtype=np.float64):
                         x = src[group][key][:]
                         target[group][key].write_direct(x, dest_sel=slc)
             idx += length
-            source.unlink()
+            # source.unlink()
 
 
 # def merge_output(results_dir: Path, fname: Path):

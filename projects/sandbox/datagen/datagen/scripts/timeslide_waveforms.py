@@ -10,7 +10,10 @@ from datagen.utils.injection import generate_gw
 from mldatafind.segments import query_segments
 from typeo import scriptify
 
-from bbhnet.analysis.ledger.injections import LigoResponseSet
+from bbhnet.analysis.ledger.injections import (
+    InjectionParameterSet,
+    LigoResponseSet,
+)
 from bbhnet.deploy import condor
 from bbhnet.logging import configure_logging
 from ml4gw.gw import (
@@ -82,6 +85,7 @@ def main(
     # with large enough snr to fill the segment,
     # keeping track of the number of signals rejected
     num_injections, idx = 0, 0
+    rejected_params = InjectionParameterSet()
     while n_samples > 0:
         params = prior.sample(n_samples)
         waveforms = generate_gw(
@@ -116,6 +120,12 @@ def main(
         num_injections += len(snrs)
         mask = snrs >= snr_threshold
 
+        rejected = {}
+        for key in InjectionParameterSet.__dataclass_fields__:
+            rejected[key] = params[key][~mask]
+        rejected = InjectionParameterSet(**rejected)
+        rejected_params.append(rejected)
+
         num_accepted = mask.sum()
         if num_accepted == 0:
             continue
@@ -140,6 +150,10 @@ def main(
 
     response_set = LigoResponseSet(**parameters)
     utils.io_with_blocking(response_set.write, output_fname)
+
+    rejected_fname = output_fname.stem + "-rejected.h5"
+    rejected_fname = output_fname.parent / rejected_fname
+    utils.io_with_blocking(rejected_params.write, rejected_fname)
     return output_fname
 
 
