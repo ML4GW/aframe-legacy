@@ -41,7 +41,7 @@ def main(
     highpass: float,
     snr_threshold: float,
     ifos: List[str],
-    output_fname: Path,
+    output_dir: Path,
     log_file: Optional[Path] = None,
     verbose: bool = False,
 ):
@@ -120,41 +120,49 @@ def main(
         num_injections += len(snrs)
         mask = snrs >= snr_threshold
 
+        # first record any parameters that were
+        # rejected during sampling to a separate object
         rejected = {}
         for key in InjectionParameterSet.__dataclass_fields__:
             rejected[key] = params[key][~mask]
         rejected = InjectionParameterSet(**rejected)
         rejected_params.append(rejected)
 
+        # if nothing got accepted, try again
         num_accepted = mask.sum()
         if num_accepted == 0:
             continue
 
-        n_samples -= num_accepted
-        if n_samples < 0:
-            num_accepted += n_samples
+        # insert our accepted parameters into the output array
         start, stop = idx, idx + num_accepted
-
         for key, value in params.items():
-            parameters[key][start:stop] = value[mask][:num_accepted]
+            parameters[key][start:stop] = value[mask]
 
-        projected = projected[mask].numpy()[:num_accepted]
+        # do the same for our accepted projected waveforms
+        projected = projected[mask].numpy()
         for i, ifo in enumerate(ifos):
             key = ifo.lower()
             parameters[key][start:stop] = projected[:, i]
+
+        # subtract off the number of samples we accepted
+        # from the number we'll need to sample next time,
+        # that way we never overshoot our number of desired
+        # accepted samples and therefore risk overestimating
+        # our total number of injections
         idx += num_accepted
+        n_samples -= num_accepted
 
     parameters["sample_rate"] = sample_rate
     parameters["duration"] = waveform_duration
     parameters["num_injections"] = num_injections
 
     response_set = LigoResponseSet(**parameters)
-    utils.io_with_blocking(response_set.write, output_fname)
+    waveform_fname = output_dir / "waveforms.h5"
+    utils.io_with_blocking(response_set.write, waveform_fname)
 
-    rejected_fname = output_fname.stem + "-rejected.h5"
-    rejected_fname = output_fname.parent / rejected_fname
+    rejected_fname = output_dir / "rejected-params.h5"
     utils.io_with_blocking(rejected_params.write, rejected_fname)
-    return output_fname
+    return waveform_fname, rejected_fname
 
 
 # until typeo update gets in just take all the same parameter as main
@@ -188,22 +196,37 @@ def deploy(
     verbose: bool = False,
     force_generation: bool = False,
 ) -> None:
+    # define some directories:
+    # outdir: where we'll write the temporary
+    #    files created in each condor job
+    # writedir: where we'll write the aggregated
+    #    aggregated outputs from each of the
+    #    temporary files in outdir
+    # condordir: where we'll write the submit file,
+    #    queue parameters file, and the log, out, and
+    #    err files from each submitted job
     outdir = outdir / "timeslide_waveforms"
     writedir = datadir / "test"
-    for d in [outdir, writedir, logdir]:
+    condordir = outdir / "condor"
+    for d in [outdir, writedir, condordir, logdir]:
         d.mkdir(exist_ok=True, parents=True)
     configure_logging(logdir / "timeslide_waveforms.log", verbose=verbose)
 
-    output_fname = writedir / "waveforms.h5"
-    if output_fname.exists() and not force_generation:
+    # check to see if any of the target files are
+    # missing or if we've indicated to force
+    # generation even if they are
+    for fname in ["waveforms.h5", "rejected-parameters.h5"]:
+        if not (writedir / fname).exists() or force_generation:
+            break
+    else:
+        # if everything exists and we're not forcing
+        # generation, short-circuit here
         logging.info(
-            "Timeslide waveform file {} already exists, "
-            "skipping waveform generation".format(output_fname)
+            "Timeslide waveform and rejected parameters files "
+            "already exist in {} and force_generation is off, "
+            "exiting".format(writedir)
         )
-
-    # where condor info and sub files will live
-    condor_dir = outdir / "condor"
-    condor_dir.mkdir(exist_ok=True, parents=True)
+        return
 
     # query segments and calculate shifts required
     # to accumulate desired background livetime
@@ -233,7 +256,7 @@ def deploy(
     arguments += f"--highpass {highpass} --snr-threshold {snr_threshold} "
     arguments += f"--ifos {' '.join(ifos)} "
     arguments += f"--prior {prior} --cosmology {cosmology} "
-    arguments += f"--output-fname {outdir}/tmp-$(ProcID).h5 "
+    arguments += f"--output-dir {outdir}/$(ProcID) "
     arguments += f"--log-file {logdir}/$(ProcID).log "
 
     # create submit file by hand: pycondor doesn't support
@@ -243,7 +266,7 @@ def deploy(
         name="timeslide_waveforms",
         parameters=parameters,
         arguments=arguments,
-        submit_dir=condor_dir,
+        submit_dir=condordir,
         accounting_group=accounting_group,
         accounting_group_user=accounting_group_user,
         clear=True,
@@ -252,10 +275,17 @@ def deploy(
     )
     dag_id = condor.submit(subfile)
     logging.info(f"Launching waveform generation jobs with dag id {dag_id}")
-    condor.watch(dag_id, condor_dir)
+    condor.watch(dag_id, condordir)
 
     # once all jobs are done, merge the output files
-    logging.info(f"Merging output files to file {output_fname}")
-    utils.merge_output(outdir, output_fname)
+    waveform_fname = writedir / "waveforms.h5"
+    waveform_files = list(outdir.rglob("waveforms.h5"))
+    logging.info(f"Merging output waveforms to file {waveform_fname}")
+    LigoResponseSet.aggregate(waveform_files, waveform_fname, clean=True)
+
+    params_fname = writedir / "rejected-parameters.h5"
+    param_files = list(outdir.rglob("rejected-parameters.h5"))
+    logging.info(f"Merging rejected parameters to file {params_fname}")
+    InjectionParameterSet.aggregate(param_files, params_fname, clean=True)
 
     logging.info("Timeslide waveform generation complete")

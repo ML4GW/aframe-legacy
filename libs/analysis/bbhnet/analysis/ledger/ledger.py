@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from functools import partial
+from pathlib import Path
+from typing import Iterable, Optional, Union
 
 import h5py
 import numpy as np
@@ -23,6 +25,14 @@ def waveform(default=None):
 
 def metadata(default=None):
     return field(metadata={"kind": "metadata"}, default=default)
+
+
+def _iter_open(files: Iterable[Path], mode: str, clean: bool = True):
+    for fname in files:
+        with h5py.File(fname, mode) as f:
+            yield f
+        if clean:
+            fname.unlink()
 
 
 @dataclass
@@ -196,7 +206,8 @@ class Ledger:
             idx = np.random.choice(n, size=(N,), replace=replace)
             return cls._load_with_idx(f, idx)
 
-    def compare_metadata(self, key, ours, theirs):
+    @classmethod
+    def compare_metadata(cls, key, ours, theirs):
         if ours is None:
             return theirs
         elif theirs is None:
@@ -204,9 +215,7 @@ class Ledger:
         elif ours != theirs:
             raise ValueError(
                 "Can't append {} with {} value {} "
-                "when ours is {}".format(
-                    self.__class__.__name__, key, theirs, ours
-                )
+                "when ours is {}".format(cls.__name__, key, theirs, ours)
             )
         return ours
 
@@ -232,3 +241,80 @@ class Ledger:
 
         self.__dict__.update(new_dict)
         self.__post_init__()
+
+    @classmethod
+    def aggregate(
+        cls,
+        files: Iterable[Path],
+        fname: Path,
+        dtype: np.dtype = np.float64,
+        clean: bool = True,
+    ) -> None:
+        """
+        Aggregate the data from the files of many smaller
+        ledgers into a single larger ledger file
+        """
+        # iterate through all the files once up front
+        # to see how many rows the output ledger will have
+        length = 0
+        for source in files:
+            with h5py.File(source, "r") as f:
+                length += f.attrs["length"]
+
+        # now open the output file and start
+        # writing to it iteratively
+        with h5py.File(fname, "r") as target:
+            target.attrs["length"] = length
+
+            idx = 0
+            iter_open = partial(_iter_open, mode="w", clean=clean)
+            for source in map(iter_open, files):
+                source_length = source.attrs["length"]
+
+                # for each dataset in the ledger, move the data
+                # from the source into the correct spot in the target
+                for key, attr in cls.__dataclass_fields__.items():
+                    shape = (length,)
+                    if attr.metadata["kind"] == "metadata":
+                        # for metadata, let compare_metadata decide
+                        # how metadata fields should be aggregated
+                        # for child classes with special behavior
+                        if key not in f.attrs:
+                            ours = None
+                        else:
+                            ours = f.attrs[key]
+
+                        theirs = source.attrs[key]
+                        value = cls.compare_metadata(key, ours, theirs)
+                        target.attrs[key] = value
+                    else:
+                        # get either the parameters or waveforms dataset,
+                        # or create it if it doesn't already exist
+                        group_name = attr.metadata["kind"] + "s"
+                        if group_name not in target:
+                            group = target.create_group(group_name)
+                        else:
+                            group = target[group_name]
+
+                        # grab the source ledger's data, and use its shape
+                        # to initialize the dataset in the target if it
+                        # does not already exist
+                        theirs = source[group_name][key][:]
+                        if key not in group:
+                            if theirs.ndim > 1:
+                                shape += theirs.shape[1:]
+                            dataset = group.create_dataset(
+                                key, shape=shape, dtype=dtype
+                            )
+                        else:
+                            # otherwise grab the target dataset
+                            # (but _not_ its presumably large data)
+                            dataset = group[key]
+
+                        # now write the source data directly to
+                        # the corresponding rows in the target
+                        sel = np.s_[idx : idx + source_length]
+                        dataset.write_direct(theirs, dest_sel=sel)
+
+                # advance the corresponding row index
+                idx += source_length

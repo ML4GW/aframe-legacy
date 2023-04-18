@@ -214,7 +214,7 @@ class SkyLocationParameterSet(Ledger):
 
 @dataclass
 class InjectionParameterSet(SkyLocationParameterSet, IntrinsicParameterSet):
-    pass
+    snr: np.ndarray = parameter()
 
 
 @dataclass
