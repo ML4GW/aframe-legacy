@@ -1,4 +1,5 @@
 import logging
+import shutil
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional
@@ -49,6 +50,7 @@ def main(
     Generates the waveforms for a single segment
     """
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     configure_logging(log_file, verbose=verbose)
 
     cosmology = cosmology()
@@ -256,7 +258,7 @@ def deploy(
     arguments += f"--highpass {highpass} --snr-threshold {snr_threshold} "
     arguments += f"--ifos {' '.join(ifos)} "
     arguments += f"--prior {prior} --cosmology {cosmology} "
-    arguments += f"--output-dir {outdir}/$(ProcID) "
+    arguments += f"--output-dir {outdir}/tmp-$(ProcID) "
     arguments += f"--log-file {logdir}/$(ProcID).log "
 
     # create submit file by hand: pycondor doesn't support
@@ -287,5 +289,8 @@ def deploy(
     param_files = list(outdir.rglob("rejected-parameters.h5"))
     logging.info(f"Merging rejected parameters to file {params_fname}")
     InjectionParameterSet.aggregate(param_files, params_fname, clean=True)
+
+    for dirname in outdir.glob("tmp-*"):
+        shutil.rmtree(dirname)
 
     logging.info("Timeslide waveform generation complete")

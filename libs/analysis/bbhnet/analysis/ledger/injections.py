@@ -80,10 +80,15 @@ class InjectionMetadata(Ledger):
         fields = filter(lambda x: x[1].metadata["kind"] == "waveform", fields)
         return [i[0] for i in fields]
 
-    def compare_metadata(self, key, ours, theirs):
+    @classmethod
+    def compare_metadata(cls, key, ours, theirs):
         if key == "num_injections":
+            if ours is None:
+                return theirs
+            elif theirs is None:
+                return ours
             return ours + theirs
-        return super().compare_metadata(key, ours, theirs)
+        return Ledger.compare_metadata(key, ours, theirs)
 
 
 @dataclass(frozen=True)

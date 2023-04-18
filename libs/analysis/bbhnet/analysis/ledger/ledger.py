@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
@@ -263,12 +262,11 @@ class Ledger:
 
         # now open the output file and start
         # writing to it iteratively
-        with h5py.File(fname, "r") as target:
+        with h5py.File(fname, "w") as target:
             target.attrs["length"] = length
 
             idx = 0
-            iter_open = partial(_iter_open, mode="w", clean=clean)
-            for source in map(iter_open, files):
+            for source in _iter_open(files, "r", clean=clean):
                 source_length = source.attrs["length"]
 
                 # for each dataset in the ledger, move the data
@@ -279,10 +277,10 @@ class Ledger:
                         # for metadata, let compare_metadata decide
                         # how metadata fields should be aggregated
                         # for child classes with special behavior
-                        if key not in f.attrs:
+                        if key not in target.attrs:
                             ours = None
                         else:
-                            ours = f.attrs[key]
+                            ours = target.attrs[key]
 
                         theirs = source.attrs[key]
                         value = cls.compare_metadata(key, ours, theirs)

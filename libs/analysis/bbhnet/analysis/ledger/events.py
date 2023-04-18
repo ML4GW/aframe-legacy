@@ -16,10 +16,11 @@ class TimeSlideEventSet(Ledger):
     time: np.ndarray = parameter()
     Tb: float = metadata(default=0)
 
-    def compare_metadata(self, key, ours, theirs):
+    @classmethod
+    def compare_metadata(cls, key, ours, theirs):
         if key == "Tb":
             return ours + theirs
-        return super().compare_metadata(key, ours, theirs)
+        return Ledger.compare_metadata(key, ours, theirs)
 
     def nb(self, threshold: F) -> F:
         try:
@@ -71,12 +72,9 @@ class EventSet(TimeSlideEventSet):
 # will already have shift information recorded
 @dataclass
 class RecoveredInjectionSet(TimeSlideEventSet, InterferometerResponseSet):
-    def compare_metadata(self, key, ours, theirs):
-        if key == "num_injections":
-            # enforce that the num_injections parameter be the same,
-            # i.e. that we're recovering injections from the same injection set
-            return Ledger.compare_metadata(self, key, ours or None, theirs)
-        return super().compare_metadata(key, ours, theirs)
+    @classmethod
+    def compare_metadata(cls, key, ours, theirs):
+        return Ledger.compare_metadata(key, ours, theirs)
 
     @staticmethod
     def get_idx_for_shift(
