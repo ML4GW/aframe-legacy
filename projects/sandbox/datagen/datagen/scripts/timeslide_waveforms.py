@@ -162,7 +162,7 @@ def main(
     waveform_fname = output_dir / "waveforms.h5"
     utils.io_with_blocking(response_set.write, waveform_fname)
 
-    rejected_fname = output_dir / "rejected-params.h5"
+    rejected_fname = output_dir / "rejected-parameters.h5"
     utils.io_with_blocking(rejected_params.write, rejected_fname)
     return waveform_fname, rejected_fname
 
