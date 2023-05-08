@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "trainer"
+version = "0.1.0"
+description = "BBHNet production training"
+authors = ["ethan.marx <ethan.marx@ligo.org>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+mldatafind = {git = "https://github.com/ML4GW/mldatafind.git", branch = "main"}
+
+"bbhnet.architectures" = {path = "../../../libs/architectures", develop = true}
+"bbhnet.trainer" = {path = "../../../libs/trainer", develop = true}
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu116"
+secondary = true
+default = false
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
