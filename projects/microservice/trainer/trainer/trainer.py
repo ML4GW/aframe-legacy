@@ -46,11 +46,11 @@ def find_segments(
         time.sleep(wait)
 
 
-def get_glitches(start: float, stop: float):
+def load_glitches(start: float, stop: float):
     pass
 
 
-def get_waveforms(path: Path):
+def load_waveforms(path: Path):
     pass
 
 
@@ -73,6 +73,7 @@ def main(
     train_duration: float,
     cadence: float,
     waveform_dataset: Path,
+    glitch_dataset: Path,
     **kwargs
 ):
 
@@ -85,15 +86,15 @@ def main(
         train_duration,
     )
 
-    for start, stop, background_data in segment_it:
+    for start, stop, background in segment_it:
         # logic for organizing glitch dataset for training
         # based on start, stop of training background data
 
-        glitches = get_glitches(start, stop)
+        glitches = load_glitches(glitch_dataset)
 
         # since this will presumably be a fixed dataset,
         # should we just pass the path to the file to train?
-        waveforms = get_waveforms(waveform_dataset)
+        waveforms = load_waveforms(waveform_dataset)
 
-        weights = train(background_data, glitches, waveforms, **kwargs)
+        weights = train(background, glitches, waveforms, **kwargs)
         export(weights)
