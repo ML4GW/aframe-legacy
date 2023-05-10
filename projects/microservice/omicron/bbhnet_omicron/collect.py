@@ -1,9 +1,11 @@
+import logging
 from pathlib import Path
 from typing import List
 
 import h5py
 import lal
 from bbhnet_omicron.condor import get_executable, make_submit_file, submit
+from mldatafind.find import find_data
 from mldatafind.io import filter_and_sort_files
 from typeo import scriptify
 
@@ -13,6 +15,10 @@ def update_glitch_dataset(
     datadir: Path,
     archive_dir: Path,
     ifos: List[str],
+    channel: str,
+    chunk_size: float,
+    sample_rate: float,
+    window: float,
     look_back: float,
     max_glitches: int,
 ):
@@ -30,17 +36,53 @@ def update_glitch_dataset(
         mask = subdirs >= latest_day
         subdirs = subdirs[mask]
 
-        all_files = []
+        times = []
         for dir in subdirs:
             files = dir.glob("*.h5")
             files = filter_and_sort_files(files, latest, now)
-            all_files.append(files)
+            for file in files:
+                with h5py.File(file) as f:
+                    triggers = f["triggers"][:]
+                    times.append(triggers["time"][:])
 
-        all_files = sorted(all_files)
+        # fetch timeseries we will crop to create glitches
+        generator = next(
+            find_data(
+                [(latest, now)],
+                [channel],
+                chunk_size=chunk_size,
+            )
+        )
 
-        # TODO: count number of new triggers.
+        glitches = []
+        snrs = []
+        gpstimes = []
+        for data in generator:
+            # restrict to triggers within current data chunk
+            data = data.resample(sample_rate)[channel]
+            times = data.times.value
+            mask = triggers["time"] > times[0] + window
+            mask &= triggers["time"] < times[-1] - window
+
+            chunk_triggers = triggers[mask]
+            # query data for each trigger
+            for trigger in chunk_triggers:
+                time = trigger["time"]
+                try:
+                    glitch_ts = data.crop(time - window, time + window)
+                except ValueError:
+                    logging.warning(
+                        f"Data not available for trigger at time: {time}"
+                    )
+                    continue
+                else:
+                    glitches.append(list(glitch_ts.value))
+                    snrs.append(trigger["snr"])
+                    gpstimes.append(time)
+
+        # TODO: count number of new triggers,
         # keep most recent max_glitches - num_new_triggers
-        # of the last glitch dataset and combine with new triggers
+        # from the last glitch dataset and combine with new triggers
 
 
 @scriptify
@@ -89,7 +131,7 @@ def deploy(
         executable,
         name,
         submit_dir,
-        **kwargs
+        **kwargs,
     )
 
     submit(subfile)
