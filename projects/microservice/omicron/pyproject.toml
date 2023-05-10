@@ -14,6 +14,9 @@ mldatafind = {git = "https://github.com/ML4GW/mldatafind.git", branch = "main"}
 omicron-online = "bbhnet_omicron.omicron:omicron_online"
 omicron-deploy = "bbhnet_omicron.omicron:deploy"
 
+update-glitches = "bbhnet_omicron.collect:update_glitches"
+deploy-update-glitches = "bbhnet_omicron.collect:deploy"
+
 [tool.typeo]
 run_dir = "/home/ethan.marx/forks/BBHNet/projects/microservice/omicron/test/"
 ifos = ["H1", "L1"]

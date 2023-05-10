@@ -181,7 +181,6 @@ def deploy(
             channel,
             state_flag,
         )
-        fname = ifo_dir / f"omicron_driver_{ifo}.sub"
         arguments = [
             "--run-dir",
             str(run_dir),
@@ -198,19 +197,27 @@ def deploy(
         arguments = " ".join(arguments)
         logdir = ifo_dir / "logs"
         logdir.mkdir(exist_ok=True, parents=True)
+
+        kwargs = {
+            "environment": f"OMICRON_HOME={archivedir}",
+            "+OmicronManager": "GW",  # not sure what this does
+            "request_memory": "4000",
+            "request_disk": "500MB",
+        }
+        name = "omicron-online"
         subfile = make_submit_file(
             arguments,
             runevery,
             offset,
             preptime,
-            "GW",
             logdir,
-            archivedir,
             accounting_group,
             accounting_user,
             universe,
             executable,
-            fname,
+            name,
+            ifo_dir,
+            **kwargs,
         )
 
         submit(subfile)

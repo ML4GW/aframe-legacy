@@ -9,40 +9,6 @@ from typing import Union
 # use that library once it's merged
 
 # logic largely lifted from https://git.ligo.org/detchar/ligo-omicron/
-SUBFILE = """
-# Condor submit file for aLIGO Omicron Online processing
-
-universe = {universe}
-executable = {executable}
-arguments = " {arguments} "
-accounting_group = {accounting_group}
-accounting_group_user = {accounting_user}
-batch_name = " omicron crondor - {group} "
-
-environment = "OMICRON_HOME={archivedir}"
-request_memory = 4000
-request_disk = 500MB
-
-+OmicronManager = "{group}"
-
-output = {logdir}/omicron-online-{group}.out
-error = {logdir}/omicron-online-{group}.err
-log = {logdir}/omicron-online-{group}.log
-
-on_exit_remove = false
-periodic_hold = false
-cron_minute = {offset}-59/{runevery}
-cron_hour = *
-cron_day_of_month = *
-cron_month = *
-cron_day_of_week = *
-cron_window = 120
-cron_prep_time = {preptime}
-
-getenv = True
-
-queue
-"""
 
 
 def make_submit_file(
@@ -50,31 +16,49 @@ def make_submit_file(
     runevery: int,
     offset: int,
     preptime: int,
-    group: str,
-    logdir: Path,
-    archivedir: Path,
     accounting_group: str,
     accounting_user: str,
     universe: str,
     executable: str,
-    fname: Path,
+    name: str,
+    submit_dir: Path,
+    log_dir: Path,
+    **kwargs,
 ):
-    subfile = dedent(
-        SUBFILE.format(
-            arguments=arguments,
-            runevery=runevery,
-            offset=offset,
-            preptime=preptime,
-            group=group,
-            logdir=logdir,
-            accounting_group=accounting_group,
-            accounting_user=accounting_user,
-            universe=universe,
-            executable=executable,
-            archivedir=archivedir,
-        )
-    )
 
+    # TODO: generalize this with current make_submit_file
+    # in bbhnet.deploy. Maybe we begin with a generic class
+    # that only takes the required parameters (e.g. universe, executable etc.)
+    # we could then have subclasses that add additional functionality like
+    # queing from a parameter file, using the cron functionality, etc.
+    subfile = f"""
+        universe = {universe}
+        executable = {executable}
+        arguments = " {arguments} "
+        accounting_group = {accounting_group}
+        accounting_group_user = {accounting_user}
+        batch_name = " {name} "
+        log = {log_dir}/{name}.log
+        output = {log_dir}/{name}.out
+        error = {log_dir}/{name}.err
+        on_exit_remove = false
+        periodic_hold = false
+
+        cron_minute = {offset}-59/{runevery}
+        cron_hour = *
+        cron_day_of_month = *
+        cron_month = *
+        cron_day_of_week = *
+        cron_window = 120
+        cron_prep_time = {preptime}
+        getenv = True
+    """
+    subfile = dedent(subfile)
+
+    for key, value in kwargs.items():
+        subfile += f"{key} = {value}\n"
+
+    fname = submit_dir / f"{name}.sub"
     with open(fname, "w") as f:
         f.write(subfile)
 
