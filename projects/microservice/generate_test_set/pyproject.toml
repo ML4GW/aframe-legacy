@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "evaluation"
+name = "generate-test-set"
 version = "0.1.0"
 description = "BBHNet production evaluation"
 authors = ["william.benoit <william.benoit@ligo.org>"]
@@ -14,7 +14,6 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 "bbhnet.io" = {path = "../../../libs/io", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 "bbhnet.parallelize" = {path = "../../../libs/parallelize", develop = true}
-"datagen" = {path = "../../sandbox/datagen", develop = true}
 
 [[tool.poetry.source]]
 name = "torch"
@@ -23,7 +22,7 @@ secondary = true
 default = false
 
 [tool.poetry.scripts]
-make_test_set = "evaluation:main"
+generate_test_set = "generate_test_set:main"
 
 [tool.typeo]
 logdir = "/home/william.benoit/ML4GW/online-testing/logs"
@@ -34,7 +33,7 @@ flag = "DCS-ANALYSIS_READY_C01:1"
 Tb = 86400
 sample_rate = 2048
 shifts = [0, 1]
-min_segment_length = 0
+min_segment_length = 1024
 min_livetime = 4096
 
 [build-system]

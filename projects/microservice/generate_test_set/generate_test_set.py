@@ -1,22 +1,127 @@
+import itertools
 import logging
 import time
-from concurrent.futures import FIRST_EXCEPTION, wait
+from concurrent.futures import FIRST_EXCEPTION, Future, wait
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
-from datagen.utils.timeslides import check_segment, make_shifts, submit_write
 from lal import gpstime
 from mldatafind.authenticate import authenticate
 from mldatafind.io import fetch_timeseries
 from mldatafind.segments import query_segments
 from typeo import scriptify
 
+from bbhnet.io import h5
 from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor
 
 # TODO: Integrate updated inference format once that PR is merged
+
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
+
+@dataclass
+class Shift:
+    ifos: List[str]
+    shifts: Iterable[float]
+
+    def __post_init__(self):
+        self.shifts = [float(i) for i in self.shifts]
+        self._i = 0
+
+    def __iter__(self):
+        self._i = 0
+        return self
+
+    def __next__(self):
+        if self._i >= len(self.ifos):
+            raise StopIteration
+
+        ifo, shift = self.ifos[self._i], self.shifts[self._i]
+        self._i += 1
+        return ifo, shift
+
+    def __str__(self):
+        return "-".join([f"{i[0]}{j}" for i, j in zip(self.ifos, self.shifts)])
+
+
+def intify(x: float):
+    return int(x) if int(x) == x else x
+
+
+def make_shifts(
+    ifos: Iterable[str], shifts: Iterable[float], n_slides: int
+) -> List[Shift]:
+    ranges = [range(n_slides) for i in shifts if i]
+    shift_objs = []
+    for rng in itertools.product(*ranges):
+        it = iter(rng)
+        shift = []
+        for i in shifts:
+            shift.append(0 if i == 0 else next(it) * i)
+        shift = Shift(ifos, shift)
+        shift_objs.append(shift)
+
+    return shift_objs
+
+
+def submit_write(
+    pool: AsyncExecutor, ts: TimeSlide, t: np.ndarray, **fields: np.ndarray
+) -> Future:
+    ts_type = ts.path.name
+    if ts_type == "background":
+        prefix = "raw"
+    else:
+        prefix = "inj"
+
+    future = pool.submit(
+        h5.write_timeseries,
+        ts.path,
+        prefix=prefix,
+        t=t,
+        **fields,
+    )
+
+    future.add_done_callback(
+        lambda f: logging.debug(f"Wrote background {ts_type} {f.result()}")
+    )
+    return future
+
+
+def check_segment(
+    shifts: List[Shift],
+    datadir: Path,
+    segment_start: float,
+    dur: float,
+    min_segment_length: Optional[float] = None,
+    force_generation: bool = False,
+):
+    # first check if we'll even have enough data for
+    # this segment to be worth working with
+    if min_segment_length is not None and dur < min_segment_length:
+        return None
+
+    segment_start = intify(segment_start)
+    dur = intify(dur)
+
+    # then check if _all_ data for this segment
+    # exists in each shift separately
+    fields, prefixes = ["background", "injection"], ["raw", "inj"]
+    segment_shifts = []
+    for shift in shifts:
+        for field, prefix in zip(fields, prefixes):
+            dirname = datadir / f"dt-{shift}" / field
+            fname = f"{prefix}_{segment_start}-{dur}.hdf5"
+            if not (dirname / fname).exists() or force_generation:
+                # we don't have data for this segment at this
+                # shift value, so we'll need to create it
+                segment_shifts.append(shift)
+                break
+
+    return segment_shifts
 
 
 def find_segments(
@@ -32,8 +137,9 @@ def find_segments(
     segments = []
     while True:
         stop = int(gpstime.gps_time_now())
+        stop = 1262696622
         if stop - start < min_segment_length:
-            time.wait(stop - start)
+            time.sleep(stop - start)
 
         segments = query_segments(
             flags,
@@ -93,13 +199,14 @@ def main(
     shifts: Iterable[float],
     min_segment_length: float,
     min_livetime: float,
-    verbose: bool = False,
+    verbose: bool = True,
 ) -> None:
     logdir.mkdir(parents=True, exist_ok=True)
     datadir.mkdir(parents=True, exist_ok=True)
     configure_logging(logdir / "evaluation.log", verbose)
 
     start = int(gpstime.gps_time_now())
+    start = 1262686622
     flags = [f"{ifo}:{flag}" for ifo in ifos]
     channels = [f"{ifo}:{channel}" for ifo in ifos]
 
@@ -185,3 +292,7 @@ def main(
                 futures.append(future)
 
             wait(futures, return_when=FIRST_EXCEPTION)
+
+
+if __name__ == "__main__":
+    main()

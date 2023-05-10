@@ -1,8 +1,7 @@
-name: bbhnet-evaluation
+name: bbhnet-generate-test-set
 channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - python-ldas-tools-framecpp==2.6.14
+  - python-ldas-tools-framecpp<3.0.0
   - python-nds2-client
-  - dqsegdb2
