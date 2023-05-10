@@ -7,12 +7,35 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
+lalsuite = "^7.15"
 mldatafind = {git = "https://github.com/ML4GW/mldatafind.git", branch = "main"}
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 "bbhnet.io" = {path = "../../../libs/io", develop = true}
 "bbhnet.logging" = {path = "../../../libs/logging", develop = true}
 "bbhnet.parallelize" = {path = "../../../libs/parallelize", develop = true}
+"datagen" = {path = "../../sandbox/datagen", develop = true}
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu116"
+secondary = true
+default = false
+
+[tool.poetry.scripts]
+make_test_set = "evaluation:main"
+
+[tool.typeo]
+logdir = "/home/william.benoit/ML4GW/online-testing/logs"
+datadir = "/home/william.benoit/ML4GW/online-testing/data"
+ifos = ["H1", "L1"]
+channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+flag = "DCS-ANALYSIS_READY_C01:1"
+Tb = 86400
+sample_rate = 2048
+shifts = [0, 1]
+min_segment_length = 0
+min_livetime = 4096
 
 [build-system]
 requires = ["poetry-core"]

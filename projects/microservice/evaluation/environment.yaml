@@ -1,0 +1,8 @@
+name: bbhnet-evaluation
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - python-ldas-tools-framecpp==2.6.14
+  - python-nds2-client
+  - dqsegdb2

@@ -7,6 +7,7 @@ from typing import Iterable, List, Tuple
 import numpy as np
 from datagen.utils.timeslides import check_segment, make_shifts, submit_write
 from lal import gpstime
+from mldatafind.authenticate import authenticate
 from mldatafind.io import fetch_timeseries
 from mldatafind.segments import query_segments
 from typeo import scriptify
@@ -15,22 +16,27 @@ from bbhnet.io.timeslides import TimeSlide
 from bbhnet.logging import configure_logging
 from bbhnet.parallelize import AsyncExecutor
 
+# TODO: Integrate updated inference format once that PR is merged
+
 
 def find_segments(
-    segment_names: List[str],
+    flags,
     start: float,
     min_segment_length: float,
     min_livetime: float,
     wait: int = 120,  # length of time dqsegdb takes to update
 ):
     """
-    Returns a segment that will be used for evaluation
+    Returns segments that will be used for evaluation
     """
     segments = []
     while True:
         stop = int(gpstime.gps_time_now())
+        if stop - start < min_segment_length:
+            time.wait(stop - start)
+
         segments = query_segments(
-            segment_names,
+            flags,
             start,
             stop,
             min_segment_length,
@@ -38,7 +44,9 @@ def find_segments(
         livetime = sum([stop - start for start, stop in segments])
         if livetime > min_livetime:
             return segments
-
+        logging.info(
+            f"Only {livetime} seconds of livetime available, waiting for more"
+        )
         time.sleep(wait)
 
 
@@ -77,9 +85,9 @@ def calc_shifts_required(
 def main(
     logdir: Path,
     datadir: Path,
-    segment_names: List[str],
     ifos: List[str],
-    channels: List[str],
+    channel: str,
+    flag: str,
     Tb: float,
     sample_rate: float,
     shifts: Iterable[float],
@@ -87,14 +95,17 @@ def main(
     min_livetime: float,
     verbose: bool = False,
 ) -> None:
-
     logdir.mkdir(parents=True, exist_ok=True)
     datadir.mkdir(parents=True, exist_ok=True)
-    configure_logging(logdir / "timeslide_injections.log", verbose)
+    configure_logging(logdir / "evaluation.log", verbose)
 
     start = int(gpstime.gps_time_now())
+    flags = [f"{ifo}:{flag}" for ifo in ifos]
+    channels = [f"{ifo}:{channel}" for ifo in ifos]
+
+    authenticate()
     segments = find_segments(
-        segment_names,
+        flags,
         start,
         min_segment_length,
         min_livetime,
@@ -103,7 +114,9 @@ def main(
     shifts_required = calc_shifts_required(segments, Tb, max(shifts))
     max_shift = max(shifts) * shifts_required
 
-    shifts = make_shifts(ifos, shifts, shifts_required)
+    # Need to exclude the zero-lag data
+    shifts = make_shifts(ifos, shifts, shifts_required + 1)
+    shifts = shifts[1:]
 
     with AsyncExecutor(4, thread=False) as pool:
         for segment_start, segment_stop in segments:
@@ -134,8 +147,8 @@ def main(
                 segment_start,
                 segment_stop,
             )
-
             logging.debug(f"Completed download of segment {seg_str}")
+            background = background.resample(sample_rate)
 
             # set up array of times for all shifts
 
@@ -163,9 +176,9 @@ def main(
 
                 # time array is always relative to first shift value
                 background_data = {}
-                for ifo, shift_val in shift:
+                for (ifo, shift_val), channel in zip(shift, channels):
                     start = segment_start + shift_val
-                    bckgrd = background[ifo].crop(start, start + dur)
+                    bckgrd = background[channel].crop(start, start + dur)
                     background_data[ifo] = bckgrd.value
 
                 future = submit_write(pool, raw_ts, times, **background_data)
