@@ -19,6 +19,7 @@ def update_glitch_dataset(
     chunk_size: float,
     sample_rate: float,
     window: float,
+    snr_thresh: float,
     look_back: float,
     max_glitches: int,
 ):
@@ -46,10 +47,11 @@ def update_glitch_dataset(
                     times.append(triggers["time"][:])
 
         # fetch timeseries we will crop to create glitches
+        start, stop = min(times) - window, max(times) + window
         generator = next(
             find_data(
-                [(latest, now)],
-                [channel],
+                [(start, stop)],
+                [f"{ifo}:{channel}"],
                 chunk_size=chunk_size,
             )
         )
@@ -80,6 +82,9 @@ def update_glitch_dataset(
                     snrs.append(trigger["snr"])
                     gpstimes.append(time)
 
+        n_new_glitches = len(glitches)
+        remaining = max_glitches - n_new_glitches
+        print(remaining, n_new_glitches)
         # TODO: count number of new triggers,
         # keep most recent max_glitches - num_new_triggers
         # from the last glitch dataset and combine with new triggers

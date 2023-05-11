@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List
 
 from bbhnet_omicron.condor import get_executable, make_submit_file, submit
+from microservice.deployment import Deployment
 from mldatafind.authenticate import authenticate
 from omicron.cli.process import main as omicron_main
 from typeo import scriptify
@@ -16,11 +17,11 @@ from typeo import scriptify
 
 @scriptify
 def omicron_online(
-    run_dir: Path,
+    run_directory: Path,
+    config_file: Path,
     ifo: str,
     accounting_group: str,
     log_file: Path,
-    config_file: Path,
     verbose: bool,
     group: str = "GW",
 ):
@@ -29,16 +30,22 @@ def omicron_online(
     then launches omicron dag
     """
 
-    # set run directory based on current time
+    # create directory for current run based on current time
     month = datetime.now().strftime("%Y-%m")
     day = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    segfile_old = run_dir / "segments.txt"
-    run_dir = run_dir / ifo / month / day
-    run_dir.mkdir(exist_ok=True, parents=True)
-    segfile_new = run_dir / "segments.txt"
+    sub_dir = run_directory / ifo / month / day
+    sub_dir.mkdir(exist_ok=True, parents=True)
 
-    # if segments.txt exists, copy it to the new run directory
+    # point to latest segments.txt file which will
+    # let the process know where we left off
+    segfile_old = run_directory / "segments.txt"
+
+    # point to new segments.txt file which will
+    # be created when this process starts
+    segfile_new = sub_dir / "segments.txt"
+
+    # if the old segments.txt exists, copy it to the new run directory
     # so that pyomicron will pick it up and start where it left off
     if segfile_old.exists():
         shutil.copy(segfile_old, segfile_new)
@@ -57,7 +64,7 @@ def omicron_online(
         "-c",
         "request_disk=100M",
         "--output-dir",
-        str(run_dir),
+        str(sub_dir),
         "--archive",
         "--skip-rm",
         "--condor-accounting-group",
@@ -120,8 +127,8 @@ def make_config_file(
 
 @scriptify
 def deploy(
+    run_directory: Path,
     # omicron options
-    run_dir: Path,
     ifos: List[str],
     q_min: float,
     q_max: float,
@@ -137,9 +144,7 @@ def deploy(
     frame_type: str,
     channel: str,
     state_flag: str,
-    log_file: Path,
-    archivedir: Path,
-    # deployment options
+    # condor deployment options
     runevery: int,
     accounting_group: str,
     accounting_user: str,
@@ -151,20 +156,29 @@ def deploy(
     # variable to point to directory where trigger
     # archive will be made, and make sure run_directory exists
     authenticate()
-    archivedir.mkdir(parents=True, exist_ok=True)
-    run_dir.mkdir(exist_ok=True, parents=True)
+    deployment = Deployment(run_directory)
+    condor_directory = deployment.condor_directory / "omicron-online"
+    data_directory = deployment.data_directory / "omicron-online"
+    archive = data_directory / "omicron-trigger-archive"
+    log_file = deployment.log_directory / "omicron-online.log"
+
     executable = get_executable("omicron-online")
 
     # work out random timing
+    # TODO: not sure why detchar does this
     offset = random.randint(0, runevery - 1)
     preptime = offset * 60
 
     for ifo in ifos:
-        ifo_dir = run_dir / ifo
-        ifo_dir.mkdir(exist_ok=True, parents=True)
+        datadir = data_directory / ifo
+        condordir = condor_directory / ifo
+
+        datadir.mkdir(exist_ok=True, parents=True)
+        condordir.mkdir(exist_ok=True, parents=True)
+
         # make omicron config file for this ifo
         config_file = make_config_file(
-            ifo_dir,
+            condordir,
             ifo,
             q_min,
             q_max,
@@ -182,8 +196,8 @@ def deploy(
             state_flag,
         )
         arguments = [
-            "--run-dir",
-            str(run_dir),
+            "--run-directory",
+            str(datadir),
             "--ifo",
             str(ifo),
             "--accounting-group",
@@ -195,11 +209,12 @@ def deploy(
             "--verbose",
         ]
         arguments = " ".join(arguments)
-        logdir = ifo_dir / "logs"
+        logdir = condordir / "logs"
         logdir.mkdir(exist_ok=True, parents=True)
 
         kwargs = {
-            "environment": f"OMICRON_HOME={archivedir}",
+            # couldn't find command line arg for this
+            "environment": f"OMICRON_HOME={archive}",
             "+OmicronManager": "GW",  # not sure what this does
             "request_memory": "4000",
             "request_disk": "500MB",
@@ -210,13 +225,13 @@ def deploy(
             runevery,
             offset,
             preptime,
-            logdir,
             accounting_group,
             accounting_user,
             universe,
             executable,
             name,
-            ifo_dir,
+            condordir,
+            logdir,
             **kwargs,
         )
 

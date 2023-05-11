@@ -58,6 +58,7 @@ def make_submit_file(
     for key, value in kwargs.items():
         subfile += f"{key} = {value}\n"
 
+    subfile += "queue\n"
     fname = submit_dir / f"{name}.sub"
     with open(fname, "w") as f:
         f.write(subfile)
