@@ -7,7 +7,7 @@ class Deployment:
     root: Path
 
     def __post_init__(self):
-        for d in ["log", "train", "data", "condor", "repository"]:
+        for d in ["log", "train", "data", "omicron", "repository"]:
             dirname = getattr(self, f"{d}_directory")
             dirname.mkdir(exist_ok=True, parents=True)
 
@@ -24,8 +24,8 @@ class Deployment:
         return self.root / "data"
 
     @property
-    def condor_directory(self):
-        return self.root / "condor"
+    def omicron_directory(self):
+        return self.root / "omicron"
 
     @property
     def repository_directory(self):

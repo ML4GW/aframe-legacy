@@ -1,10 +1,12 @@
 import logging
+import random
 from pathlib import Path
 from typing import List
 
 import h5py
 import lal
 from bbhnet_omicron.condor import get_executable, make_submit_file, submit
+from microservice.deployment import Deployment
 from mldatafind.find import find_data
 from mldatafind.io import filter_and_sort_files
 from typeo import scriptify
@@ -27,8 +29,12 @@ def update_glitch_dataset(
     # begin by adding the most recent glitches since the last update
     now = lal.gpstime.gpstime_now()
     for ifo in ifos:
-        with h5py.File(datadir / "glitches.h5") as f:
-            gpstimes = f[ifo]["gpstime"][:]
+
+        try:
+            with h5py.File(datadir / "glitches.h5") as f:
+                gpstimes = f[ifo]["gpstime"][:]
+        except FileNotFoundError:
+            pass
 
         latest = max(gpstimes)
         latest_day = latest // 100000
@@ -92,23 +98,33 @@ def update_glitch_dataset(
 
 @scriptify
 def deploy(
+    run_directory: Path,
     # glitch dataset args
-    data_dir: Path,
-    archive_dir: Path,
     ifos: List[str],
     look_back: float,
     max_glitches: int,
-    # deployment args
-    submit_dir: Path,
+    # condor deployment args
     runevery: int,
-    offset: int,
-    preptime: int,
-    logdir: Path,
     accounting_group: str,
     accounting_user: str,
     universe: str,
 ):
+    deployment = Deployment(run_directory)
+    archive_dir = deployment.omicron_directory / "archive"
+    data_dir = deployment.data_directory
+
+    submit_dir = deployment.omicron_directory / "online" / "update"
+    submit_dir.mkdir(exist_ok=True, parents=True)
+    log_dir = submit_dir / "logs"
+    log_dir.mkdir(exist_ok=True, parents=True)
+
+    # work out random timing
+    # TODO: not sure why detchar does this
+    offset = random.randint(0, runevery - 1)
+    preptime = offset * 60
+
     executable = get_executable("update-glitches")
+
     arguments = [
         "--data-dir",
         str(data_dir),
@@ -129,13 +145,13 @@ def deploy(
         runevery,
         offset,
         preptime,
-        logdir,
         accounting_group,
         accounting_user,
         universe,
         executable,
         name,
         submit_dir,
+        log_dir,
         **kwargs,
     )
 

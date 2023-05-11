@@ -1,0 +1,56 @@
+[tool.typeo.base]
+# global paths
+run_directory = "${PROJECT_DIR}"
+
+# condor args
+accounting_group = "${LIGO_GROUP}"
+accounting_user = "${LIGO_USERNAME}"
+
+# misc shared args
+ifos = ["H1", "L1"]
+
+[tool.typeo.scripts.deploy-omicron-online]
+# omicron args
+ifos = "${base.ifos}"
+q_min = 3.3166
+q_max = 100
+f_min = 23
+f_max = 1024
+sample_rate = 2048
+cluster_dt = 0.5
+chunk_duration = 124
+segment_duration = 64
+overlap = 4
+mismatch_max = 0.2
+snr_thresh = 5
+frame_type = "llhoft"
+channel = "GDS-CALIB_STRAIN"
+state_flag = "DMT-GRD_ISC_LOCK_NOMINAL:1"
+
+# directories
+run_directory = "${base.run_directory}"
+
+# deployment args
+accounting_group = "${base.accounting_group}"
+accounting_user = "${base.accounting_user}"
+runevery = 2
+universe = "local"
+
+verbose = true
+
+
+[tool.typeo.scripts.deploy-update-glitches]
+# directories
+run_directory = "${base.run_directory}"
+
+# collection args
+ifos = "${base.ifos}"
+max_glitches = 2000
+look_back = 10000
+
+
+# deployment args
+runevery = 2
+accounting_group = "${base.accounting_group}"
+accounting_user = "${base.accounting_user}"
+universe = "local"

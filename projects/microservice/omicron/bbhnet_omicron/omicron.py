@@ -157,10 +157,13 @@ def deploy(
     # archive will be made, and make sure run_directory exists
     authenticate()
     deployment = Deployment(run_directory)
-    condor_directory = deployment.condor_directory / "omicron-online"
-    data_directory = deployment.data_directory / "omicron-online"
-    archive = data_directory / "omicron-trigger-archive"
-    log_file = deployment.log_directory / "omicron-online.log"
+
+    online_directory = deployment.omicron_directory / "online"
+    archive = deployment.omicron_directory / "archive"
+
+    archive.mkdir(exist_ok=True, parents=True)
+    online_directory.mkdir(exist_ok=True, parents=True)
+    log_file = deployment.log_directory / "omicron-online-deploy.log"
 
     executable = get_executable("omicron-online")
 
@@ -170,10 +173,10 @@ def deploy(
     preptime = offset * 60
 
     for ifo in ifos:
-        datadir = data_directory / ifo
-        condordir = condor_directory / ifo
+        rundir = online_directory / "run" / ifo
+        condordir = online_directory / "condor" / ifo
 
-        datadir.mkdir(exist_ok=True, parents=True)
+        rundir.mkdir(exist_ok=True, parents=True)
         condordir.mkdir(exist_ok=True, parents=True)
 
         # make omicron config file for this ifo
@@ -197,7 +200,7 @@ def deploy(
         )
         arguments = [
             "--run-directory",
-            str(datadir),
+            str(rundir),
             "--ifo",
             str(ifo),
             "--accounting-group",
