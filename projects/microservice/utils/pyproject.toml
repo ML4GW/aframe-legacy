@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "microservice"
+version = "0.1.0"
+description = "Utilities for BBHnet production deployment"
+authors = ["ethan.marx <ethan.marx@ligo.org>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
