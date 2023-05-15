@@ -8,9 +8,9 @@ from typing import Iterable, Optional
 
 import numpy as np
 
-from bbhnet.io.h5 import write_timeseries
-from bbhnet.io.timeslides import Segment, TimeSlide
-from bbhnet.parallelize import AsyncExecutor
+from aframe.io.h5 import write_timeseries
+from aframe.io.timeslides import Segment, TimeSlide
+from aframe.parallelize import AsyncExecutor
 
 
 def load(

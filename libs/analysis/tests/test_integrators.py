@@ -1,6 +1,6 @@
 import numpy as np
 
-from bbhnet.analysis.integrators import boxcar_filter
+from aframe.analysis.integrators import boxcar_filter
 
 
 def test_boxcar_filter(window_size, boxcar_integration_test_fn):

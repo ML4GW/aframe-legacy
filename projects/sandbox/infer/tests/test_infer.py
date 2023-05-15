@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from infer.main import main as infer
 
-from bbhnet.io.h5 import read_timeseries, write_timeseries
+from aframe.io.h5 import read_timeseries, write_timeseries
 
 
 class DummyInferInput:

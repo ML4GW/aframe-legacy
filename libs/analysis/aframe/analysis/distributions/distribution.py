@@ -4,7 +4,7 @@ from typing import Iterable, Optional, Tuple, Union
 
 import numpy as np
 
-from bbhnet.io.timeslides import Segment
+from aframe.io.timeslides import Segment
 
 SECONDS_IN_YEAR = 31556952
 

@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 
-from bbhnet.analysis.integrators import boxcar_filter
+from aframe.analysis.integrators import boxcar_filter
 
 if TYPE_CHECKING:
-    from bbhnet.analysis.integrators import Integrator
-    from bbhnet.analysis.normalizers import Normalizer
+    from aframe.analysis.integrators import Integrator
+    from aframe.analysis.normalizers import Normalizer
 
 
 def integrate(
@@ -16,7 +16,7 @@ def integrate(
     integrator: "Integrator" = boxcar_filter,
     normalizer: Optional["Normalizer"] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Analyze a segment of time-contiguous BBHNet outputs
+    """Analyze a segment of time-contiguous aframe outputs
 
     Compute matched filter outputs on an array of
     network outputs that are assumed to be contiguous

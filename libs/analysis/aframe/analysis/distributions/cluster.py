@@ -5,7 +5,7 @@ from typing import Iterable, Union
 import h5py
 import numpy as np
 
-from bbhnet.analysis.distributions.distribution import Distribution
+from aframe.analysis.distributions.distribution import Distribution
 
 
 @dataclass

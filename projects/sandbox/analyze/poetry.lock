@@ -1,14 +1,14 @@
 [[package]]
-name = "bbhnet-analysis"
+name = "aframe-analysis"
 version = "0.0.1"
-description = "Tools for making detections from BBHNet outputs"
+description = "Tools for making detections from aframe outputs"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
 develop = true
 
 [package.dependencies]
-"bbhnet.io" = {path = "../io", develop = true}
+"aframe.io" = {path = "../io", develop = true}
 scipy = "^1.7.3"
 
 [package.source]
@@ -16,9 +16,9 @@ type = "directory"
 url = "../../../libs/analysis"
 
 [[package]]
-name = "bbhnet-io"
+name = "aframe-io"
 version = "0.0.1"
-description = "Tools for standardizing reading and writing BBHNet files"
+description = "Tools for standardizing reading and writing aframe files"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -33,9 +33,9 @@ type = "directory"
 url = "../../../libs/io"
 
 [[package]]
-name = "bbhnet-logging"
+name = "aframe-logging"
 version = "0.0.1"
-description = "BBHNet logging utilities"
+description = "aframe logging utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -46,9 +46,9 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet-parallelize"
+name = "aframe-parallelize"
 version = "0.0.1"
-description = "BBHNet multiprocessing utilities"
+description = "aframe multiprocessing utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -260,10 +260,10 @@ python-versions = ">=3.8,<3.11"
 content-hash = "68807f7b2653190818b2f38f3c7b30b50654d3c640e0afe038a131a033229a4a"
 
 [metadata.files]
-bbhnet-analysis = []
-bbhnet-io = []
-bbhnet-logging = []
-bbhnet-parallelize = []
+aframe-analysis = []
+aframe-io = []
+aframe-logging = []
+aframe-parallelize = []
 bokeh = [
     {file = "bokeh-2.4.3-py3-none-any.whl", hash = "sha256:104d2f0a4ca7774ee4b11e545aa34ff76bf3e2ad6de0d33944361981b65da420"},
     {file = "bokeh-2.4.3.tar.gz", hash = "sha256:ef33801161af379665ab7a34684f2209861e3aefd5c803a21fbbb99d94874b03"},

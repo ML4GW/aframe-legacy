@@ -130,7 +130,7 @@ class BBHInMemoryDataset(InMemoryDataset):
         return X, y
 
 
-class BBHNetWaveformInjection(RandomWaveformInjection):
+class aframeWaveformInjection(RandomWaveformInjection):
     def __init__(
         self,
         *args,

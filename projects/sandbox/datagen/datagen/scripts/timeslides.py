@@ -26,9 +26,9 @@ from gwpy.segments import (
 )
 from typeo import scriptify
 
-from bbhnet.io.timeslides import TimeSlide
-from bbhnet.logging import configure_logging
-from bbhnet.parallelize import AsyncExecutor
+from aframe.io.timeslides import TimeSlide
+from aframe.logging import configure_logging
+from aframe.parallelize import AsyncExecutor
 from ml4gw.gw import compute_ifo_snr, compute_observed_strain, get_ifo_geometry
 from ml4gw.spectral import normalize_psd
 

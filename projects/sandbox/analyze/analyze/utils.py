@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 from rich.progress import Progress
 
-from bbhnet.io.timeslides import Segment
+from aframe.io.timeslides import Segment
 
 
 def replace_part(path: Path, part: str, field: str) -> Path:

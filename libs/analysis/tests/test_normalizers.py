@@ -3,7 +3,7 @@ from math import isclose
 import numpy as np
 import pytest
 
-from bbhnet.analysis.normalizers import GaussianNormalizer
+from aframe.analysis.normalizers import GaussianNormalizer
 
 
 @pytest.fixture(

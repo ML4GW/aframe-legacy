@@ -5,11 +5,11 @@ from unittest.mock import MagicMock, Mock
 import numpy as np
 import pytest
 
-from bbhnet.analysis.distributions.distribution import (
+from aframe.analysis.distributions.distribution import (
     SECONDS_IN_YEAR,
     Distribution,
 )
-from bbhnet.io.timeslides import Segment
+from aframe.io.timeslides import Segment
 
 
 def nb(x):

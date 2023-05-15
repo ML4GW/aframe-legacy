@@ -7,7 +7,7 @@ from typing import Iterable, Optional
 from infer.utils import SequenceManager
 from typeo import scriptify
 
-from bbhnet.logging import configure_logging
+from aframe.logging import configure_logging
 from hermes.aeriel.client import InferenceClient
 from hermes.aeriel.serve import serve
 from hermes.stillwater import ServerMonitor

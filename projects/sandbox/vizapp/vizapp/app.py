@@ -78,7 +78,7 @@ class VizApp:
         self.logger.info("Application ready!")
 
     def configure_widgets(self):
-        header = Div(text="<h1>BBHNet Performance Dashboard</h1>", width=500)
+        header = Div(text="<h1>aframe Performance Dashboard</h1>", width=500)
 
         norm_options = list(self.distributions)
         if None in norm_options:

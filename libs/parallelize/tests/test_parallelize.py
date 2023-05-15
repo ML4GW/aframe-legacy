@@ -7,7 +7,7 @@ from concurrent.futures import (
 
 import pytest
 
-from bbhnet.parallelize import AsyncExecutor, as_completed
+from aframe.parallelize import AsyncExecutor, as_completed
 
 
 def func(x):

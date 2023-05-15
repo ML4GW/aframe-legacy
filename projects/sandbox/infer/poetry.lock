@@ -60,9 +60,9 @@ tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)"
 tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "mypy (>=0.900,!=0.940)", "pytest-mypy-plugins", "cloudpickle"]
 
 [[package]]
-name = "bbhnet-io"
+name = "aframe-io"
 version = "0.0.1"
-description = "Tools for standardizing reading and writing BBHNet files"
+description = "Tools for standardizing reading and writing aframe files"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -77,9 +77,9 @@ type = "directory"
 url = "../../../libs/io"
 
 [[package]]
-name = "bbhnet-logging"
+name = "aframe-logging"
 version = "0.0.1"
-description = "BBHNet logging utilities"
+description = "aframe logging utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -90,9 +90,9 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet-parallelize"
+name = "aframe-parallelize"
 version = "0.0.1"
-description = "BBHNet multiprocessing utilities"
+description = "aframe multiprocessing utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -648,9 +648,9 @@ attrs = [
     {file = "attrs-22.1.0-py2.py3-none-any.whl", hash = "sha256:86efa402f67bf2df34f51a335487cf46b1ec130d02b8d39fd248abfd30da551c"},
     {file = "attrs-22.1.0.tar.gz", hash = "sha256:29adc2665447e5191d0e7c568fde78b21f9672d344281d0c6e1ab085429b22b6"},
 ]
-bbhnet-io = []
-bbhnet-logging = []
-bbhnet-parallelize = []
+aframe-io = []
+aframe-logging = []
+aframe-parallelize = []
 brotli = [
     {file = "Brotli-1.0.9-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:268fe94547ba25b58ebc724680609c8ee3e5a843202e9a381f6f9c5e8bdb5c70"},
     {file = "Brotli-1.0.9-cp27-cp27m-manylinux1_i686.whl", hash = "sha256:c2415d9d082152460f2bd4e382a1e85aed233abc92db5a3880da2257dc7daf7b"},

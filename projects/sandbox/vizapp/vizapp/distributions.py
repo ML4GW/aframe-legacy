@@ -12,7 +12,7 @@ from vizapp import path_utils
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
 
-from bbhnet.analysis.distributions import ClusterDistribution
+from aframe.analysis.distributions import ClusterDistribution
 
 event_type = "(foreground|background)"
 optional_pattern = r"_norm-seconds=[0-9]{1,4}(\.[0-9])?"

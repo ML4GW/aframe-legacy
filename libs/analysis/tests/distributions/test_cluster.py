@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, Mock
 
 import numpy as np
 
-from bbhnet.analysis.distributions.cluster import ClusterDistribution
-from bbhnet.io.timeslides import Segment
+from aframe.analysis.distributions.cluster import ClusterDistribution
+from aframe.io.timeslides import Segment
 
 
 def test_cluster_distribution():

@@ -9,7 +9,7 @@ from gwpy.segments import DataQualityDict
 from gwpy.timeseries import TimeSeries
 from typeo import scriptify
 
-from bbhnet.logging import configure_logging
+from aframe.logging import configure_logging
 
 
 @scriptify
@@ -27,7 +27,7 @@ def main(
     force_generation: bool = False,
     verbose: bool = False,
 ):
-    """Generates background data for training BBHnet
+    """Generates background data for training aframe
 
     Args:
         start: start gpstime

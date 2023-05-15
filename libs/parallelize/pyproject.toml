@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "bbhnet.parallelize"
+name = "aframe.parallelize"
 version = "0.0.1"
-description = "BBHNet multiprocessing utilities"
+description = "aframe multiprocessing utilities"
 authors = ["Alec Gunny"]
 license = "MIT"
 packages = [
-    {include = "bbhnet"}
+    {include = "aframe"}
 ]
 # readme = "README.md"
 

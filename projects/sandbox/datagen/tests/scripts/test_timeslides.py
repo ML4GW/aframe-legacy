@@ -13,8 +13,8 @@ from gwpy.segments import (
 )
 from gwpy.timeseries import TimeSeries
 
-from bbhnet.io.timeslides import TimeSlide
-from bbhnet.priors.priors import end_o3_ratesandpops
+from aframe.io.timeslides import TimeSlide
+from aframe.priors.priors import end_o3_ratesandpops
 
 
 @pytest.fixture(params=[end_o3_ratesandpops])
@@ -107,8 +107,8 @@ pool_mock = Mock()
 pool_mock.submit = submit_mock
 
 
-@patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
+@patch("aframe.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
+@patch("aframe.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_no_segments(
     mock1,
     logdir,
@@ -185,8 +185,8 @@ def test_timeslide_injections_no_segments(
         assert (injection_ts.path / "params.h5").exists()
 
 
-@patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
+@patch("aframe.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
+@patch("aframe.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_chunked_segments(
     mock1,
     logdir,
@@ -293,8 +293,8 @@ def test_timeslide_injections_chunked_segments(
     assert i == n_slides
 
 
-@patch("bbhnet.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
-@patch("bbhnet.parallelize.AsyncExecutor.__exit__", new=mock_exit)
+@patch("aframe.parallelize.AsyncExecutor.__enter__", return_value=pool_mock)
+@patch("aframe.parallelize.AsyncExecutor.__exit__", new=mock_exit)
 def test_timeslide_injections_with_segments(
     mock1,
     logdir,

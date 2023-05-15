@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "bbhnet.priors"
+name = "aframe.priors"
 version = "0.1.0"
-description = "Standardized priors for BBHnet"
+description = "Standardized priors for aframe"
 authors = ["William Benoit <benoi090@umn.edu>, Ethan Jacob Marx <ethan.marx@ligo.org>"]
 license = "MIT"
-packages = [{include = "bbhnet"}]
+packages = [{include = "aframe"}]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"

@@ -18,7 +18,7 @@ from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
 
-from bbhnet.priors.utils import mass_condition_powerlaw, read_priors_from_file
+from aframe.priors.utils import mass_condition_powerlaw, read_priors_from_file
 
 # Unit names
 msun = r"$M_{\odot}$"

@@ -33,11 +33,11 @@ inference_batch_size = 128
 minimum_frequency = 20
 reference_frequency = 50
 highpass = 32
-training_prior = "bbhnet.priors.priors.end_o3_ratesandpops"
-testing_prior = "bbhnet.priors.priors.end_o3_ratesandpops"
+training_prior = "aframe.priors.priors.end_o3_ratesandpops"
+testing_prior = "aframe.priors.priors.end_o3_ratesandpops"
 fduration = 1
 valid_frac = 0.25
-cosmology = "bbhnet.priors.cosmologies.planck"
+cosmology = "aframe.priors.cosmologies.planck"
 streams_per_gpu = 3
 
 
@@ -152,7 +152,7 @@ fduration = "${base.fduration}"
 batch_size = "${base.inference_batch_size}"
 
 # repo/triton parameters
-bbhnet_instances = 4
+aframe_instances = 4
 preproc_instances = 6
 streams_per_gpu = "${base.streams_per_gpu}"
 platform = "tensorrt_plan"
@@ -196,7 +196,7 @@ verbose = true
 
 [tool.typeo.scripts.infer]
 model_repo_dir = "${base.repository_directory}"
-model_name = "bbhnet-stream"
+model_name = "aframe-stream"
 data_dir = "${base.datadir}/timeslide_injections/" 
 write_dir = "${base.basedir}/timeslide_injections/"
 triton_image = "hermes/tritonserver:22.12"

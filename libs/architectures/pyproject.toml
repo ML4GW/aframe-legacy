@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "bbhnet.architectures"
+name = "aframe.architectures"
 version = "0.0.1"
-description = "BBHNet neural network architecture zoo"
+description = "aframe neural network architecture zoo"
 authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 # readme = "README.md"
 packages = [
-    {include = "bbhnet"}
+    {include = "aframe"}
 ]
 
 [tool.poetry.dependencies]

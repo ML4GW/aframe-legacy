@@ -44,9 +44,9 @@ tests-no-zope = ["cloudpickle", "hypothesis", "mypy (>=0.971,<0.990)", "pympler"
 tests_no_zope = ["cloudpickle", "hypothesis", "mypy (>=0.971,<0.990)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "pytest-xdist[psutil]"]
 
 [[package]]
-name = "bbhnet-architectures"
+name = "aframe-architectures"
 version = "0.0.1"
-description = "BBHNet neural network architecture zoo"
+description = "aframe neural network architecture zoo"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -64,9 +64,9 @@ type = "directory"
 url = "../../../libs/architectures"
 
 [[package]]
-name = "bbhnet-logging"
+name = "aframe-logging"
 version = "0.0.1"
-description = "BBHNet logging utilities"
+description = "aframe logging utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -77,17 +77,17 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet-trainer"
+name = "aframe-trainer"
 version = "0.0.1"
-description = "BBHNet training helper functions"
+description = "aframe training helper functions"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
 develop = true
 
 [package.dependencies]
-"bbhnet.architectures" = {path = "../architectures", develop = true}
-"bbhnet.logging" = {path = "../logging", develop = true}
+"aframe.architectures" = {path = "../architectures", develop = true}
+"aframe.logging" = {path = "../logging", develop = true}
 "hermes.typeo" = "^0.1.5"
 torch = "^1.12"
 
@@ -865,9 +865,9 @@ attrs = [
     {file = "attrs-22.2.0-py3-none-any.whl", hash = "sha256:29e95c7f6778868dbd49170f98f8818f78f3dc5e0e37c0b1f474e3561b240836"},
     {file = "attrs-22.2.0.tar.gz", hash = "sha256:c9227bfc2f01993c03f68db37d1d15c9690188323c067c641f1a35ca58185f99"},
 ]
-bbhnet-architectures = []
-bbhnet-logging = []
-bbhnet-trainer = []
+aframe-architectures = []
+aframe-logging = []
+aframe-trainer = []
 bilby = [
     {file = "bilby-1.4.1.tar.gz", hash = "sha256:aa9994cea9161c91205e5998a717c1a8bfbca6f739f26dfe2dfa124543dbdb98"},
 ]

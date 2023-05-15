@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from bbhnet.analysis.analysis import integrate
-from bbhnet.analysis.integrators import boxcar_filter
-from bbhnet.analysis.normalizers import GaussianNormalizer
+from aframe.analysis.analysis import integrate
+from aframe.analysis.integrators import boxcar_filter
+from aframe.analysis.normalizers import GaussianNormalizer
 
 
 @pytest.fixture(params=[101, 128, 256])

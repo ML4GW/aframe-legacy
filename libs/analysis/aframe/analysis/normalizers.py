@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from bbhnet.analysis.integrators import boxcar_filter
+from aframe.analysis.integrators import boxcar_filter
 
 
 class Normalizer:

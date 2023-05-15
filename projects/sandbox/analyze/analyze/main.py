@@ -13,13 +13,13 @@ from analyze.utils import (
 )
 from typeo import scriptify
 
-from bbhnet.analysis.analysis import integrate
-from bbhnet.analysis.distributions import ClusterDistribution
-from bbhnet.analysis.normalizers import GaussianNormalizer
-from bbhnet.io.h5 import write_timeseries
-from bbhnet.io.timeslides import Segment, TimeSlide
-from bbhnet.logging import configure_logging
-from bbhnet.parallelize import AsyncExecutor, as_completed
+from aframe.analysis.analysis import integrate
+from aframe.analysis.distributions import ClusterDistribution
+from aframe.analysis.normalizers import GaussianNormalizer
+from aframe.io.h5 import write_timeseries
+from aframe.io.timeslides import Segment, TimeSlide
+from aframe.logging import configure_logging
+from aframe.parallelize import AsyncExecutor, as_completed
 
 shift_pattern = re.compile(r"(?<=[HLKV])[0-9\.]+")
 

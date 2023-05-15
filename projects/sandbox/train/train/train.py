@@ -7,9 +7,9 @@ from train.data_structures import BBHInMemoryDataset
 from train.utils import prepare_augmentation, split
 from train.validation import BackgroundAUROC, GlitchRecall, Recorder, Validator
 
-from bbhnet.architectures import Preprocessor
-from bbhnet.logging import configure_logging
-from bbhnet.trainer import trainify
+from aframe.architectures import Preprocessor
+from aframe.logging import configure_logging
+from aframe.trainer import trainify
 
 
 def load_background(background_dataset: Path):
@@ -30,9 +30,9 @@ def load_background(background_dataset: Path):
 # note that this function decorator acts both to
 # wrap this function such that the outputs of it
 # (i.e. the training and possible validation data)
-# get passed as inputs to bbhnet.trainer.trainer.train,
+# get passed as inputs to aframe.trainer.trainer.train,
 # as well as to expose these arguments _as well_ as those
-# from bbhnet.trainer.trainer.train to command line
+# from aframe.trainer.trainer.train to command line
 # execution and parsing
 @trainify
 def main(
@@ -75,7 +75,7 @@ def main(
     """
     Prepare a dataset of background, pre-computed glitches,
     and pre-computed event waveforms to train and validate
-    a BBHNet architecture.
+    a aframe architecture.
 
     Args:
         background_dataset:

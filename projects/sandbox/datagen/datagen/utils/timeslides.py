@@ -19,9 +19,9 @@ import numpy as np
 from datagen.utils.injection import generate_gw
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
-from bbhnet.io import h5
-from bbhnet.io.timeslides import TimeSlide
-from bbhnet.parallelize import AsyncExecutor
+from aframe.io import h5
+from aframe.io.timeslides import TimeSlide
+from aframe.parallelize import AsyncExecutor
 
 
 class Sampler:
