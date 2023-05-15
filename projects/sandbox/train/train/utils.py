@@ -7,10 +7,10 @@ import h5py
 import numpy as np
 import torch
 from train.data_structures import (
-    aframeWaveformInjection,
     GlitchSampler,
     SignalInverter,
     SignalReverser,
+    aframeWaveformInjection,
 )
 
 from ml4gw.distributions import Cosine, LogNormal, Uniform

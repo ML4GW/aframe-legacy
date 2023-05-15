@@ -5,11 +5,11 @@ import pytest
 import torch
 from train.data_structures import (
     BBHInMemoryDataset,
-    aframeWaveformInjection,
     ChannelSwapper,
     GlitchSampler,
     SignalInverter,
     SignalReverser,
+    aframeWaveformInjection,
 )
 
 
