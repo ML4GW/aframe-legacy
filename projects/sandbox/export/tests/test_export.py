@@ -428,15 +428,15 @@ def test_export_for_scaling(
 
     # now test to make sure an error gets raised if the
     # ensemble already exists but aframe is not part of it
-    shutil.move(repo_dir / "aframe", repo_dir / "baframe")
-    aframe_config = repo_dir / "baframe" / "config.pbtxt"
+    shutil.move(repo_dir / "aframe", repo_dir / "aaframe")
+    aframe_config = repo_dir / "aaframe" / "config.pbtxt"
     config = aframe_config.read_text()
-    config = re.sub('name: "aframe"', 'name: "baframe"', config)
+    config = re.sub('name: "aframe"', 'name: "aaframe"', config)
     aframe_config.write_text(config)
 
     ensemble_config = repo_dir / "aframe-stream" / "config.pbtxt"
     config = ensemble_config.read_text()
-    config = re.sub('model_name: "aframe"', 'model_name: "baframe"', config)
+    config = re.sub('model_name: "aframe"', 'model_name: "aaframe"', config)
     ensemble_config.write_text(config)
 
     with pytest.raises(ValueError) as exc_info:
@@ -450,7 +450,7 @@ def test_export_for_scaling(
     # the export function. I guess a try-catch on the
     # ensemble section that deletes the most recent
     # aframe version if things go wrong?
-    shutil.rmtree(repo_dir / "baframe")
+    shutil.rmtree(repo_dir / "aaframe")
     validate_repo(
         expected_aframe_instances=aframe_instances,
         expected_preproc_instances=preproc_instances,
