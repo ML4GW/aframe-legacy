@@ -19,7 +19,7 @@ secondary = true
 default = false
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^6.2"
+pytest = "^7.3"
 
 [tool.poetry.scripts]
 train = "train.train:main"

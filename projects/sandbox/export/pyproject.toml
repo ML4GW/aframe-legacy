@@ -48,7 +48,7 @@ path = "../../../hermes/hermes/hermes.quiver"
 develop = true
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
+pytest = "^7.3"
 
 [[tool.poetry.source]]
 name = "torch"

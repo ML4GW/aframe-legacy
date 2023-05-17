@@ -15,7 +15,7 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main", optional =
 ml4gw = {path = "../../ml4gw", develop = true}
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
+pytest = "^7.3"
 
 [tool.poetry.extras]
 wrapper = ["typeo"]

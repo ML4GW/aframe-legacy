@@ -516,7 +516,7 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "927b8ba16dd7f45091ed6fe52a542f671a1661466ab87d1b7b2346e57acf1544"
+content-hash = "7034b1fd852060a6aeb32f82cbda071720edae5cc5e3a51963b8116d33cd2360"
 
 [metadata.files]
 astropy = [

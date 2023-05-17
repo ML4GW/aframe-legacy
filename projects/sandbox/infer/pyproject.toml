@@ -28,7 +28,7 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 "hermes.stillwater" = {path = "../../../hermes/hermes/hermes.stillwater", develop = true}
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
+pytest = "^7.3"
 
 [build-system]
 requires = ["poetry-core"]

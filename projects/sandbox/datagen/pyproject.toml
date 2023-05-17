@@ -31,7 +31,7 @@ mldatafind = {git = "https://github.com/ML4GW/mldatafind.git", branch = "main"}
 "aframe.priors" = {path = "../../../libs/priors", develop = true}
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
+pytest = "^7.3"
 
 [[tool.poetry.source]]
 name = "torch"

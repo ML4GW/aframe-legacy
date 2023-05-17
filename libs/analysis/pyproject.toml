@@ -19,7 +19,7 @@ bilby = "^1.4.1"
 "aframe.priors" = {path = "../priors", develop = true}
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2"
+pytest = "^7.3"
 
 [build-system]
 requires = ["poetry>=1.2"]
