@@ -36,9 +36,9 @@ tests-no-zope = ["hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist", "c
 tests_no_zope = ["hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist", "cloudpickle", "mypy (>=0.971,<0.990)", "pytest-mypy-plugins"]
 
 [[package]]
-name = "bbhnet.analysis"
+name = "aframe.analysis"
 version = "0.0.1"
-description = "Tools for making detections from BBHNet outputs"
+description = "Tools for making detections from aframe outputs"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -46,8 +46,8 @@ develop = true
 
 [package.dependencies]
 astropy = "^5.2.1"
-"bbhnet.io" = {path = "../io", develop = true}
-"bbhnet.priors" = {path = "../priors", develop = true}
+"aframe.io" = {path = "../io", develop = true}
+"aframe.priors" = {path = "../priors", develop = true}
 bilby = "^1.4.1"
 scipy = "^1.7.3"
 
@@ -56,7 +56,7 @@ type = "directory"
 url = "../../../libs/analysis"
 
 [[package]]
-name = "bbhnet.deploy"
+name = "aframe.deploy"
 version = "0.0.1"
 description = "Tools for deploying jobs on the LIGO data grid"
 category = "main"
@@ -69,9 +69,9 @@ type = "directory"
 url = "../../../libs/deploy"
 
 [[package]]
-name = "bbhnet.io"
+name = "aframe.io"
 version = "0.0.1"
-description = "Tools for standardizing reading and writing BBHNet files"
+description = "Tools for standardizing reading and writing aframe files"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -86,9 +86,9 @@ type = "directory"
 url = "../../../libs/io"
 
 [[package]]
-name = "bbhnet.logging"
+name = "aframe.logging"
 version = "0.0.1"
-description = "BBHNet logging utilities"
+description = "aframe logging utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -99,9 +99,9 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet.priors"
+name = "aframe.priors"
 version = "0.1.0"
-description = "Standardized priors for BBHnet"
+description = "Standardized priors for aframe"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -1047,11 +1047,11 @@ content-hash = "e7c4689480b6b02a014ff9853359babcfe795a734e4cc40583832de7cf2ae61d
 [metadata.files]
 astropy = []
 attrs = []
-"bbhnet.analysis" = []
-"bbhnet.deploy" = []
-"bbhnet.io" = []
-"bbhnet.logging" = []
-"bbhnet.priors" = []
+"aframe.analysis" = []
+"aframe.deploy" = []
+"aframe.io" = []
+"aframe.logging" = []
+"aframe.priors" = []
 bilby = []
 "bilby.cython" = []
 certifi = [

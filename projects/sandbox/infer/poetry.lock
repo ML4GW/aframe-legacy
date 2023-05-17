@@ -82,9 +82,9 @@ tests = ["attrs[tests-no-zope]", "zope.interface"]
 tests-no-zope = ["cloudpickle", "cloudpickle", "hypothesis", "hypothesis", "mypy (>=0.971,<0.990)", "mypy (>=0.971,<0.990)", "pympler", "pympler", "pytest (>=4.3.0)", "pytest (>=4.3.0)", "pytest-mypy-plugins", "pytest-mypy-plugins", "pytest-xdist[psutil]", "pytest-xdist[psutil]"]
 
 [[package]]
-name = "bbhnet-analysis"
+name = "aframe-analysis"
 version = "0.0.1"
-description = "Tools for making detections from BBHNet outputs"
+description = "Tools for making detections from aframe outputs"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -92,8 +92,8 @@ develop = true
 
 [package.dependencies]
 astropy = "^5.2.1"
-"bbhnet.io" = {path = "../io", develop = true}
-"bbhnet.priors" = {path = "../priors", develop = true}
+"aframe.io" = {path = "../io", develop = true}
+"aframe.priors" = {path = "../priors", develop = true}
 bilby = "^1.4.1"
 scipy = "^1.7.3"
 
@@ -102,7 +102,7 @@ type = "directory"
 url = "../../../libs/analysis"
 
 [[package]]
-name = "bbhnet-deploy"
+name = "aframe-deploy"
 version = "0.0.1"
 description = "Tools for deploying jobs on the LIGO data grid"
 category = "main"
@@ -115,9 +115,9 @@ type = "directory"
 url = "../../../libs/deploy"
 
 [[package]]
-name = "bbhnet-io"
+name = "aframe-io"
 version = "0.0.1"
-description = "Tools for standardizing reading and writing BBHNet files"
+description = "Tools for standardizing reading and writing aframe files"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -132,9 +132,9 @@ type = "directory"
 url = "../../../libs/io"
 
 [[package]]
-name = "bbhnet-logging"
+name = "aframe-logging"
 version = "0.0.1"
-description = "BBHNet logging utilities"
+description = "aframe logging utilities"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -145,9 +145,9 @@ type = "directory"
 url = "../../../libs/logging"
 
 [[package]]
-name = "bbhnet-priors"
+name = "aframe-priors"
 version = "0.1.0"
-description = "Standardized priors for BBHnet"
+description = "Standardized priors for aframe"
 category = "main"
 optional = false
 python-versions = ">=3.8,<3.11"
@@ -1117,11 +1117,11 @@ attrs = [
     {file = "attrs-22.2.0-py3-none-any.whl", hash = "sha256:29e95c7f6778868dbd49170f98f8818f78f3dc5e0e37c0b1f474e3561b240836"},
     {file = "attrs-22.2.0.tar.gz", hash = "sha256:c9227bfc2f01993c03f68db37d1d15c9690188323c067c641f1a35ca58185f99"},
 ]
-bbhnet-analysis = []
-bbhnet-deploy = []
-bbhnet-io = []
-bbhnet-logging = []
-bbhnet-priors = []
+aframe-analysis = []
+aframe-deploy = []
+aframe-io = []
+aframe-logging = []
+aframe-priors = []
 bilby = [
     {file = "bilby-1.4.1.tar.gz", hash = "sha256:aa9994cea9161c91205e5998a717c1a8bfbca6f739f26dfe2dfa124543dbdb98"},
 ]
