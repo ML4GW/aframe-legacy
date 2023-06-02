@@ -4,6 +4,11 @@ from typing import List, Tuple, TypeVar
 import h5py
 import numpy as np
 import torch
+<<<<<<< HEAD
+=======
+from train.augmentor import AframeBatchAugmentor
+from train.data_structures import SnrRescaler, SnrSampler
+>>>>>>> 69016be (getting rid of glitches and implementing new modules)
 
 import ml4gw.gw as gw
 
