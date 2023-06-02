@@ -278,22 +278,6 @@ class SnrRescaler(torch.nn.Module):
         else:
             self.mask = None
 
-    def fit(
-        self,
-        *backgrounds: Background,
-        sample_rate: Optional[float] = None,
-        fftlength: float = 2,
-    ):
-        psds = []
-        for background in backgrounds:
-            psd = normalize_psd(
-                background, self.df, self.sample_rate, sample_rate, fftlength
-            )
-            psds.append(psd)
-
-        background = torch.tensor(np.stack(psds), dtype=torch.float64)
-        super().build(background=background)
-
     def forward(
         self,
         responses: gw.WaveformTensor,

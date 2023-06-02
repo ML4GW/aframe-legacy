@@ -154,6 +154,7 @@ class AframeBatchAugmentor(torch.nn.Module):
         responses, mute_indices = self.muter(responses)
         print(X.shape)
         X[mask] += responses
+        X = self.whitener(X, asds)
 
         # now that injections have been made,
         # whiten _all_ the strain using the

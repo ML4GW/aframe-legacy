@@ -5,10 +5,13 @@ import h5py
 import numpy as np
 import torch
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 from train.augmentor import AframeBatchAugmentor
 from train.data_structures import SnrRescaler, SnrSampler
 >>>>>>> 69016be (getting rid of glitches and implementing new modules)
+=======
+>>>>>>> 2a1717b (moving whitening into augmentor)
 
 import ml4gw.gw as gw
 

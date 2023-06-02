@@ -218,6 +218,18 @@ def main(
     whitener = preprocessor.Whitener(fduration, sample_rate)
     whitener = whitener.to(device)
 
+    # TODO: don't hardcode this 1, what do we want to call it?
+    background_length = kernel_length - (fduration + 1)
+    asd_estimator = structures.AsdEstimator(
+        background_length,
+        fduration=fduration,
+        sample_rate=sample_rate,
+        fftlength=2,
+        highpass=highpass,
+    ).to(device)
+    whitener = structures.LocalWhitener(fduration, sample_rate)
+    whitener = whitener.to(device)
+
     # load our waveforms and build some objects
     # for augmenting their snrs
     waveforms, valid_waveforms = train_utils.get_waveforms(
@@ -276,8 +288,7 @@ def main(
         alpha=snr_alpha,
         decay_steps=snr_decay_steps,
     )
-    
-    cross, plus = waveforms.transpose(1, 0)
+    cross, plus = waveforms.transpose(1, 0, 2)
     augmentor = AframeBatchAugmentor(
         ifos,
         sample_rate,
@@ -305,7 +316,7 @@ def main(
     # to account for our sky parameter sampling
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
-    batches_per_epoch = int(2 * len(waveforms) / waveforms_per_batch)
+    batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
     train_dataset = structures.ChunkedDataloader(
         background_fnames,
         ifos=ifos,
