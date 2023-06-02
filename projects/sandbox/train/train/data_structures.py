@@ -47,7 +47,7 @@ class ChunkedDataloader:
     batches_per_chunk: int
     chunks_per_epoch: int
     device: str
-    preprocessor: Optional[Callable] = (None,)
+    preprocessor: Optional[Callable] = None
 
     def __len__(self):
         return self.batches_per_chunk * self.chunks_per_epoch
@@ -277,6 +277,22 @@ class SnrRescaler(torch.nn.Module):
             self.register_buffer("mask", freqs >= highpass, persistent=False)
         else:
             self.mask = None
+
+    def fit(
+        self,
+        *backgrounds: Background,
+        sample_rate: Optional[float] = None,
+        fftlength: float = 2,
+    ):
+        psds = []
+        for background in backgrounds:
+            psd = normalize_psd(
+                background, self.df, self.sample_rate, sample_rate, fftlength
+            )
+            psds.append(psd)
+
+        background = torch.tensor(np.stack(psds), dtype=torch.float64)
+        super().build(background=background)
 
     def forward(
         self,
