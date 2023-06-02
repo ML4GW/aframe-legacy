@@ -52,6 +52,9 @@ class ChunkedDataloader:
     def __len__(self):
         return self.batches_per_chunk * self.chunks_per_epoch
 
+    def __len__(self):
+        return self.batches_per_chunk * self.chunks_per_epoch
+
     def __iter__(self):
         kernel_size = int(self.kernel_length * self.sample_rate)
         chunk_size = int(self.chunk_length * self.sample_rate)

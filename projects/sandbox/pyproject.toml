@@ -111,10 +111,18 @@ logdir = "${base.logdir}"
 outdir = "${base.basedir}/training"
 
 # optimization args
+<<<<<<< HEAD
 
 batch_size = 640
 
 
+=======
+<<<<<<< HEAD
+batch_size = 512
+=======
+batch_size = 64
+>>>>>>> 720c981 (getting training running)
+>>>>>>> 3d26a9d (getting training running)
 max_epochs = 200
 max_lr = 1e-3
 lr_ramp_epochs = 9
@@ -137,7 +145,15 @@ psd_length = "${base.training_psd_length}"
 # augmentation args
 trigger_distance = -0.5
 waveform_prob = 0.5
+<<<<<<< HEAD
 
+=======
+<<<<<<< HEAD
+glitch_prob = 0.0833
+glitch_downweight = 0.33
+=======
+>>>>>>> 720c981 (getting training running)
+>>>>>>> 3d26a9d (getting training running)
 swap_frac = 0.025
 mute_frac = 0.12
 
