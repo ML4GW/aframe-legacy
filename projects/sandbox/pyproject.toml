@@ -134,6 +134,7 @@ psd_length = "${base.training_psd_length}"
 
 # augmentation args
 trigger_distance = -0.75
+<<<<<<< HEAD
 waveform_prob = 0.277
 swap_frac = 0.014
 mute_frac = 0.055
