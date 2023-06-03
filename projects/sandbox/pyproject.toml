@@ -112,17 +112,26 @@ outdir = "${base.basedir}/training"
 
 # optimization args
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 batch_size = 640
 
 
 =======
+=======
+>>>>>>> 5147616 (fixing kernel size problem in training)
 <<<<<<< HEAD
 batch_size = 512
 =======
 batch_size = 64
 >>>>>>> 720c981 (getting training running)
+<<<<<<< HEAD
 >>>>>>> 3d26a9d (getting training running)
+=======
+=======
+batch_size = 640
+>>>>>>> e2557fe (fixing kernel size problem in training)
+>>>>>>> 5147616 (fixing kernel size problem in training)
 max_epochs = 200
 max_lr = 1e-3
 lr_ramp_epochs = 9
