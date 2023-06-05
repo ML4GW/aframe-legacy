@@ -196,8 +196,11 @@ kernel_length = "${base.kernel_length}"
 batch_size = "${base.inference_batch_size}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
+<<<<<<< HEAD
 fftlength = 8
 psd_length = "${base.inference_psd_length}"
+=======
+>>>>>>> 9c4fe77 (restructuring preprocessing and adding to export)
 
 # repo/triton parameters
 aframe_instances = 6

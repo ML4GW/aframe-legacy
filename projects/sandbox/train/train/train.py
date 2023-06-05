@@ -220,14 +220,10 @@ def main(
 
     # TODO: don't hardcode this 1, what do we want to call it?
     background_length = kernel_length - (fduration + 1)
-    asd_estimator = structures.AsdEstimator(
-        background_length,
-        fduration=fduration,
-        sample_rate=sample_rate,
-        fftlength=2,
-        highpass=highpass,
-    ).to(device)
-    whitener = structures.LocalWhitener(fduration, sample_rate)
+    psd_estimator = structures.PsdEstimator(
+        background_length, sample_rate, fftlength=2, fast=highpass is not None
+    )
+    whitener = preprocessor.LocalWhitener(fduration, sample_rate)
     whitener = whitener.to(device)
 
     # load our waveforms and build some objects

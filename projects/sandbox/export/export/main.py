@@ -115,6 +115,16 @@ def main(
     nn.load_state_dict(state_dict)
     nn.eval()
 
+    background_length = kernel_length - (fduration + 1)
+    preprocessor = Preprocessor(
+        background_length,
+        sample_rate=sample_rate,
+        fduration=fduration,
+        fftlength=2,
+        average="mean",
+        highpass=highpass,
+    )
+
     # instantiate a model repository at the
     # indicated location. Split up the preprocessor
     # and the neural network (which we'll call aframe)
@@ -130,6 +140,18 @@ def main(
     # for each model at inference time, scale them now
     if aframe_instances is not None:
         scale_model(aframe, aframe_instances)
+    if preproc_instances is not None:
+        scale_model(preproc, preproc_instances)
+
+    # start by exporting the preprocessor, then  use
+    # its inferred output shape to export the network
+    input_dim = int(kernel_length * sample_rate)
+    input_shape = (batch_size, num_ifos, input_dim)
+    preproc.export_version(
+        preprocessor,
+        input_shapes={"hoft": input_shape},
+        output_names=["whitened"],
+    )
 
     size = int(kernel_length * sample_rate)
     input_shape = (batch_size, num_ifos, size)
