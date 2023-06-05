@@ -130,6 +130,16 @@ def main(
         nn.load_state_dict(state_dict)
     nn.eval()
 
+    background_length = kernel_length - (fduration + 1)
+    preprocessor = Preprocessor(
+        background_length,
+        sample_rate=sample_rate,
+        fduration=fduration,
+        fftlength=2,
+        average="mean",
+        highpass=highpass,
+    )
+
     # instantiate a model repository at the
     # indicated location. Split up the preprocessor
     # and the neural network (which we'll call aframe)

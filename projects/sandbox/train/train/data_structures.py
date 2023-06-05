@@ -201,6 +201,10 @@ class ChannelSwapper(torch.nn.Module):
             indices = torch.arange(num)
             target_indices = torch.roll(indices, shifts=num // 2, dims=0)
             X[indices, channel] = X[target_indices, channel]
+<<<<<<< HEAD
+=======
+
+>>>>>>> d1627b9 (restructuring preprocessing and adding to export)
         return X, indices
 
 
