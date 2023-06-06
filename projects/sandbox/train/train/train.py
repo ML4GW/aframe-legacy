@@ -223,7 +223,7 @@ def main(
     psd_estimator = structures.PsdEstimator(
         background_length, sample_rate, fftlength=2, fast=highpass is not None
     )
-    whitener = preprocessor.LocalWhitener(fduration, sample_rate)
+    whitener = preprocessor.Whitener(fduration, sample_rate)
     whitener = whitener.to(device)
 
     # load our waveforms and build some objects

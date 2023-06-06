@@ -17,7 +17,11 @@ accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
 logdir = "${BASE_DIR}/log"
 sample_rate = 2048
+<<<<<<< HEAD
 kernel_length = 1.5
+=======
+kernel_length = 10
+>>>>>>> 6635b8c (setting up export for dynamic whitening)
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
 #glitch_start = 1262394654
