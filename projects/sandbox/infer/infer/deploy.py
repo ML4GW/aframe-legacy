@@ -134,7 +134,7 @@ def main(
 
     num_shifts = get_num_shifts(data_dir, Tb, shift)
     parameters = "shift0,shift1,seq_id\n"
-    for i in range(num_shifts):
+    for i in range(1, num_shifts + 1):
         seq_id = sequence_id + 2 * i
         parameters += f"0,{i * shift},{seq_id}\n"
 
