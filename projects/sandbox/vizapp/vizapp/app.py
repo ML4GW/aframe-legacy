@@ -8,10 +8,7 @@ from bokeh.layouts import column, row
 from bokeh.models import Div, MultiChoice, TabPanel, Tabs
 from vizapp.pages import AnalysisPage, DataSummaryPage, PerformanceSummaryPage
 
-from aframe.analysis.ledger.events import (
-    RecoveredInjectionSet,
-    TimeSlideEventSet,
-)
+from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
 from aframe.analysis.ledger.injections import InjectionParameterSet
 
 if TYPE_CHECKING:
@@ -47,7 +44,7 @@ class VizApp:
         # load results and data from the run we're visualizing
         infer_dir = base_directory / "infer"
         rejected = data_directory / "test" / "rejected_parameters.h5"
-        self.background = TimeSlideEventSet.read(infer_dir / "background.h5")
+        self.background = EventSet.read(infer_dir / "background.h5")
         self.foreground = RecoveredInjectionSet.read(
             infer_dir / "foreground.h5"
         )
