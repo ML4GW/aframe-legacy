@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
@@ -9,6 +10,8 @@ from aframe.logging import configure_logging
 from .app import VizApp
 from .vetoes import VetoParser
 
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 
 def _normalize_path(path: Path):
     if not path.is_absolute():
@@ -18,7 +21,7 @@ def _normalize_path(path: Path):
 
 @scriptify
 def main(
-    outdir: Path,
+    basedir: Path,
     datadir: Path,
     veto_definer_file: Path,
     gate_paths: Dict[str, Path],
@@ -35,7 +38,8 @@ def main(
     verbose: bool = False,
 ) -> None:
 
-    configure_logging(logdir / "vizapp.log", verbose)
+    logfile = logdir / "vizapp.log" if logdir is not None else None
+    configure_logging(logfile, verbose)
 
     veto_definer_file = _normalize_path(veto_definer_file)
     for ifo in ifos:
@@ -50,9 +54,9 @@ def main(
     )
 
     cosmology = cosmology()
-
+    source_prior, _ = source_prior()
     bkapp = VizApp(
-        base_directory=outdir,
+        base_directory=basedir,
         data_directory=datadir,
         cosmology=cosmology,
         source_prior=source_prior,

@@ -254,17 +254,16 @@ verbose = "${base.verbose}"
 
 [tool.typeo.scripts.vizapp]
 source_prior = "${base.testing_prior}"
-timeslides_results_dir = "${base.basedir}/timeslide_injections/"
-timeslides_strain_dir = "${base.datadir}/timeslide_injections"
+datadir = "${base.datadir}"
+basedir = "${base.basedir}"
 ifos = "${base.ifos}"
 start = "${base.train_stop}"
 stop = "${base.test_stop}"
 veto_definer_file = "./vetoes/H1L1-HOFT_C01_O3_CBC.xml"
 gate_paths = {"H1" = "./vetoes/H1-O3_GATES_1238166018-31197600.txt" , "L1" = "./vetoes/L1-O3_GATES_1238166018-31197600.txt"}
-train_data_dir = "${base.datadir}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
 valid_frac = "${base.valid_frac}"
-logdir = "${base.basedir}"
+#logdir = "${base.basedir}"
 cosmology = "${base.cosmology}"
 verbose = true

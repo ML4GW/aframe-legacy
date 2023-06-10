@@ -8,7 +8,6 @@ if TYPE_CHECKING:
 class Page:
     def __init__(self, app: "VizApp") -> None:
         self.app = app
-        self.initialize_sources()
 
     def initialize_sources(self) -> None:
         raise NotImplementedError

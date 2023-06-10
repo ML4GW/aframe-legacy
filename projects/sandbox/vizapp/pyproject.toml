@@ -22,6 +22,9 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 "aframe.priors" = {path = "../../../libs/priors", develop = true}
 gwpy = "^3.0.2"
 
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

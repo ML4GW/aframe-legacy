@@ -6,7 +6,7 @@ import bilby
 import numpy as np
 from bokeh.layouts import column, row
 from bokeh.models import Div, MultiChoice, TabPanel, Tabs
-from vizapp.pages import AnalysisPage, DataSummaryPage, PerformanceSummaryPage
+from vizapp.pages import AnalysisPage, PerformanceSummaryPage
 
 from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
 from aframe.analysis.ledger.injections import InjectionParameterSet
@@ -43,7 +43,7 @@ class VizApp:
 
         # load results and data from the run we're visualizing
         infer_dir = base_directory / "infer"
-        rejected = data_directory / "test" / "rejected_parameters.h5"
+        rejected = data_directory / "test" / "rejected-parameters.h5"
         self.background = EventSet.read(infer_dir / "background.h5")
         self.foreground = RecoveredInjectionSet.read(
             infer_dir / "foreground.h5"
@@ -57,21 +57,23 @@ class VizApp:
                 value = getattr(obj, attr)
                 setattr(obj, attr, value / (1 + obj.redshift))
 
-        # initialize all our pages and their constituent plots
-        self.pages, tabs = [], []
-        for page in [DataSummaryPage, PerformanceSummaryPage, AnalysisPage]:
-            page = page(self)
-            self.pages.append(page)
-
-            title = page.__class__.name.replace("Page", "")
-            tab = TabPanel(child=page.get_layout(), title=title)
-            tabs.append(tab)
-
         # set upour veto selecter and set up the initially
         # blank veto mask, use this to update the sources
         # for all our pages
         self.veto_selecter = self.get_veto_selecter()
-        self.veto_selecter.on_change(self.update_vetos)
+        self.veto_selecter.on_change("value", self.update_vetos)
+
+        # initialize all our pages and their constituent plots
+        self.pages, tabs = [], []
+        for page in [PerformanceSummaryPage, AnalysisPage]:
+            page = page(self)
+            self.pages.append(page)
+
+            title = page.__class__.__name__.replace("Page", "")
+            tab = TabPanel(child=page.get_layout(), title=title)
+            tabs.append(tab)
+
+        # once pages are intialized, update vetoes
         self.update_vetos(None, None, [])
 
         # set up a header with a title and the selecter
@@ -88,21 +90,20 @@ class VizApp:
         self.vetoes = {}
         for label in options:
             vetos = self.veto_parser.get_vetoes(label)
-            veto_mask = False
+            veto_mask = np.zeros(len(self.background), dtype=bool)
             for ifo in self.ifos:
                 segments = vetos[ifo]
 
-                # this will have shape
-                # (len(segments), len(self.background))
-                mask = segments[:, :1] < self.background.time
-                mask &= segments[:, 1:] > self.background.time
+                if len(segments) != 0:
+                    mask = segments[:, :1] < self.background.time
+                    mask &= segments[:, 1:] > self.background.time
 
-                # mark a background event as vetoed
-                # if it falls into _any_ of the segments
-                veto_mask |= mask.any(axis=0)
+                    # mark a background event as vetoed
+                    # if it falls into _any_ of the segments
+                    veto_mask |= mask.any(axis=0)
             self.vetoes[label] = veto_mask
 
-        self.veto_mask = np.zeros_like(mask, dtype=bool)
+        self.veto_mask = np.zeros_like(len(self.background), dtype=bool)
         return MultiChoice(title="Applied Vetoes", value=[], options=options)
 
     def update_vetos(self, attr, old, new):
@@ -117,7 +118,6 @@ class VizApp:
             for label in new:
                 mask |= self.vetoes[label]
             self.veto_mask = mask
-
         # now update all our pages to factor
         # in the vetoed data
         for page in self.pages:
