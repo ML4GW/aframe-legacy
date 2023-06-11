@@ -16,14 +16,22 @@ h5py = "^3.5"
 lalsuite = "^7.10"
 python-ligo-lw = "<1.8"
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
+torch = {version = "^1.12", source = "torch"}
 
 "aframe.analysis" = {path = "../../../libs/analysis", develop = true}
 "aframe.logging" = {path = "../../../libs/logging", develop = true}
 "aframe.priors" = {path = "../../../libs/priors", develop = true}
-gwpy = "^3.0.2"
+"aframe.architectures" = {path = "../../../libs/architectures", develop = true}
+gwpy = "^2.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu116"
+secondary = true
+default = false
 
 [build-system]
 requires = ["poetry-core"]

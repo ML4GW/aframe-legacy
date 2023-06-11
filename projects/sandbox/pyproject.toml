@@ -267,3 +267,6 @@ valid_frac = "${base.valid_frac}"
 #logdir = "${base.basedir}"
 cosmology = "${base.cosmology}"
 verbose = true
+
+# arch parameters
+commands.resnet = "${base.resnet}"

@@ -19,6 +19,26 @@ type = "directory"
 url = "../../../libs/analysis"
 
 [[package]]
+name = "aframe-architectures"
+version = "0.0.1"
+description = "aframe neural network architecture zoo"
+category = "main"
+optional = false
+python-versions = ">=3.8,<3.11"
+develop = true
+
+[package.dependencies]
+ml4gw = {path = "../../ml4gw", develop = true}
+torch = "^1.10"
+
+[package.extras]
+wrapper = ["typeo @ git+https://github.com/ML4GW/typeo.git@main"]
+
+[package.source]
+type = "directory"
+url = "../../../libs/architectures"
+
+[[package]]
 name = "aframe-io"
 version = "0.0.1"
 description = "Tools for standardizing reading and writing aframe files"
@@ -567,14 +587,14 @@ test = ["pytest (>=2.7.0)", "pytest-cov", "pytest-socket", "requests-mock (>=1.5
 
 [[package]]
 name = "gwpy"
-version = "3.0.4"
+version = "2.1.5"
 description = "A python package for gravitational-wave astrophysics"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
-astropy = ">=4.3.0"
+astropy = ">=4.0"
 dqsegdb2 = "*"
 gwdatafind = ">=1.1.0"
 gwosc = ">=0.5.3"
@@ -582,18 +602,16 @@ h5py = ">=2.8.0"
 ligo-segments = ">=1.0.0"
 ligotimegps = ">=1.2.1"
 matplotlib = ">=3.3.0"
-numpy = ">=1.17"
+numpy = ">=1.16"
 python-dateutil = "*"
-requests = "*"
 scipy = ">=1.2.0"
 tqdm = ">=4.10.0"
 
 [package.extras]
-astro = ["inspiral-range"]
 conda = ["python-framel (>=8.40.1)", "python-ldas-tools-framecpp", "python-nds2-client"]
-dev = ["ciecplib", "dateparser (>=1.1.2)", "lalsuite", "lscsoft-glue", "maya", "psycopg2", "pyRXP", "pycbc (>=1.13.4)", "pymysql", "python-ligo-lw (>=1.7.0)", "sqlalchemy", "uproot (>=4.1.5)"]
-docs = ["Sphinx (>=4.4.0)", "numpydoc (>=0.8.0)", "sphinx-automodapi", "sphinx-immaterial (>=0.7.3)", "sphinx-panels (>=0.6.0)", "sphinxcontrib-programoutput"]
-test = ["coverage[toml] (>=5.0)", "pytest (>=3.9.1)", "pytest-cov (>=2.4.0)", "pytest-freezegun", "pytest-requires", "pytest-socket", "pytest-xdist", "requests-mock"]
+dev = ["astropy (<5.1a0)", "ciecplib", "lalsuite", "lscsoft-glue", "maya", "pandas", "psycopg2", "pyRXP", "pycbc (>=1.13.4)", "pymysql", "python-ligo-lw (>=1.7.0)", "sqlalchemy", "uproot (>=3.11)", "uproot3"]
+docs = ["numpydoc (>=0.8.0)", "requests", "sphinx (>=4.0.0)", "sphinx-automodapi", "sphinx-material (>=0.0.32)", "sphinx-panels (>=0.6.0)", "sphinxcontrib-programoutput"]
+test = ["coverage[toml] (>=5.0)", "freezegun (>=0.3.12)", "pytest (>=3.9.1)", "pytest-cov (>=2.4.0)", "pytest-socket", "pytest-xdist", "requests-mock"]
 
 [[package]]
 name = "h5py"
@@ -637,7 +655,7 @@ test = ["pytest (>=3.9.1)", "pytest-cov", "requests (>=2.14)", "requests-mock", 
 name = "importlib-metadata"
 version = "6.6.0"
 description = "Read metadata from Python packages"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 
@@ -1102,6 +1120,25 @@ description = "A sane Markdown parser with useful plugins and renderers"
 category = "dev"
 optional = false
 python-versions = "*"
+
+[[package]]
+name = "ml4gw"
+version = "0.1.1"
+description = "Tools for training torch models on gravitational wave data"
+category = "main"
+optional = false
+python-versions = ">=3.8,<3.11"
+develop = true
+
+[package.dependencies]
+bilby = "^1.1"
+gwpy = "^2.1"
+torch = "^1.10"
+torchtyping = "^0.1"
+
+[package.source]
+type = "directory"
+url = "../../../ml4gw"
 
 [[package]]
 name = "nbclassic"
@@ -1866,6 +1903,37 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "torch"
+version = "1.13.1+cu116"
+description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
+category = "main"
+optional = false
+python-versions = ">=3.7.0"
+
+[package.dependencies]
+typing-extensions = "*"
+
+[package.extras]
+opt-einsum = ["opt-einsum (>=3.3)"]
+
+[package.source]
+type = "legacy"
+url = "https://download.pytorch.org/whl/cu116"
+reference = "torch"
+
+[[package]]
+name = "torchtyping"
+version = "0.1.4"
+description = "Runtime type annotations for the shape, dtype etc. of PyTorch Tensors."
+category = "main"
+optional = false
+python-versions = ">=3.7.0"
+
+[package.dependencies]
+torch = ">=1.7.0"
+typeguard = ">=2.11.1"
+
+[[package]]
 name = "tornado"
 version = "6.3.2"
 description = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
@@ -1901,6 +1969,22 @@ python-versions = ">=3.7"
 [package.extras]
 docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=2.0)", "pre-commit", "pytest", "pytest-mock"]
+
+[[package]]
+name = "typeguard"
+version = "4.0.0"
+description = "Run-time type checker for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7.4"
+
+[package.dependencies]
+importlib-metadata = {version = ">=3.6", markers = "python_version < \"3.10\""}
+typing-extensions = {version = ">=4.4.0", markers = "python_version < \"3.11\""}
+
+[package.extras]
+doc = ["packaging", "sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
+test = ["mypy (>=1.2.0)", "pytest (>=7)"]
 
 [[package]]
 name = "typeo"
@@ -2033,10 +2117,11 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.11"
-content-hash = "cd7a12f1860d03e07d584d81dcd36fa9a2e088b12cb46f71eee57f6554fbdc4e"
+content-hash = "d8b1c22c924bbc0a1c8636b9eadb327c5c3bf1dd1dbe0e3d4952b1594b8aa8e7"
 
 [metadata.files]
 aframe-analysis = []
+aframe-architectures = []
 aframe-io = []
 aframe-logging = []
 aframe-priors = []
@@ -2494,8 +2579,8 @@ gwosc = [
     {file = "gwosc-0.7.1.tar.gz", hash = "sha256:5328223410081731ba4ef6f3be9f13ac4b3b9a43397fa04c1f50ddeb59895816"},
 ]
 gwpy = [
-    {file = "gwpy-3.0.4-py3-none-any.whl", hash = "sha256:7268e8ff85d007cf134b8db2c8191a92eaa12572582a702980794955d063ebea"},
-    {file = "gwpy-3.0.4.tar.gz", hash = "sha256:0df5efe7dfbe3724fc2a64dbf6c67c60c728d22b4db696c46967609f50feea1b"},
+    {file = "gwpy-2.1.5-py2.py3-none-any.whl", hash = "sha256:544908c43ddcd1a8253424b3ad619d8a817c26f6be5cfce14503250716fb2733"},
+    {file = "gwpy-2.1.5.tar.gz", hash = "sha256:687015973b84c0d628fa7b245ff8f6a2a7a6008aee6860f17167c87ee8394521"},
 ]
 h5py = [
     {file = "h5py-3.8.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:533d7dad466ddb7e3b30af274b630eb7c1a6e4ddf01d1c373a0334dc2152110a"},
@@ -2820,6 +2905,7 @@ mistune = [
     {file = "mistune-2.0.5-py2.py3-none-any.whl", hash = "sha256:bad7f5d431886fcbaf5f758118ecff70d31f75231b34024a1341120340a65ce8"},
     {file = "mistune-2.0.5.tar.gz", hash = "sha256:0246113cb2492db875c6be56974a7c893333bf26cd92891c85f63151cee09d34"},
 ]
+ml4gw = []
 nbclassic = [
     {file = "nbclassic-1.0.0-py3-none-any.whl", hash = "sha256:f99e4769b4750076cd4235c044b61232110733322384a94a63791d2e7beacc66"},
     {file = "nbclassic-1.0.0.tar.gz", hash = "sha256:0ae11eb2319455d805596bf320336cda9554b41d99ab9a3c31bf8180bffa30e3"},
@@ -3421,6 +3507,21 @@ tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
+torch = [
+    {file = "torch-1.13.1+cu116-cp310-cp310-linux_x86_64.whl", hash = "sha256:51d5870cdf05b6208b1c739fe0ba511b977eca37f9507829675596acc11b6ca4"},
+    {file = "torch-1.13.1+cu116-cp310-cp310-win_amd64.whl", hash = "sha256:6d59b73bbd83eee53e7978925168fe068709e1344050fdabf4043695084b2ccc"},
+    {file = "torch-1.13.1+cu116-cp311-cp311-linux_x86_64.whl", hash = "sha256:8cbfbb27f44fcc246d298f3812f3f7963622b4c1f2823670ae549416199f5ef7"},
+    {file = "torch-1.13.1+cu116-cp37-cp37m-linux_x86_64.whl", hash = "sha256:20d7c6e00804b6bea6f69b77240c4fcdf244cce2f6b1ff73beff7c0df6553d9d"},
+    {file = "torch-1.13.1+cu116-cp37-cp37m-win_amd64.whl", hash = "sha256:c2493a30d0c5ff426fad3d60d9d535c24678b45cc4ce1cffca0f1044d408cb96"},
+    {file = "torch-1.13.1+cu116-cp38-cp38-linux_x86_64.whl", hash = "sha256:9338faa0a5a0eb625e17e39729f06fb0a574098d7ab88d856bbda4cb76a0b665"},
+    {file = "torch-1.13.1+cu116-cp38-cp38-win_amd64.whl", hash = "sha256:1c33942d411d4dee25e56755cfd09538f53a497a6f0453d54ce96a5ca341627b"},
+    {file = "torch-1.13.1+cu116-cp39-cp39-linux_x86_64.whl", hash = "sha256:db457a822d736013b6ffe509053001bc918bdd78fe68967b605f53984a9afac5"},
+    {file = "torch-1.13.1+cu116-cp39-cp39-win_amd64.whl", hash = "sha256:80a6b55915ac72c087ab85122289431fde5c5a4c85ca83a38c6d11a7ecbfdb35"},
+]
+torchtyping = [
+    {file = "torchtyping-0.1.4-py3-none-any.whl", hash = "sha256:485fb6ef3965c39b0de15f00d6f49373e0a3a6993e9733942a63c5e207d35390"},
+    {file = "torchtyping-0.1.4.tar.gz", hash = "sha256:4763375d17752641bd1bff0faaddade29be3c125fca6355e3cee7700e975fdb5"},
+]
 tornado = [
     {file = "tornado-6.3.2-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:c367ab6c0393d71171123ca5515c61ff62fe09024fa6bf299cd1339dc9456829"},
     {file = "tornado-6.3.2-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:b46a6ab20f5c7c1cb949c72c1994a4585d2eaa0be4853f50a03b5031e964fc7c"},
@@ -3441,6 +3542,10 @@ tqdm = [
 traitlets = [
     {file = "traitlets-5.9.0-py3-none-any.whl", hash = "sha256:9e6ec080259b9a5940c797d58b613b5e31441c2257b87c2e795c5228ae80d2d8"},
     {file = "traitlets-5.9.0.tar.gz", hash = "sha256:f6cde21a9c68cf756af02035f72d5a723bf607e862e7be33ece505abf4a3bad9"},
+]
+typeguard = [
+    {file = "typeguard-4.0.0-py3-none-any.whl", hash = "sha256:c4a40af0ba8a41077221271b46d0a6d8d46045443e4d887887c69254ca861952"},
+    {file = "typeguard-4.0.0.tar.gz", hash = "sha256:194fb3dbcb06ea9caf7088f3befee014de57961689f9c859ac5239b1ef61d987"},
 ]
 typeo = []
 typing-extensions = [

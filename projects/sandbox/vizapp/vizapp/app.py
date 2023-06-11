@@ -12,6 +12,7 @@ from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
 from aframe.analysis.ledger.injections import InjectionParameterSet
 
 if TYPE_CHECKING:
+    import torch
     from astropy.cosmology import Cosmology
     from vizapp.vetoes import VetoParser
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
 class VizApp:
     def __init__(
         self,
+        model: "torch.nn.Module",
         base_directory: Path,
         data_directory: Path,
         cosmology: "Cosmology",
@@ -51,13 +53,22 @@ class VizApp:
         self.rejected_params = InjectionParameterSet.read(rejected)
 
         # move injection masses to source frame
+        # and calculate the chirp mass
+        # TODO: these should be moved to ledger api
         for obj in [self.foreground, self.rejected_params]:
             for i in range(2):
                 attr = f"mass_{i + 1}"
                 value = getattr(obj, attr)
                 setattr(obj, attr, value / (1 + obj.redshift))
 
-        # set upour veto selecter and set up the initially
+            # TODO: this is not registered as a dataclass field,
+            # so doing indexing / masking will raise an error
+            chirp_mass = (obj.mass_1 * obj.mass_2) ** (3 / 5) / (
+                obj.mass_1 + obj.mass_2
+            ) ** (1 / 5)
+            setattr(obj, "chirp_mass", chirp_mass)
+
+        # set up our veto selecter and set up the initially
         # blank veto mask, use this to update the sources
         # for all our pages
         self.veto_selecter = self.get_veto_selecter()
@@ -73,7 +84,7 @@ class VizApp:
             tab = TabPanel(child=page.get_layout(), title=title)
             tabs.append(tab)
 
-        # once pages are intialized, update vetoes
+        # once pages and their sources are intialized, update vetoes
         self.update_vetos(None, None, [])
 
         # set up a header with a title and the selecter
@@ -103,7 +114,7 @@ class VizApp:
                     veto_mask |= mask.any(axis=0)
             self.vetoes[label] = veto_mask
 
-        self.veto_mask = np.zeros_like(len(self.background), dtype=bool)
+        self.veto_mask = np.zeros(len(self.background), dtype=bool)
         return MultiChoice(title="Applied Vetoes", value=[], options=options)
 
     def update_vetos(self, attr, old, new):
@@ -122,6 +133,9 @@ class VizApp:
         # in the vetoed data
         for page in self.pages:
             page.update()
+
+    def load_model(self):
+        pass
 
     def __call__(self, doc):
         doc.add_root(self.layout)
