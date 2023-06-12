@@ -256,7 +256,7 @@ class InterferometerResponseSet(
     InjectionMetadata, ExtrinsicParameterSet, IntrinsicParameterSet
 ):
     def __post_init__(self):
-        # IntrinsicParameterSet.__post_init__(self)
+        IntrinsicParameterSet.__post_init__(self)
         InjectionMetadata.__post_init__(self)
         self._waveforms = None
 
