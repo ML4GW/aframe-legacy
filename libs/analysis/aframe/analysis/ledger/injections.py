@@ -36,18 +36,12 @@ class IntrinsicParameterSet(Ledger):
     phi_12: np.ndarray = parameter()
     phi_jl: np.ndarray = parameter()
     chirp_mass: np.ndarray = parameter(init=False)
-    mass_ratio: np.ndarray = parameter(init=False)
-    mass_1_source: np.ndarray = parameter(init=False)
-    mass_2_source: np.ndarray = parameter(init=False)
 
     def __post_init__(self):
+        print("intrinsic parameter set post init")
         self.chirp_mass = (self.mass_1 * self.mass_2) ** (3 / 5) / (
             self.mass_1 + self.mass_2
         ) ** (1 / 5)
-        self.mass_ratio = self.mass_1 / self.mass_2
-
-        self.mass_1_source = self.mass_1 / (1 + self.redshift)
-        self.mass_2_source = self.mass_2 / (1 + self.redshift)
 
 
 @dataclass
@@ -58,7 +52,7 @@ class InjectionMetadata(Ledger):
 
     def __post_init__(self):
         # verify that all waveforms have the appropriate duration
-        super().__post_init__()
+        Ledger.__post_init__(self)
         if self.num_injections < self._length:
             raise ValueError(
                 "{} has fewer total injections {} than "
@@ -248,6 +242,7 @@ class InterferometerResponseSet(
     InjectionMetadata, ExtrinsicParameterSet, IntrinsicParameterSet
 ):
     def __post_init__(self):
+        IntrinsicParameterSet.__post_init__(self)
         InjectionMetadata.__post_init__(self)
         self._waveforms = None
 
