@@ -100,7 +100,7 @@ class TestRecoveredInjectionSet:
         for name, attr in fields.items():
             if name == "gps_time" or name == "sample_rate":
                 continue
-            if attr.metadata["kind"] == "parameter":
+            if attr.metadata["kind"] == "parameter" and attr.init:
                 params[name] = np.arange(3)
 
         return injections.InterferometerResponseSet(num_injections=5, **params)

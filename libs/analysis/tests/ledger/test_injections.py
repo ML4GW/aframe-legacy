@@ -28,7 +28,7 @@ class TestLigoResponseSet:
 
         fields = injections.LigoResponseSet.__dataclass_fields__
         for name, attr in fields.items():
-            if attr.metadata["kind"] == "parameter":
+            if attr.metadata["kind"] == "parameter" and attr.init:
                 params[name] = np.zeros((N,))
             elif attr.metadata["kind"] == "waveform":
                 waveforms[name] = np.ones((N, size))
