@@ -38,7 +38,6 @@ class IntrinsicParameterSet(Ledger):
     chirp_mass: np.ndarray = parameter(init=False)
 
     def __post_init__(self):
-        print("intrinsic parameter set post init")
         self.chirp_mass = (self.mass_1 * self.mass_2) ** (3 / 5) / (
             self.mass_1 + self.mass_2
         ) ** (1 / 5)
@@ -52,6 +51,9 @@ class InjectionMetadata(Ledger):
 
     def __post_init__(self):
         # verify that all waveforms have the appropriate duration
+
+        # call Ledgers __post_init__ expicitly due to odd
+        # super() MRO behavior for classes with multiple inheritance
         Ledger.__post_init__(self)
         if self.num_injections < self._length:
             raise ValueError(
