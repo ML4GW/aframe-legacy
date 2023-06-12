@@ -251,6 +251,7 @@ class InterferometerResponseSet(
     def __post_init__(self):
         # initiate chain of mro __post_init__ calls
         super().__post_init__()
+        self._waveforms = None
 
     @property
     def waveforms(self) -> np.ndarray:

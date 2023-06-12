@@ -159,7 +159,7 @@ class Ledger:
                     "Couldn't load unknown annotation {} "
                     "for field {}".format(kind, key)
                 )
-            elif attr.init:
+            elif not attr.init:
                 continue
             else:
                 value = _try_get(kind + "s", key)
@@ -170,6 +170,7 @@ class Ledger:
                 else:
                     value = value[:]
 
+            kwargs[key] = value
         return cls(**kwargs)
 
     @classmethod
