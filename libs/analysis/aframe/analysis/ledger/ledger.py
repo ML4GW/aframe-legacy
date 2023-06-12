@@ -12,9 +12,9 @@ PATH = Union[str, bytes, os.PathLike]
 # define metadata for various types of injection set attributes
 # so that they can be easily extended by just annotating your
 # new argument with the appropriate type of field
-def parameter(default=None):
+def parameter(default=None, init=True):
     default = default or np.array([])
-    return field(metadata={"kind": "parameter"}, default=default)
+    return field(init=init, metadata={"kind": "parameter"}, default=default)
 
 
 def waveform(default=None):
@@ -84,7 +84,8 @@ class Ledger:
                 except TypeError:
                     value = np.array([value])
 
-            init_kwargs[key] = value
+            if attr.init:
+                init_kwargs[key] = value
         return type(self)(**init_kwargs)
 
     def _get_group(self, f: h5py.File, name: str):
@@ -167,7 +168,8 @@ class Ledger:
                 else:
                     value = value[:]
 
-            kwargs[key] = value
+            if attr.init:
+                kwargs[key] = value
         return cls(**kwargs)
 
     @classmethod

@@ -95,8 +95,10 @@ class RecoveredInjectionSet(TimeSlideEventSet, InterferometerResponseSet):
         for obj in [events, responses]:
             for key in obj.__dataclass_fields__:
                 if key in cls.__dataclass_fields__:
-                    value = getattr(obj, key)
-                    kwargs[key] = value
+                    if obj.__dataclass_fields__[key].init:
+                        value = getattr(obj, key)
+                        kwargs[key] = value
+
         return cls(**kwargs)
 
     @classmethod
