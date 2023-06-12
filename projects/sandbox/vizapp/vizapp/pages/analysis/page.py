@@ -12,7 +12,7 @@ class AnalysisPage(Page):
         self.distribution_plot.initialize_sources()
 
     def get_layout(self):
-        return self.distribution_plot.get_layout(height=400, width=1000)
+        return self.distribution_plot.get_layout(height=400, width=1500)
 
     def update(self):
         self.distribution_plot.update()

@@ -48,7 +48,7 @@ cosmology = "aframe.priors.cosmologies.planck"
 streams_per_gpu = 3
 waveform_approximant = "IMRPhenomPv2"
 verbose = true
-
+kernel_length = 10
 
 [tool.typeo.scripts.deploy-background]
 datadir = "${base.datadir}"
@@ -259,10 +259,12 @@ basedir = "${base.basedir}"
 ifos = "${base.ifos}"
 start = "${base.train_stop}"
 stop = "${base.test_stop}"
-veto_definer_file = "./vetoes/H1L1-HOFT_C01_O3_CBC.xml"
-gate_paths = {"H1" = "./vetoes/H1-O3_GATES_1238166018-31197600.txt" , "L1" = "./vetoes/L1-O3_GATES_1238166018-31197600.txt"}
+kernel_length = "${base.kernel_length}"
 sample_rate = "${base.sample_rate}"
 fduration = "${base.fduration}"
+veto_definer_file = "./vetoes/H1L1-HOFT_C01_O3_CBC.xml"
+gate_paths = {"H1" = "./vetoes/H1-O3_GATES_1238166018-31197600.txt" , "L1" = "./vetoes/L1-O3_GATES_1238166018-31197600.txt"}
+
 valid_frac = "${base.valid_frac}"
 #logdir = "${base.basedir}"
 cosmology = "${base.cosmology}"

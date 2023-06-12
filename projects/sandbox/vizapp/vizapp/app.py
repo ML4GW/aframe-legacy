@@ -16,11 +16,14 @@ if TYPE_CHECKING:
     from astropy.cosmology import Cosmology
     from vizapp.vetoes import VetoParser
 
+    from .structures import Preprocessor
+
 
 class VizApp:
     def __init__(
         self,
         model: "torch.nn.Module",
+        preprocessor: "Preprocessor",
         base_directory: Path,
         data_directory: Path,
         cosmology: "Cosmology",
@@ -35,6 +38,8 @@ class VizApp:
         self.logger.debug("Loading analyzed distributions")
 
         # set a bunch of attributes
+        self.model = model
+        self.preprocessor = preprocessor
         self.veto_parser = veto_parser
         self.ifos = ifos
         self.source_prior = source_prior

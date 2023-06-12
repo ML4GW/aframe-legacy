@@ -6,8 +6,10 @@ import torch
 from bokeh.server.server import Server
 
 from aframe.architectures import architecturize
+from aframe.architectures.preprocessor import Whitener
 from aframe.logging import configure_logging
 
+from . import structures
 from .app import VizApp
 from .vetoes import VetoParser
 
@@ -35,6 +37,8 @@ def main(
     sample_rate: float,
     fduration: float,
     valid_frac: float,
+    kernel_length: float,
+    highpass: Optional[float] = None,
     device: str = "cpu",
     port: int = 5005,
     logdir: Optional[Path] = None,
@@ -44,12 +48,26 @@ def main(
     logfile = logdir / "vizapp.log" if logdir is not None else None
     configure_logging(logfile, verbose)
 
+    # load in model weights
     model = architecture(len(ifos))
     model.to(device)
 
     weights = basedir / "training" / "weights.pt"
     model.load_state_dict(
         torch.load(weights, map_location=torch.device(device))
+    )
+
+    # initialize preprocessor that uses background_length seconds
+    # to calculate psd, and whiten data
+    background_length = kernel_length - (fduration + 1)
+    psd_estimator = structures.PsdEstimator(
+        background_length, sample_rate, fftlength=2, fast=highpass is not None
+    )
+    whitener = Whitener(fduration, sample_rate)
+
+    preprocessor = structures.Preprocessor(
+        whitener,
+        psd_estimator,
     )
 
     veto_definer_file = _normalize_path(veto_definer_file)
@@ -68,6 +86,7 @@ def main(
     source_prior, _ = source_prior()
     bkapp = VizApp(
         model=model,
+        preprocessor=preprocessor,
         base_directory=basedir,
         data_directory=datadir,
         cosmology=cosmology,

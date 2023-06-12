@@ -1,4 +1,5 @@
 import numpy as np
+from bokeh.layouts import row
 from bokeh.models import (
     BoxSelectTool,
     ColumnDataSource,
@@ -8,6 +9,21 @@ from bokeh.models import (
 )
 from bokeh.plotting import figure
 from vizapp import palette
+
+
+def find_glitches(events, times, shifts):
+    unique_times, counts = np.unique(times, return_counts=True)
+    mask = counts > 1
+    unique_times, counts = unique_times[mask], counts[mask]
+
+    centers, shift_groups = [], []
+    for t in unique_times:
+        mask = times == t
+        values = events[mask]
+        shift_values = shifts[mask]
+        centers.append(np.median(values))
+        shift_groups.append(shift_values)
+    return unique_times, counts, centers, shift_groups
 
 
 class DistributionPlot:
@@ -30,20 +46,32 @@ class DistributionPlot:
             "shift",
             "time",
         ]
-        back_attrs = ["detection_statistic"]
+        back_attrs = ["detection_statistic", "time"]
         background = {attr: getattr(background, attr) for attr in back_attrs}
         foreground = {attr: getattr(foreground, attr) for attr in fore_attrs}
         return background, foreground
 
     def initialize_sources(self):
         self.bar_source = ColumnDataSource(dict(center=[], top=[], width=[]))
-        self.background_source = ColumnDataSource(dict())
-        self.foreground_source = ColumnDataSource(dict())
+        self.background_source = ColumnDataSource(
+            dict(
+                x=[],
+                time=[],
+                detection_statistic=[],
+                color=[],
+                label=[],
+                count=[],
+                shift=[],
+                size=[],
+            )
+        )
+
+        self.foreground_source = ColumnDataSource(dict(size=[]))
 
     def get_layout(self, height, width):
         self.distribution_plot = figure(
             height=height,
-            width=width,
+            width=int(width * 0.55),
             y_axis_type="log",
             x_axis_label="Detection statistic",
             y_axis_label="Background survival function",
@@ -57,7 +85,7 @@ class DistributionPlot:
         box_select = BoxSelectTool(dimensions="width")
         self.distribution_plot.add_tools(box_select)
         self.distribution_plot.toolbar.active_drag = box_select
-        # self.bar_source.selected.on_change("indices", self.update_background)
+        self.bar_source.selected.on_change("indices", self.update_background)
 
         self.distribution_plot.extra_y_ranges = {"SNR": Range1d(1, 10)}
         axis = LogAxis(
@@ -67,8 +95,27 @@ class DistributionPlot:
         )
         self.distribution_plot.add_layout(axis, "right")
 
+        self.background_plot = figure(
+            height=height,
+            width=int(width * 0.45),
+            title="",
+            x_axis_label="GPS Time [s]",
+            y_axis_label="Detection statistic",
+            tools="box_zoom,reset",
+        )
+
+        hover = HoverTool(
+            tooltips=[
+                ("GPS time", "@{time}{0.000}"),
+                ("Detection statistic", "@{detection_statistic}"),
+                ("Count", "@count"),
+            ]
+        )
+        self.background_plot.add_tools(hover)
+        self.background_plot.legend.click_policy = "hide"
+
         self.plot_data()
-        return self.distribution_plot
+        return row(self.distribution_plot, self.background_plot)
 
     def plot_data(self):
         injection_renderer = self.distribution_plot.circle(
@@ -96,6 +143,8 @@ class DistributionPlot:
                 ("Detection statistic", "@{detection_statistic}"),
                 ("Mass 1", "@{mass_1}"),
                 ("Mass 2", "@{mass_2}"),
+                ("Mass 1 source", "@{mass_1_source}"),
+                ("Mass 2 source", "@{mass_2_source}"),
                 ("Chirp Mass", "@{chirp_mass}"),
             ],
             renderers=[injection_renderer],
@@ -119,22 +168,93 @@ class DistributionPlot:
             source=self.bar_source,
         )
 
+        self.background_plot.circle(
+            "x",
+            "detection_statistic",
+            fill_color="color",
+            fill_alpha=0.5,
+            line_color="color",
+            line_alpha=0.7,
+            hover_fill_color="color",
+            hover_fill_alpha=0.7,
+            hover_line_color="color",
+            hover_line_alpha=0.9,
+            size="size",
+            legend_group="label",
+            source=self.background_source,
+        )
+
+    def update_background(self, attr, old, new):
+        if len(new) < 2:
+            return
+
+        stats = np.array(self.bar_source.data["center"])
+        min_ = min([stats[i] for i in new])
+        max_ = max([stats[i] for i in new])
+        mask = self.background.detection_statistic >= min_
+        mask &= self.background.detection_statistic <= max_
+
+        self.background_plot.title.text = (
+            f"{mask.sum()} events with detection statistic in the range"
+            f"({min_:0.1f}, {max_:0.1f})"
+        )
+        events = self.background.detection_statistic[mask]
+        h1_times = self.background.time[mask]
+        shifts = self.background.shift[mask][:, 1]
+        l1_times = h1_times + shifts
+
+        unique_h1_times, h1_counts, h1_centers, h1_shifts = find_glitches(
+            events, h1_times, shifts
+        )
+        unique_l1_times, l1_counts, l1_centers, l1_shifts = find_glitches(
+            events, l1_times, shifts
+        )
+
+        centers = h1_centers + l1_centers
+        times = np.concatenate([unique_h1_times, unique_l1_times])
+        counts = np.concatenate([h1_counts, l1_counts])
+        shifts = h1_shifts + l1_shifts
+        colors = [palette[0]] * len(h1_counts) + [palette[1]] * len(l1_counts)
+        labels = ["Hanford"] * len(h1_counts) + ["Livingston"] * len(l1_counts)
+
+        t0 = h1_times.min()
+        self.background_plot.xaxis.axis_label = f"Time from {t0:0.3f} [hours]"
+        self.background_plot.legend.visible = True
+
+        x = times - t0
+        x /= 3600
+        self.background_source.data.update(
+            dict(
+                x=times - t0,
+                time=times,
+                detection_statistic=centers,
+                color=colors,
+                label=labels,
+                count=counts,
+                shift=shifts,
+                size=2 * (counts**0.8),
+            )
+        )
+        self.background_source.selected.indices = []
+
     def update(self):
         # apply vetoes to background, update data source, and update title
         background = self.page.app.background
-        foreground = self.page.app.foreground
 
-        background = background[~self.page.app.veto_mask]
+        self.foreground = self.page.app.foreground
+        self.background = background[~self.page.app.veto_mask]
 
         title = (
             "{} background events from {:0.2f} "
             "days worth of data; {} injections overlayed"
         ).format(
-            len(background),
+            len(self.background),
             background.Tb / 3600 / 24,
-            len(foreground),
+            len(self.foreground),
         )
-        background_dict, foreground_dict = self.asdict(background, foreground)
+        background_dict, foreground_dict = self.asdict(
+            self.background, self.foreground
+        )
 
         self.background_source.data = background_dict
         self.foreground_source.data = foreground_dict
@@ -156,8 +276,31 @@ class DistributionPlot:
         # update snr axis of plot
         # add extra y axis range to show SNR's of events
         self.distribution_plot.extra_y_ranges["SNR"].start = (
-            0.5 * foreground.snr.min()
+            0.5 * self.foreground.snr.min()
         )
         self.distribution_plot.extra_y_ranges["SNR"].end = (
-            2 * foreground.snr.max()
+            2 * self.foreground.snr.max()
         )
+
+        # clear the background plot until we select another
+        # range of detection characteristics to plot
+        self.background_source.data.update(
+            dict(
+                x=[],
+                time=[],
+                detection_statistic=[],
+                color=[],
+                label=[],
+                count=[],
+                shift=[],
+                size=[],
+            )
+        )
+        self.bar_source.selected.indices = []
+        self.foreground_source.selected.indices = []
+        self.background_source.selected.indices = []
+
+        self.background_plot.title.text = (
+            "Select detection characteristic range at left"
+        )
+        self.background_plot.xaxis.axis_label = "GPS Time [s]"
