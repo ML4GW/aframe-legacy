@@ -12,9 +12,9 @@ PATH = Union[str, bytes, os.PathLike]
 # define metadata for various types of injection set attributes
 # so that they can be easily extended by just annotating your
 # new argument with the appropriate type of field
-def parameter(default=None):
+def parameter(default=None, init=True):
     default = default or np.array([])
-    return field(metadata={"kind": "parameter"}, default=default)
+    return field(metadata={"kind": "parameter"}, default=default, init=init)
 
 
 def waveform(default=None):

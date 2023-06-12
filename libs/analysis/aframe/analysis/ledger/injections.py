@@ -35,6 +35,19 @@ class IntrinsicParameterSet(Ledger):
     tilt_2: np.ndarray = parameter()
     phi_12: np.ndarray = parameter()
     phi_jl: np.ndarray = parameter()
+    chirp_mass: np.ndarray = parameter(init=False)
+    mass_ratio: np.ndarray = parameter(init=False)
+    mass_1_source: np.ndarray = parameter(init=False)
+    mass_2_source: np.ndarray = parameter(init=False)
+
+    def __post_init__(self):
+        self.chirp_mass = (self.mass_1 * self.mass_2) ** (3 / 5) / (
+            self.mass_1 + self.mass_2
+        ) ** (1 / 5)
+        self.mass_ratio = self.mass_1 / self.mass_2
+
+        self.mass_1_source = self.mass_1 / (1 + self.redshift)
+        self.mass_2_source = self.mass_2 / (1 + self.redshift)
 
 
 @dataclass
