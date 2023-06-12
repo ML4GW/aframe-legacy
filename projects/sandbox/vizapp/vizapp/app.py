@@ -52,22 +52,6 @@ class VizApp:
         )
         self.rejected_params = InjectionParameterSet.read(rejected)
 
-        # move injection masses to source frame
-        # and calculate the chirp mass
-        # TODO: these should be moved to ledger api
-        for obj in [self.foreground, self.rejected_params]:
-            for i in range(2):
-                attr = f"mass_{i + 1}"
-                value = getattr(obj, attr)
-                setattr(obj, attr, value / (1 + obj.redshift))
-
-            # TODO: this is not registered as a dataclass field,
-            # so doing indexing / masking will raise an error
-            chirp_mass = (obj.mass_1 * obj.mass_2) ** (3 / 5) / (
-                obj.mass_1 + obj.mass_2
-            ) ** (1 / 5)
-            setattr(obj, "chirp_mass", chirp_mass)
-
         # set up our veto selecter and set up the initially
         # blank veto mask, use this to update the sources
         # for all our pages
