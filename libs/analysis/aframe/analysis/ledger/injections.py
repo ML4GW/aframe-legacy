@@ -54,6 +54,7 @@ class InjectionMetadata(Ledger):
 
         # call Ledgers __post_init__ expicitly due to odd
         # super() MRO behavior for classes with multiple inheritance
+        # (e.g. InterferometerResponseSet)
         Ledger.__post_init__(self)
         if self.num_injections < self._length:
             raise ValueError(
