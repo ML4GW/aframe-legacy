@@ -249,7 +249,6 @@ class InterferometerResponseSet(
     InjectionMetadata, ExtrinsicParameterSet, IntrinsicParameterSet
 ):
     def __post_init__(self):
-        print("IRS post init")
         # initiate chain of mro __post_init__ calls
         super().__post_init__()
         self._waveforms = None
