@@ -79,6 +79,9 @@ class Ledger:
             value = getattr(self, key)
             if attr.metadata["kind"] != "metadata":
                 value = value.__getitem__(*args, **kwargs)
+                if attr.name == "shift":
+                    if value.ndim == 1:
+                        value = value[None]
                 try:
                     len(value)
                 except TypeError:
@@ -86,6 +89,7 @@ class Ledger:
 
             if attr.init:
                 init_kwargs[key] = value
+
         return type(self)(**init_kwargs)
 
     def _get_group(self, f: h5py.File, name: str):
@@ -148,7 +152,6 @@ class Ledger:
                 raise TypeError(
                     f"Couldn't load field {key} with no 'kind' metadata"
                 )
-
             if kind == "metadata":
                 try:
                     value = f.attrs[key]
