@@ -43,6 +43,7 @@ class IntrinsicParameterSet(Ledger):
     mass_2_source: np.ndarray = parameter(init=False)
 
     def __post_init__(self):
+        super().__post_init__()
         self.chirp_mass = (self.mass_1 * self.mass_2) ** (3 / 5) / (
             self.mass_1 + self.mass_2
         ) ** (1 / 5)
@@ -60,13 +61,7 @@ class InjectionMetadata(Ledger):
 
     def __post_init__(self):
         # verify that all waveforms have the appropriate duration
-
-        # call Ledgers __post_init__ expicitly due to odd
-        # super() MRO behavior for classes with multiple inheritance.
-        # The new IntrinsicParameterSet __post_init__ method was being
-        # called instead of the Ledger __post_init__ method.
-
-        Ledger.__post_init__(self)
+        super().__post_init__()
         if self.num_injections < self._length:
             raise ValueError(
                 "{} has fewer total injections {} than "
@@ -256,9 +251,8 @@ class InterferometerResponseSet(
     InjectionMetadata, ExtrinsicParameterSet, IntrinsicParameterSet
 ):
     def __post_init__(self):
-        IntrinsicParameterSet.__post_init__(self)
-        InjectionMetadata.__post_init__(self)
-        self._waveforms = None
+        # initiate chain of mro __post_init__ calls
+        super().__post_init__()
 
     @property
     def waveforms(self) -> np.ndarray:
