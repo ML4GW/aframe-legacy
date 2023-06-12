@@ -35,10 +35,8 @@ class IntrinsicParameterSet(Ledger):
     tilt_2: np.ndarray = parameter()
     phi_12: np.ndarray = parameter()
     phi_jl: np.ndarray = parameter()
-
     chirp_mass: np.ndarray = parameter(init=False)
     mass_ratio: np.ndarray = parameter(init=False)
-
     mass_1_source: np.ndarray = parameter(init=False)
     mass_2_source: np.ndarray = parameter(init=False)
 
