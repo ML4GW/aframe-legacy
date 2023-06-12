@@ -23,6 +23,8 @@ class DistributionPlot:
             "shift",
             "mass_1",
             "mass_2",
+            "mass_1_source",
+            "mass_2_source",
             "snr",
             "detection_statistic",
             "shift",

@@ -5,7 +5,7 @@ from vizapp.pages.page import Page
 class AnalysisPage(Page):
     def __init__(self, app):
         self.app = app
-        self.background_plot = DistributionPlot(self)
+        self.distribution_plot = DistributionPlot(self)
         self.initialize_sources()
 
     def initialize_sources(self) -> None:
@@ -15,4 +15,4 @@ class AnalysisPage(Page):
         return self.distribution_plot.get_layout(height=400, width=1000)
 
     def update(self):
-        self.background_plot.update()
+        self.distribution_plot.update()

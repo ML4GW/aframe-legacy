@@ -41,7 +41,7 @@ class Ledger:
         # everything that isn't metadata has the same length
         _length = None
         for key, attr in self.__dataclass_fields__.items():
-            if attr.metadata["kind"] == "metadata":
+            if attr.metadata["kind"] == "metadata" or not attr.init:
                 continue
             value = getattr(self, key)
 
@@ -159,6 +159,8 @@ class Ledger:
                     "Couldn't load unknown annotation {} "
                     "for field {}".format(kind, key)
                 )
+            elif not attr.init:
+                continue
             else:
                 value = _try_get(kind + "s", key)
                 if idx is not None:
@@ -168,8 +170,7 @@ class Ledger:
                 else:
                     value = value[:]
 
-            if attr.init:
-                kwargs[key] = value
+            kwargs[key] = value
         return cls(**kwargs)
 
     @classmethod

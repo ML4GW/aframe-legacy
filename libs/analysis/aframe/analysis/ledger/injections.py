@@ -46,7 +46,7 @@ class IntrinsicParameterSet(Ledger):
             self.mass_1 + self.mass_2
         ) ** (1 / 5)
 
-        self.mass_ratio = self.mass_1 / self.mass_2
+        self.mass_ratio = self.mass_2 / self.mass_1
         self.mass_1_source = self.mass_1 / (1 + self.redshift)
         self.mass_2_source = self.mass_2 / (1 + self.redshift)
 
@@ -251,6 +251,7 @@ class InterferometerResponseSet(
     def __post_init__(self):
         # initiate chain of mro __post_init__ calls
         super().__post_init__()
+        self._waveforms = None
 
     @property
     def waveforms(self) -> np.ndarray:
