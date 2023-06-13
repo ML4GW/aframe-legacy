@@ -29,7 +29,11 @@ def main(
     sample_rate: float,
     batch_size: int,
     fduration: float,
+<<<<<<< HEAD
     psd_length: float,
+=======
+    background_length: float = 16,
+>>>>>>> d7a8c93 (adding new export module)
     fftlength: float = 8,
     highpass: Optional[float] = None,
     weights: Optional[Path] = None,
@@ -115,6 +119,7 @@ def main(
     nn.load_state_dict(state_dict)
     nn.eval()
 
+<<<<<<< HEAD
     background_length = kernel_length - (fduration + 1)
     preprocessor = Preprocessor(
         background_length,
@@ -125,6 +130,8 @@ def main(
         highpass=highpass,
     )
 
+=======
+>>>>>>> d7a8c93 (adding new export module)
     # instantiate a model repository at the
     # indicated location. Split up the preprocessor
     # and the neural network (which we'll call aframe)
@@ -141,14 +148,7 @@ def main(
     if aframe_instances is not None:
         scale_model(aframe, aframe_instances)
 
-
-    # start by exporting the preprocessor, then  use
-    # its inferred output shape to export the network
-    input_dim = int(kernel_length * sample_rate)
-    input_shape = (batch_size, num_ifos, input_dim)
-    
-
-    size = int(kernel_length * sample_rate)
+    size = int((kernel_length - fduration) * sample_rate)
     input_shape = (batch_size, num_ifos, size)
     # the network will have some different keyword
     # arguments required for export depending on
@@ -185,7 +185,11 @@ def main(
         whitened = add_streaming_input_preprocessor(
             ensemble,
             aframe.inputs["whitened"],
+<<<<<<< HEAD
             psd_length=psd_length,
+=======
+            background_length=background_length,
+>>>>>>> d7a8c93 (adding new export module)
             sample_rate=sample_rate,
             inference_sampling_rate=inference_sampling_rate,
             fduration=fduration,
