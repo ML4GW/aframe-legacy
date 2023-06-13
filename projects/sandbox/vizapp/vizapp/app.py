@@ -9,10 +9,7 @@ from bokeh.models import Div, MultiChoice, TabPanel, Tabs
 from vizapp.pages import AnalysisPage, PerformanceSummaryPage
 
 from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
-from aframe.analysis.ledger.injections import (
-    InjectionParameterSet,
-    LigoResponseSet,
-)
+from aframe.analysis.ledger.injections import InjectionParameterSet
 
 if TYPE_CHECKING:
     import torch
@@ -33,6 +30,8 @@ class VizApp:
         source_prior: "bilby.core.prior.PriorDict",
         ifos: List[str],
         sample_rate: float,
+        inference_stride: int,
+        kernel_length: float,
         fduration: float,
         valid_frac: float,
         veto_parser: "VetoParser",
@@ -50,18 +49,21 @@ class VizApp:
         self.sample_rate = sample_rate
         self.fduration = fduration
         self.valid_frac = valid_frac
+        self.inference_stride = inference_stride
         self.strain_dir = data_directory / "test" / "background"
+        self.kernel_length = kernel_length
+        self.background_length = kernel_length - (fduration + 1)
 
         # load results and data from the run we're visualizing
-        responses = data_directory / "test" / "waveforms.h5"
-        infer_dir = base_directory / "infer"
+        self.response_path = data_directory / "test" / "waveforms.h5"
         rejected = data_directory / "test" / "rejected-parameters.h5"
+
+        infer_dir = base_directory / "infer"
         self.background = EventSet.read(infer_dir / "background.h5")
         self.foreground = RecoveredInjectionSet.read(
             infer_dir / "foreground.h5"
         )
         self.rejected_params = InjectionParameterSet.read(rejected)
-        self.responses = LigoResponseSet.read(responses)
 
         # set up our veto selecter and set up the initially
         # blank veto mask, use this to update the sources
@@ -128,9 +130,6 @@ class VizApp:
         # in the vetoed data
         for page in self.pages:
             page.update()
-
-    def load_model(self):
-        pass
 
     def __call__(self, doc):
         doc.add_root(self.layout)

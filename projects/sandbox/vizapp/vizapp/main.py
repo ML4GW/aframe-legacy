@@ -35,6 +35,7 @@ def main(
     start: float,
     stop: float,
     sample_rate: float,
+    inference_sampling_rate: float,
     fduration: float,
     valid_frac: float,
     kernel_length: float,
@@ -82,6 +83,7 @@ def main(
         ifos,
     )
 
+    inference_stride = int(sample_rate / inference_sampling_rate)
     cosmology = cosmology()
     source_prior, _ = source_prior()
     bkapp = VizApp(
@@ -93,6 +95,8 @@ def main(
         source_prior=source_prior,
         ifos=ifos,
         sample_rate=sample_rate,
+        inference_stride=inference_stride,
+        kernel_length=kernel_length,
         fduration=fduration,
         valid_frac=valid_frac,
         veto_parser=veto_parser,

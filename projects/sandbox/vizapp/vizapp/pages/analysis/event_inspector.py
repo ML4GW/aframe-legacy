@@ -1,3 +1,4 @@
+import logging
 import re
 from pathlib import Path
 from typing import Tuple
@@ -43,8 +44,7 @@ def get_strain_fname(data_dir: Path, event_time: float):
             "No file containing event time {} in "
             "data directory {}".format(event_time, data_dir)
         )
-
-    return fname, t0
+    return fname, t0, dur
 
 
 class EventInspectorPlot:
@@ -57,11 +57,11 @@ class EventInspectorPlot:
         self.background_length = self.page.app.background_length
         self.sample_rate = self.page.app.sample_rate
         self.kernel_length = self.page.app.kernel_length
-        self.kernel_size = self.kernel_length * self.sample_rate
-        self.stride_size = self.page.app.stride_size
+        self.kernel_size = int(self.kernel_length * self.sample_rate)
+        self.inference_stride = self.page.app.inference_stride
+        self.ifos = self.page.app.ifos
 
         self.foreground = self.page.app.foreground
-        self.responses = self.page.app.responses
 
     def initialize_sources(self):
         self.strain_source = ColumnDataSource(dict(H1=[], L1=[], t=[]))
@@ -69,11 +69,11 @@ class EventInspectorPlot:
             dict(nn=[], integrated=[], t=[])
         )
 
-    def configure_plots(self, height: int, width: int) -> None:
+    def get_layout(self, height: int, width: int) -> None:
         self.timeseries_plot = figure(
             title="Click on an event to inspect",
             height=height,
-            width=int(width / 3),
+            width=width,
             y_range=(-2, 2),
             x_range=(-3, 3),
             x_axis_label="Time [s]",
@@ -132,48 +132,68 @@ class EventInspectorPlot:
         self.timeseries_plot.add_tools(hover)
         self.timeseries_plot.legend.click_policy = "mute"
 
-        self.layout = self.timeseries_plot
+        return self.timeseries_plot
 
-    def get_background_strain(self, time: float, shifts: Tuple[float, float]):
+    def get_background_strain(
+        self, time: float, pad: int, shifts: Tuple[float, float]
+    ):
+        # query the background strain including data from the shift
         fname, t0, duration = get_strain_fname(self.strain_dir, time)
-        sample_times = np.arange(t0, t0 + duration, 1 / self.sample_rate)
+        times = np.arange(t0, t0 + duration, 1 / self.sample_rate)
 
         start, stop = get_indices(
-            sample_times, time - self.kernel_length, time + self.fduration + 1
+            times,
+            time - self.kernel_length - pad,
+            time + self.fduration + 1 + pad,
         )
-        sample_times = sample_times[start:stop]
+        times = times[start:stop]
         strain = []
-        for ifo, shift in zip(self.ifos, shifts):
-            shift_size = shift * self.sample_rate
-            start_shifted, stop_shifted = start + shift_size, stop + shift_size
-            with h5py.File(fname, "r") as f:
+        with h5py.File(fname, "r") as f:
+            for ifo, shift in zip(self.ifos, shifts):
+                shift_size = int(shift * self.sample_rate)
+                start_shifted, stop_shifted = (
+                    start + shift_size,
+                    stop + shift_size,
+                )
                 data = torch.tensor(f[ifo][start_shifted:stop_shifted])
-            strain.append(data)
+                strain.append(data)
 
-        return torch.stack(strain, axis=0)
+        return torch.stack(strain, axis=0), times
 
     def inject(self, strain, time, shifts):
+        # find the closest injection that corresponds to event
+        # time and shifts and read it in
         waveform = LigoResponseSet.read(
-            self.waveform_path, time - 0.1, time + 0.1, shifts
+            self.page.app.response_path, time - 1000, time + 1000, shifts
         )
+        if len(waveform) == 0:
+            return
 
-        strain = torch.stack(
+        waveform = torch.stack(
             [
                 torch.tensor(getattr(waveform, ifo.lower())[0])
                 for ifo in self.ifos
             ],
             axis=0,
         )
-        waveform = self.find_injection(time, shifts, self.ifos)
+        waveform *= 2
+        # reduce waveform length to 2 seconds
+        waveform_length = waveform.shape[-1] / self.sample_rate
+        idx = int(self.sample_rate * (waveform_length - 2) // 2)
+        waveform = waveform[:, idx:-idx]
+
+        # inject waveform into strain
         waveform_size = waveform.shape[-1]
-        waveform_start = int(self.kernel_size - (waveform_size / 2))
+        waveform_start = int(
+            (self.kernel_size + (4 * self.sample_rate)) - (waveform_size / 2)
+        )
         waveform_stop = waveform_start + waveform_size
         strain[:, waveform_start:waveform_stop] += waveform
         return strain
 
     def analyze_strain(self, strain):
-        batch = unfold_windows(strain, self.kernel_size, self.stride_size)
-        whitened = self.preprocessor(batch)
+        batch = unfold_windows(strain, self.kernel_size, self.inference_stride)
+        whitened = self.page.app.preprocessor(batch)
         outputs = self.model(whitened)
         return outputs, whitened
 
@@ -182,28 +202,43 @@ class EventInspectorPlot:
         event_time: float,
         event_type: str,
         shift: np.ndarray,
-        **metadata,
+        title: str,
     ) -> None:
 
+        event_time = 1262844473 + 6000
         foreground = event_type == "foreground"
-        strain, times = self.get_background_strain(event_time, shift)
-        times = times - event_time
+        pad = 4
+        strain, times = self.get_background_strain(event_time, pad, shift)
         if foreground:
             strain = self.inject(strain, event_time, shift)
+            if strain is None:
+                logging.warning(
+                    "No waveform found for event time {}".format(event_time)
+                )
 
         nn, whitened = self.analyze_strain(strain)
 
-        nn = nn.cpu().numpy()
-        h1, l1 = whitened.cpu().numpy()
-        self.strain_source.data = {"H1": h1, "L1": l1, "t": times}
+        # times refer to front of window
+        start = int(
+            (self.kernel_length - (self.fduration // 2)) * self.sample_rate
+        )
+        inference_times = times[start :: self.inference_stride]
 
-        for r in self.strain_renderers:
-            r.data_source.data = {"H1": h1, "L1": l1, "t": times}
+        # normalize times with respect to event time
+        times = times - event_time
+        inference_times = inference_times - event_time
+        nn = nn.detach().numpy().flatten()
+        # self.strain_source.data = {"H1": h1, "L1": l1, "t": times}
+
+        # for r in self.strain_renderers:
+        # r.data_source.data = {"H1": h1, "L1": l1, "t": times}
 
         self.response_source.data = {
             "nn": nn,
-            "t": times,
+            "t": inference_times,
         }
+        for r in self.output_renderers:
+            r.data_source.data = dict(nn=nn, t=inference_times)
 
         nn_min = nn.min()
         nn_max = nn.max()
@@ -217,15 +252,7 @@ class EventInspectorPlot:
         self.timeseries_plot.xaxis.axis_label = (
             f"Time from {event_time:0.3f} [s]"
         )
-        if event_type == "foreground":
-            title = "Injected Event: "
-            info = []
-            for key, value in metadata.items():
-                key = key.replace("_", " ")
-                info.append(f"{key}={value:0.1f}")
-            title += ", ".join(info)
-        else:
-            title = "Background Event"
+
         self.timeseries_plot.title.text = title
 
     def reset(self):

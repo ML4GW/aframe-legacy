@@ -6,6 +6,7 @@ from bokeh.models import (
     HoverTool,
     LogAxis,
     Range1d,
+    TapTool,
 )
 from bokeh.plotting import figure
 from vizapp import palette
@@ -26,29 +27,31 @@ def find_glitches(events, times, shifts):
     return unique_times, counts, centers, shift_groups
 
 
-class DistributionPlot:
-    def __init__(self, page) -> None:
-        self.page = page
+FORE_ATTRS = [
+    "chirp_mass",
+    "shift",
+    "mass_1",
+    "mass_2",
+    "mass_1_source",
+    "mass_2_source",
+    "snr",
+    "detection_statistic",
+    "shift",
+    "time",
+]
+BACK_ATTRS = ["detection_statistic", "time"]
 
+
+class DistributionPlot:
+    def __init__(self, page, event_inspector) -> None:
+        self.page = page
+        self.event_inspector = event_inspector
         self.bckgd_color = palette[4]
         self.frgd_color = palette[2]
 
     def asdict(self, background, foreground):
-        fore_attrs = [
-            "chirp_mass",
-            "shift",
-            "mass_1",
-            "mass_2",
-            "mass_1_source",
-            "mass_2_source",
-            "snr",
-            "detection_statistic",
-            "shift",
-            "time",
-        ]
-        back_attrs = ["detection_statistic", "time"]
-        background = {attr: getattr(background, attr) for attr in back_attrs}
-        foreground = {attr: getattr(foreground, attr) for attr in fore_attrs}
+        background = {attr: getattr(background, attr) for attr in BACK_ATTRS}
+        foreground = {attr: getattr(foreground, attr) for attr in FORE_ATTRS}
         return background, foreground
 
     def initialize_sources(self):
@@ -151,6 +154,12 @@ class DistributionPlot:
         )
         self.distribution_plot.add_tools(hover)
 
+        tap = TapTool()
+        self.foreground_source.selected.on_change(
+            "indices", self.inspect_event
+        )
+        self.distribution_plot.add_tools(tap)
+
         self.distribution_plot.vbar(
             "center",
             top="top",
@@ -183,6 +192,11 @@ class DistributionPlot:
             legend_group="label",
             source=self.background_source,
         )
+        tap = TapTool()
+        self.background_source.selected.on_change(
+            "indices", self.inspect_glitch
+        )
+        self.background_plot.add_tools(tap)
 
     def update_background(self, attr, old, new):
         if len(new) < 2:
@@ -237,10 +251,44 @@ class DistributionPlot:
         )
         self.background_source.selected.indices = []
 
+    def inspect_event(self, attr, old, new):
+        print("inspecting event")
+        if len(new) != 1:
+            return
+        idx = new[0]
+        event_time = self.foreground_source.data["time"][idx]
+        shift = self.foreground_source.data["shift"][idx]
+        snr = self.foreground_source.data["snr"][idx]
+        chirp_mass = self.foreground_source.data["chirp_mass"][idx]
+
+        title = "Injected Event: "
+        title += f"SNR = {snr:0.1f}, "
+        title += f"Chirp Mass = {chirp_mass:0.1f}"
+
+        # don't need to subtract 1 from the event time here
+        # since we're using the actual known injection time
+        self.event_inspector.update(
+            event_time,
+            "foreground",
+            shift,
+            title,
+        )
+
+    def inspect_glitch(self, attr, old, new):
+        print("inspecting glitch")
+        if len(new) != 1:
+            return
+
+        idx = new[0]
+        event_time = self.background_source.data["time"][idx]
+        shift = self.background_source.data["shift"][idx]
+        self.event_inspector.update(
+            event_time, "background", shift, "Background Event"
+        )
+
     def update(self):
         # apply vetoes to background, update data source, and update title
         background = self.page.app.background
-
         self.foreground = self.page.app.foreground
         self.background = background[~self.page.app.veto_mask]
 
