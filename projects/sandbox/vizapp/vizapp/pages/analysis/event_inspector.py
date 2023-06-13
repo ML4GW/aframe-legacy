@@ -1,7 +1,7 @@
-import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import List
 
 import h5py
 import numpy as np
@@ -47,21 +47,109 @@ def get_strain_fname(data_dir: Path, event_time: float):
     return fname, t0, dur
 
 
-class EventInspectorPlot:
-    def __init__(self, page):
-        self.page = page
-        # intialize some attrs that live in the app
-        self.strain_dir = self.page.app.strain_dir
-        self.fduration = self.page.app.fduration
-        self.model = self.page.app.model
-        self.background_length = self.page.app.background_length
-        self.sample_rate = self.page.app.sample_rate
-        self.kernel_length = self.page.app.kernel_length
-        self.kernel_size = int(self.kernel_length * self.sample_rate)
-        self.inference_stride = self.page.app.inference_stride
-        self.ifos = self.page.app.ifos
+@dataclass
+class EventAnalyzer:
+    model: torch.nn.Module
+    preprocessor: torch.nn.Module
+    strain_dir: Path
+    response_path: Path
+    fduration: float
+    inference_window_length: float
+    inference_sampling_rate: float
+    ifos: List[str]
+    background_length: float
+    sample_rate: float
+    pad: float
 
-        self.foreground = self.page.app.foreground
+    def __post_init__(self):
+        self.kernel_length = (
+            self.inference_window_length
+            + self.background_length
+            + self.fduration
+        )
+        self.kernel_size = int(self.kernel_length * self.sample_rate)
+        self.inference_stride = int(
+            self.sample_rate / self.inference_sampling_rate
+        )
+
+    def find_strain(self, time: float, shifts: np.ndarray):
+        # query the background strain including data from the shift
+        fname, t0, duration = get_strain_fname(self.strain_dir, time)
+        times = np.arange(t0, t0 + duration, 1 / self.sample_rate)
+
+        start, stop = get_indices(
+            times,
+            time - self.kernel_length - self.pad,
+            time + self.fduration + 1 + self.pad,
+        )
+        times = times[start:stop]
+        strain = []
+        with h5py.File(fname, "r") as f:
+            for ifo, shift in zip(self.ifos, shifts):
+                shift_size = int(shift * self.sample_rate)
+                start_shifted, stop_shifted = (
+                    start + shift_size,
+                    stop + shift_size,
+                )
+                data = torch.tensor(f[ifo][start_shifted:stop_shifted])
+                strain.append(data)
+
+        return torch.stack(strain, axis=0), times
+
+    def find_waveform(self, time: float, shifts: np.ndarray):
+        # find the closest injection that corresponds to event
+        # time and shifts from waveform dataset
+        waveform = LigoResponseSet.read(
+            self.response_path, time - 0.1, time + 0.1, shifts
+        )
+
+        waveform = torch.stack(
+            [
+                torch.tensor(getattr(waveform, ifo.lower())[0])
+                for ifo in self.ifos
+            ],
+            axis=0,
+        )
+
+        # reduce waveform length to 2 seconds
+        waveform_length = waveform.shape[-1] / self.sample_rate
+        idx = int(self.sample_rate * (waveform_length - 2) // 2)
+        waveform = waveform[:, idx:-idx]
+        return waveform
+
+    def inject(self, strain, waveform):
+        # inject waveform into strain
+        waveform_size = waveform.shape[-1]
+        waveform_start = int(
+            (self.kernel_size + (self.pad * self.sample_rate))
+            - (waveform_size / 2)
+        )
+        waveform_stop = waveform_start + waveform_size
+        strain[:, waveform_start:waveform_stop] += waveform
+        return strain
+
+    def __call__(self, time: float, shifts: np.ndarray, foreground: bool):
+        strain, times = self.find_strain(time, shifts)
+        if foreground:
+            waveform = self.find_waveform(time, shifts)
+            strain = self.inject(strain, waveform)
+        batch = unfold_windows(strain, self.kernel_size, self.inference_stride)
+        whitened = self.preprocessor(batch)
+        outputs = self.model(whitened)
+
+        # times refer to front of window
+        start = int(
+            (self.kernel_length - (self.fduration // 2)) * self.sample_rate
+        )
+        inference_times = times[start :: self.inference_stride]
+
+        return outputs, whitened, times, inference_times
+
+
+class EventInspectorPlot:
+    def __init__(self, page, analyzer: EventAnalyzer):
+        self.page = page
+        self.analyzer = analyzer
 
     def initialize_sources(self):
         self.strain_source = ColumnDataSource(dict(H1=[], L1=[], t=[]))
@@ -134,69 +222,6 @@ class EventInspectorPlot:
 
         return self.timeseries_plot
 
-    def get_background_strain(
-        self, time: float, pad: int, shifts: Tuple[float, float]
-    ):
-        # query the background strain including data from the shift
-        fname, t0, duration = get_strain_fname(self.strain_dir, time)
-        times = np.arange(t0, t0 + duration, 1 / self.sample_rate)
-
-        start, stop = get_indices(
-            times,
-            time - self.kernel_length - pad,
-            time + self.fduration + 1 + pad,
-        )
-        times = times[start:stop]
-        strain = []
-        with h5py.File(fname, "r") as f:
-            for ifo, shift in zip(self.ifos, shifts):
-                shift_size = int(shift * self.sample_rate)
-                start_shifted, stop_shifted = (
-                    start + shift_size,
-                    stop + shift_size,
-                )
-                data = torch.tensor(f[ifo][start_shifted:stop_shifted])
-                strain.append(data)
-
-        return torch.stack(strain, axis=0), times
-
-    def inject(self, strain, time, shifts):
-        # find the closest injection that corresponds to event
-        # time and shifts and read it in
-        waveform = LigoResponseSet.read(
-            self.page.app.response_path, time - 1000, time + 1000, shifts
-        )
-        if len(waveform) == 0:
-            return
-
-        waveform = torch.stack(
-            [
-                torch.tensor(getattr(waveform, ifo.lower())[0])
-                for ifo in self.ifos
-            ],
-            axis=0,
-        )
-        waveform *= 2
-        # reduce waveform length to 2 seconds
-        waveform_length = waveform.shape[-1] / self.sample_rate
-        idx = int(self.sample_rate * (waveform_length - 2) // 2)
-        waveform = waveform[:, idx:-idx]
-
-        # inject waveform into strain
-        waveform_size = waveform.shape[-1]
-        waveform_start = int(
-            (self.kernel_size + (4 * self.sample_rate)) - (waveform_size / 2)
-        )
-        waveform_stop = waveform_start + waveform_size
-        strain[:, waveform_start:waveform_stop] += waveform
-        return strain
-
-    def analyze_strain(self, strain):
-        batch = unfold_windows(strain, self.kernel_size, self.inference_stride)
-        whitened = self.page.app.preprocessor(batch)
-        outputs = self.model(whitened)
-        return outputs, whitened
-
     def update(
         self,
         event_time: float,
@@ -205,25 +230,13 @@ class EventInspectorPlot:
         title: str,
     ) -> None:
 
-        event_time = 1262844473 + 6000
+        event_time = 1262844473 + np.random() * 10000
         foreground = event_type == "foreground"
-        pad = 4
-        strain, times = self.get_background_strain(event_time, pad, shift)
-        if foreground:
-            strain = self.inject(strain, event_time, shift)
-            if strain is None:
-                logging.warning(
-                    "No waveform found for event time {}".format(event_time)
-                )
 
-        nn, whitened = self.analyze_strain(strain)
-
-        # times refer to front of window
-        start = int(
-            (self.kernel_length - (self.fduration // 2)) * self.sample_rate
+        nn, whitened, times, inference_times = self.analyzer(
+            event_time, shift, foreground
         )
-        inference_times = times[start :: self.inference_stride]
-
+        print(nn)
         # normalize times with respect to event time
         times = times - event_time
         inference_times = inference_times - event_time

@@ -38,7 +38,8 @@ def main(
     inference_sampling_rate: float,
     fduration: float,
     valid_frac: float,
-    kernel_length: float,
+    background_length: float,
+    inference_window_length: float,
     highpass: Optional[float] = None,
     device: str = "cpu",
     port: int = 5005,
@@ -60,7 +61,6 @@ def main(
 
     # initialize preprocessor that uses background_length seconds
     # to calculate psd, and whiten data
-    background_length = kernel_length - (fduration + 1)
     psd_estimator = structures.PsdEstimator(
         background_length, sample_rate, fftlength=2, fast=highpass is not None
     )
@@ -83,7 +83,6 @@ def main(
         ifos,
     )
 
-    inference_stride = int(sample_rate / inference_sampling_rate)
     cosmology = cosmology()
     source_prior, _ = source_prior()
     bkapp = VizApp(
@@ -95,8 +94,9 @@ def main(
         source_prior=source_prior,
         ifos=ifos,
         sample_rate=sample_rate,
-        inference_stride=inference_stride,
-        kernel_length=kernel_length,
+        inference_window_length=inference_window_length,
+        background_length=background_length,
+        inference_sampling_rate=inference_sampling_rate,
         fduration=fduration,
         valid_frac=valid_frac,
         veto_parser=veto_parser,

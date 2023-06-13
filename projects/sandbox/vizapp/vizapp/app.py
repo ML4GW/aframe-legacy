@@ -30,8 +30,9 @@ class VizApp:
         source_prior: "bilby.core.prior.PriorDict",
         ifos: List[str],
         sample_rate: float,
-        inference_stride: int,
-        kernel_length: float,
+        inference_sampling_rate: float,
+        inference_window_length: float,
+        background_length: float,
         fduration: float,
         valid_frac: float,
         veto_parser: "VetoParser",
@@ -49,10 +50,16 @@ class VizApp:
         self.sample_rate = sample_rate
         self.fduration = fduration
         self.valid_frac = valid_frac
-        self.inference_stride = inference_stride
+        self.inference_sampling_rate = inference_sampling_rate
+        self.inference_window_length = inference_window_length
+        self.background_length = background_length
+
         self.strain_dir = data_directory / "test" / "background"
-        self.kernel_length = kernel_length
-        self.background_length = kernel_length - (fduration + 1)
+        self.kernel_length = (
+            self.inference_window_length
+            + self.fduration
+            + self.background_length
+        )
 
         # load results and data from the run we're visualizing
         self.response_path = data_directory / "test" / "waveforms.h5"
