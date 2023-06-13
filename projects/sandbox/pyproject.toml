@@ -196,10 +196,11 @@ weights = "${base.basedir}/training/weights.pt"
 num_ifos = 2 
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
-kernel_length = "${base.kernel_length}"
+kernel_length = 2
 batch_size = "${base.inference_batch_size}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
+<<<<<<< HEAD
 <<<<<<< HEAD
 fftlength = 8
 psd_length = "${base.inference_psd_length}"
@@ -208,8 +209,15 @@ psd_length = "${base.inference_psd_length}"
 
 # repo/triton parameters
 aframe_instances = 6
+=======
+fftlength = 8
+background_length = 16
+
+# repo/triton parameters
+aframe_instances = 4
+>>>>>>> 0763439 (getting batched preprocessing working)
 streams_per_gpu = "${base.streams_per_gpu}"
-platform = "tensorrt_plan"
+platform = "onnxruntime_onnx"
 verbose = false
 clean = true
 
@@ -270,7 +278,7 @@ sequence_id = 1001
 # timeslide args
 Tb = "${base.Tb}"
 shift = 1
-throughput = 320
+throughput = 30
 
 # data args
 sample_rate = "${base.sample_rate}"
