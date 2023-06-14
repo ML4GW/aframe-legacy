@@ -159,11 +159,10 @@ class EventAnalyzer:
         strain = strain[None]
 
         splits = [strain.shape[-1] - self.preprocessor.size]
-        print(np.split(times, splits))
         _, times = np.split(times, splits)
         fduration_size = int(self.fduration * self.sample_rate / 2)
         times = times[fduration_size:-fduration_size]
-        print(times.shape)
+
         windows, whitened = self.preprocessor(strain)
         whitened = whitened.detach().numpy()[0]
 
