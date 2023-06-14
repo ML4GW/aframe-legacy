@@ -22,8 +22,11 @@ def find_glitches(events, times, shifts):
         mask = times == t
         values = events[mask]
         shift_values = shifts[mask]
-        centers.append(np.median(values))
-        shift_groups.append(shift_values)
+
+        arg = np.argmax(values)
+        # use the worst case scenario event
+        shift_groups.append(shift_values[arg])
+        centers.append(values[arg])
     return unique_times, counts, centers, shift_groups
 
 
@@ -230,7 +233,7 @@ class DistributionPlot:
         shifts = h1_shifts + l1_shifts
         colors = [palette[0]] * len(h1_counts) + [palette[1]] * len(l1_counts)
         labels = ["Hanford"] * len(h1_counts) + ["Livingston"] * len(l1_counts)
-
+        print(shifts)
         t0 = h1_times.min()
         self.background_plot.xaxis.axis_label = f"Time from {t0:0.3f} [hours]"
         self.background_plot.legend.visible = True
@@ -254,6 +257,7 @@ class DistributionPlot:
     def inspect_event(self, attr, old, new):
         print("inspecting event")
         if len(new) != 1:
+            print("too many indices")
             return
         idx = new[0]
         event_time = self.foreground_source.data["time"][idx]
@@ -281,9 +285,13 @@ class DistributionPlot:
 
         idx = new[0]
         event_time = self.background_source.data["time"][idx]
+        label = self.background_source.data["label"][idx]
         shift = self.background_source.data["shift"][idx]
+        if label == "Livingston":
+            event_time -= shift
+
         self.event_inspector.update(
-            event_time, "background", shift, "Background Event"
+            event_time, "background", [0.0, shift], "Background Event"
         )
 
     def update(self):

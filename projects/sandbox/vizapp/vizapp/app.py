@@ -33,6 +33,7 @@ class VizApp:
         inference_sampling_rate: float,
         inference_window_length: float,
         background_length: float,
+        integration_length: float,
         fduration: float,
         valid_frac: float,
         veto_parser: "VetoParser",
@@ -53,8 +54,12 @@ class VizApp:
         self.inference_sampling_rate = inference_sampling_rate
         self.inference_window_length = inference_window_length
         self.background_length = background_length
+        self.integration_length = integration_length
 
         self.strain_dir = data_directory / "test" / "background"
+        self.qscan_dir = Path("./qscans/")
+        self.qscan_dir.mkdir(exist_ok=True)
+
         self.kernel_length = (
             self.inference_window_length
             + self.fduration
@@ -66,9 +71,9 @@ class VizApp:
         rejected = data_directory / "test" / "rejected-parameters.h5"
 
         infer_dir = base_directory / "infer"
-        self.background = EventSet.read(infer_dir / "background.h5")
+        self.background = EventSet.read(infer_dir / "background-float32.h5")
         self.foreground = RecoveredInjectionSet.read(
-            infer_dir / "foreground.h5"
+            infer_dir / "foreground-float32.h5"
         )
         self.rejected_params = InjectionParameterSet.read(rejected)
 

@@ -22,6 +22,7 @@ class AnalysisPage(Page):
             self.app.model,
             self.app.preprocessor,
             self.app.strain_dir,
+            self.app.qscan_dir,
             self.app.response_path,
             self.app.fduration,
             self.app.inference_window_length,
@@ -29,7 +30,8 @@ class AnalysisPage(Page):
             self.app.ifos,
             self.app.background_length,
             self.app.sample_rate,
-            pad=4,
+            4,
+            self.app.integration_length,
         )
 
     def initialize_sources(self) -> None:

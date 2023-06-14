@@ -14,6 +14,7 @@ from .app import VizApp
 from .vetoes import VetoParser
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 
 def _normalize_path(path: Path):
@@ -39,6 +40,7 @@ def main(
     fduration: float,
     valid_frac: float,
     background_length: float,
+    integration_length: float,
     inference_window_length: float,
     highpass: Optional[float] = None,
     device: str = "cpu",
@@ -59,6 +61,7 @@ def main(
         torch.load(weights, map_location=torch.device(device))
     )
 
+    model.eval()
     # initialize preprocessor that uses background_length seconds
     # to calculate psd, and whiten data
     psd_estimator = structures.PsdEstimator(
@@ -97,6 +100,7 @@ def main(
         inference_window_length=inference_window_length,
         background_length=background_length,
         inference_sampling_rate=inference_sampling_rate,
+        integration_length=integration_length,
         fduration=fduration,
         valid_frac=valid_frac,
         veto_parser=veto_parser,
