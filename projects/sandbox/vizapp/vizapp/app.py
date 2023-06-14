@@ -31,9 +31,10 @@ class VizApp:
         ifos: List[str],
         sample_rate: float,
         inference_sampling_rate: float,
-        inference_window_length: float,
+        kernel_length: float,
         background_length: float,
         integration_length: float,
+        padding: float,
         fduration: float,
         valid_frac: float,
         veto_parser: "VetoParser",
@@ -52,23 +53,18 @@ class VizApp:
         self.fduration = fduration
         self.valid_frac = valid_frac
         self.inference_sampling_rate = inference_sampling_rate
-        self.inference_window_length = inference_window_length
+        self.kernel_length = kernel_length
         self.background_length = background_length
         self.integration_length = integration_length
+        self.padding = padding
 
-        self.strain_dir = data_directory / "test" / "background"
+        self.strain_dir = data_directory / "train" / "background"
         self.qscan_dir = Path("./qscans/")
         self.qscan_dir.mkdir(exist_ok=True)
 
-        self.kernel_length = (
-            self.inference_window_length
-            + self.fduration
-            + self.background_length
-        )
-
         # load results and data from the run we're visualizing
-        self.response_path = data_directory / "test" / "waveforms.h5"
-        rejected = data_directory / "test" / "rejected-parameters.h5"
+        self.response_path = data_directory / "test" / "old-waveforms.h5"
+        rejected = data_directory / "test" / "old-rejected-parameters.h5"
 
         infer_dir = base_directory / "infer"
         self.background = EventSet.read(infer_dir / "background-float32.h5")

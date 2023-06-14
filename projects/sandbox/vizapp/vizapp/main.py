@@ -6,7 +6,6 @@ import torch
 from bokeh.server.server import Server
 
 from aframe.architectures import architecturize
-from aframe.architectures.preprocessor import Whitener
 from aframe.logging import configure_logging
 
 from . import structures
@@ -41,7 +40,7 @@ def main(
     valid_frac: float,
     background_length: float,
     integration_length: float,
-    inference_window_length: float,
+    kernel_length: float,
     highpass: Optional[float] = None,
     device: str = "cpu",
     port: int = 5005,
@@ -62,16 +61,22 @@ def main(
     )
 
     model.eval()
+
+    # amount of data to plot on either side of events
+    padding = 4
+    # set batch size based on amount of seconds we will wan't to plot
+    batch_size = (
+        int((2 * padding + integration_length) * inference_sampling_rate) + 1
+    )
     # initialize preprocessor that uses background_length seconds
     # to calculate psd, and whiten data
-    psd_estimator = structures.PsdEstimator(
-        background_length, sample_rate, fftlength=2, fast=highpass is not None
-    )
-    whitener = Whitener(fduration, sample_rate)
-
-    preprocessor = structures.Preprocessor(
-        whitener,
-        psd_estimator,
+    preprocessor = structures.BatchWhitener(
+        kernel_length,
+        sample_rate,
+        inference_sampling_rate,
+        batch_size,
+        fduration,
+        highpass=highpass,
     )
 
     veto_definer_file = _normalize_path(veto_definer_file)
@@ -97,11 +102,12 @@ def main(
         source_prior=source_prior,
         ifos=ifos,
         sample_rate=sample_rate,
-        inference_window_length=inference_window_length,
+        kernel_length=kernel_length,
         background_length=background_length,
         inference_sampling_rate=inference_sampling_rate,
         integration_length=integration_length,
         fduration=fduration,
+        padding=padding,
         valid_frac=valid_frac,
         veto_parser=veto_parser,
     )

@@ -25,12 +25,12 @@ class AnalysisPage(Page):
             self.app.qscan_dir,
             self.app.response_path,
             self.app.fduration,
-            self.app.inference_window_length,
+            self.app.kernel_length,
             self.app.inference_sampling_rate,
             self.app.ifos,
             self.app.background_length,
             self.app.sample_rate,
-            4,
+            self.app.padding,
             self.app.integration_length,
         )
 

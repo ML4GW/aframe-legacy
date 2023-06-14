@@ -20,7 +20,6 @@ from gwpy.timeseries import TimeSeries
 from vizapp import palette
 
 from aframe.analysis.ledger.injections import LigoResponseSet
-from ml4gw.utils.slicing import unfold_windows
 
 t0_pattern = re.compile(r"[0-9]{10}(\.[0-9])?(?=-)")
 dur_pattern = re.compile("[0-9]{2,8}(?=.hdf5)")
@@ -58,39 +57,29 @@ class EventAnalyzer:
     qscan_dir: Path
     response_path: Path
     fduration: float
-    inference_window_length: float
+    kernel_length: float
     inference_sampling_rate: float
     ifos: List[str]
     background_length: float
     sample_rate: float
-    pad: float
+    padding: float
     integration_length: float
     device: torch.device = torch.device("cpu")
 
     def __post_init__(self):
-
-        self.kernel_length = (
-            self.background_length
-            + self.fduration
-            + self.inference_window_length
-        )
         self.kernel_size = int(self.kernel_length * self.sample_rate)
         # amount of data before time of event to load to ensure
-        # we can analyze pad seconds before coalescence enters kernel
-        self.length = (
-            self.pad
-            + (1.5 * self.inference_window_length)
+        # we can analyze pad seconds before event time
+        self.length_previous_data = (
+            self.padding
             + self.background_length
-            + (self.fduration / 2)
+            + self.kernel_length
+            + self.fduration / 2
+            + self.integration_length
         )
-
-        self.size = int(self.length * self.sample_rate)
+        self.size = int(self.length_previous_data * self.sample_rate)
         self.inference_stride = int(
             self.sample_rate / self.inference_sampling_rate
-        )
-
-        self.inference_window_size = (
-            self.inference_window_length * self.sample_rate
         )
         self.integration_size = int(
             self.integration_length * self.inference_sampling_rate
@@ -106,8 +95,8 @@ class EventAnalyzer:
         times = np.arange(t0, t0 + duration, 1 / self.sample_rate)
         start, stop = get_indices(
             times,
-            time - self.length,
-            time + self.pad + (self.fduration / 2),
+            time - self.length_previous_data,
+            time + self.padding + (self.fduration / 2),
         )
         times = times[start:stop]
         strain = []
@@ -147,10 +136,7 @@ class EventAnalyzer:
     def inject(self, strain, waveform):
         # inject waveform into strain
         waveform_size = waveform.shape[-1]
-        waveform_start = int(
-            (self.size - (self.inference_window_size / 2))
-            - (waveform_size / 2)
-        )
+        waveform_start = int(self.size - (waveform_size / 2))
         waveform_stop = waveform_start + waveform_size
         strain[:, waveform_start:waveform_stop] += waveform
         return strain
@@ -170,37 +156,41 @@ class EventAnalyzer:
         if foreground:
             waveform = self.find_waveform(time, shifts)
             strain = self.inject(strain, waveform)
-        batch = unfold_windows(strain, self.kernel_size, self.inference_stride)
-        whitened = self.preprocessor(batch)
+        strain = strain[None]
+
+        splits = [strain.shape[-1] - self.preprocessor.size]
+        print(np.split(times, splits))
+        _, times = np.split(times, splits)
+        fduration_size = int(self.fduration * self.sample_rate / 2)
+        times = times[fduration_size:-fduration_size]
+        print(times.shape)
+        windows, whitened = self.preprocessor(strain)
+        whitened = whitened.detach().numpy()[0]
 
         # TODO: find window where trigger is center
         # center = whitened[0][0].detach().numpy()
         # qscan = self.qscan(center)
-        qscan_path = self.qscan_dir / "qscan.png"
+        # qscan_path = self.qscan_dir / "qscan.png"
         # plot = qscan.plot()
         # plot.save(qscan_path)
 
-        outputs = self.model(whitened)
+        outputs = self.model(windows)
         integrated = self.integrate(outputs)
+
         outputs = outputs.detach().numpy().flatten()
         integrated = integrated.detach().numpy().flatten()
 
         outputs = outputs[self.integration_size :]
         integrated = integrated[:-1]
 
-        # times refer to front of window
-        start = int(
-            (
-                self.kernel_length
-                + self.integration_length
-                - (self.fduration // 2)
-            )
-            * self.sample_rate
+        inference_times = (
+            times[self.kernel_size :: self.inference_stride][
+                : -self.integration_size + 1
+            ]
+            + self.kernel_length
         )
 
-        times = times[start :: self.inference_stride]
-
-        return outputs, integrated, times, qscan_path
+        return outputs, integrated, whitened, times, inference_times
 
 
 class EventInspectorPlot:
@@ -220,7 +210,7 @@ class EventInspectorPlot:
             title="Click on an event to inspect",
             height=height,
             width=width,
-            y_range=(-2, 2),
+            y_range=(-5, 5),
             x_range=(-3, 3),
             x_axis_label="Time [s]",
             y_axis_label="Strain [unitless]",
@@ -289,25 +279,30 @@ class EventInspectorPlot:
     ) -> None:
 
         foreground = event_type == "foreground"
-        nn, integrated, times, qscan_path = self.analyzer(
+        nn, integrated, whitened, times, inference_times = self.analyzer(
             event_time, shift, foreground
         )
 
         # self.spectrogram.text = f"<img src=myapp/{qscan_path}>"
+
+        h1, l1 = whitened
         # normalize times with respect to event time
         times = times - event_time
+        inference_times = inference_times - event_time
 
-        # self.strain_source.data = {"H1": h1, "L1": l1, "t": times}
-        # for r in self.strain_renderers:
-        # r.data_source.data = {"H1": h1, "L1": l1, "t": times}
+        self.strain_source.data = {"H1": h1, "L1": l1, "t": times}
+        for r in self.strain_renderers:
+            r.data_source.data = {"H1": h1, "L1": l1, "t": times}
 
         self.response_source.data = {
             "nn": nn,
             "integrated": integrated,
-            "t": times,
+            "t": inference_times,
         }
         for r in self.output_renderers:
-            r.data_source.data = dict(nn=nn, integrated=integrated, t=times)
+            r.data_source.data = dict(
+                nn=nn, integrated=integrated, t=inference_times
+            )
 
         nn_min = nn.min()
         nn_max = nn.max()
