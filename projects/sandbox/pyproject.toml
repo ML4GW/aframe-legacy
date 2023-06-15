@@ -17,11 +17,7 @@ accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
 logdir = "${BASE_DIR}/log"
 sample_rate = 2048
-<<<<<<< HEAD
 kernel_length = 1.5
-=======
-kernel_length = 10
->>>>>>> 6635b8c (setting up export for dynamic whitening)
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
 #glitch_start = 1262394654
@@ -214,10 +210,14 @@ fftlength = 8
 background_length = 16
 
 # repo/triton parameters
+<<<<<<< HEAD
 aframe_instances = 4
 >>>>>>> 0763439 (getting batched preprocessing working)
+=======
+aframe_instances = 6
+>>>>>>> 11a5447 (getting parameters for inference right)
 streams_per_gpu = "${base.streams_per_gpu}"
-platform = "onnxruntime_onnx"
+platform = "tensorrt_plan"
 verbose = false
 clean = true
 
@@ -278,7 +278,7 @@ sequence_id = 1001
 # timeslide args
 Tb = "${base.Tb}"
 shift = 1
-throughput = 30
+throughput = 320
 
 # data args
 sample_rate = "${base.sample_rate}"
