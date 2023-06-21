@@ -57,7 +57,7 @@ class ChunkedDataloader:
 
         @torch.no_grad()
         def chunked_generator():
-            shape = (len(self.fnames), 1, chunk_size)
+            shape = (self.reads_per_chunk, 1, chunk_size)
             chunks = [torch.zeros(shape) for _ in self.ifos]
 
             # initialize the batch tensor up front
