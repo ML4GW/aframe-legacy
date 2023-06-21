@@ -86,12 +86,6 @@ class Callback:
         duration = end - start
         num_predictions = duration * self.sample_rate
         num_steps = int(num_predictions // self.batch_size)
-        remainder = duration % chunk_size
-
-        # if remainder is less than the batch size, we need to add
-        # an extra step to account for the remainder
-        if remainder and remainder < int(self.batch_size / self.sample_rate):
-            num_steps += 1
         num_predictions = int(num_steps * self.batch_size)
 
         self.background = np.zeros((num_predictions,))

@@ -85,6 +85,8 @@ def batch_chunks(
     except StopIteration:
         return
     else:
+        if x.shape[-1] < step_size:
+            return
         raise ValueError(
             "Data iterator expected to have {} "
             "steps, but data still available".format(num_steps)
