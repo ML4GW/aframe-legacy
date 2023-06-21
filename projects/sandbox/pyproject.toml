@@ -1,5 +1,6 @@
 [tool.pinto]
 steps = [
+<<<<<<< HEAD
     "datagen:generate-background",
     "datagen:generate-waveforms",
     "datagen:generate-glitches",
@@ -8,6 +9,16 @@ steps = [
     "export:export-model:resnet",
     "infer:deploy-infer",
     "vizapp:vizapp"
+=======
+    #"datagen:generate-background",
+    #"datagen:generate-waveforms",
+    #"datagen:generate-glitches",
+    #"datagen:deploy-timeslide-waveforms",
+    "train:train:resnet",
+    #"export:export-model:resnet",
+    #"infer:deploy-infer",
+    # "vizapp:vizapp"
+>>>>>>> 60ad65b (fix inference bug)
 ]
 
 [tool.typeo.base]
