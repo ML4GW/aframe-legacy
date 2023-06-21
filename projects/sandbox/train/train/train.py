@@ -39,6 +39,7 @@ def main(
     # data args
     sample_rate: float,
     kernel_length: float,
+    psd_length: float,
     fduration: float,
     highpass: float,
     # augmentation args
@@ -210,10 +211,10 @@ def main(
     # of the combined training + validation period
     background_fnames = train_utils.get_background_fnames(background_dir)
 
-    # TODO: don't hardcode this 1, what do we want to call it?
-    background_length = kernel_length - (fduration + 1)
+    sample_length = kernel_length + psd_length
+
     psd_estimator = structures.PsdEstimator(
-        background_length, sample_rate, fftlength=2, fast=highpass is not None
+        psd_length, sample_rate, fftlength=2, fast=highpass is not None
     )
     whitener = preprocessor.Whitener(fduration, sample_rate)
     whitener = whitener.to(device)
@@ -251,7 +252,7 @@ def main(
             sample_rate=sample_rate,
             stride=valid_stride,
             injection_stride=4,
-            kernel_length=kernel_length,
+            kernel_length=sample_length,
             batch_size=4 * batch_size,
             pool_length=4,
             integration_length=1,
@@ -308,7 +309,7 @@ def main(
     train_dataset = structures.ChunkedDataloader(
         background_fnames,
         ifos=ifos,
-        kernel_length=kernel_length,
+        kernel_length=sample_length,
         sample_rate=sample_rate,
         batch_size=batch_size,
         # TODO: do we just add args for all of these,

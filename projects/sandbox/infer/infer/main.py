@@ -115,6 +115,7 @@ def main(
     batch_size: int,
     integration_window_length: float,
     cluster_window_length: float,
+    psd_length: float,
     fduration: float,
     throughput: float,
     chunk_size: float,
@@ -192,6 +193,7 @@ def main(
         integration_window_length=integration_window_length,
         cluster_window_length=cluster_window_length,
         fduration=fduration,
+        psd_length=psd_length,
     )
 
     logging.info(f"Connecting to server at {ip}:8001")

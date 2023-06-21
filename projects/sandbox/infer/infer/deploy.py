@@ -89,6 +89,7 @@ def main(
     batch_size: int,
     integration_window_length: float,
     cluster_window_length: float,
+    psd_length: float,
     fduration: float,
     throughput: float,
     chunk_size: float,
@@ -124,6 +125,7 @@ def main(
     --fduration {fduration}
     --throughput {throughput}
     --chunk-size {chunk_size}
+    --psd-length {psd_length}
     --model-version {model_version}
     """
     arguments = dedent(arguments).replace("\n", " ")
@@ -136,7 +138,7 @@ def main(
     num_shifts = get_num_shifts(data_dir, Tb, shift)
     parameters = "shift0,shift1,seq_id\n"
     # skip the 0lag shift
-    for i in range(0, num_shifts):
+    for i in range(num_shifts):
         seq_id = sequence_id + 2 * i
         parameters += f"0,{(i + 1) * shift},{seq_id}\n"
 

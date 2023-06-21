@@ -57,6 +57,7 @@ class Callback:
     integration_window_length: float
     cluster_window_length: float
     fduration: float
+    psd_length: float
 
     def __post_init__(self):
         # @alec can this be removed? I don't think it's used
@@ -94,7 +95,9 @@ class Callback:
         self.num_steps = num_steps
         self.done = {self.id: False, self.id + 1: False}
         self._started = {self.id: False, self.id + 1: False}
-
+        # number of samples to remove from the beginning of the responses
+        # due to the PSD burn-in
+        self.psd_size = int(self.sample_rate * self.psd_length)
         return num_steps
 
     def integrate(self, y: np.ndarray) -> np.ndarray:
@@ -116,8 +119,9 @@ class Callback:
         # subtract off the time required for
         # the coalescence to exit the filter
         # padding and enter the input kernel
-        # to the neural network
-        t0 = self.start - self.fduration / 2
+        # to the neural network, and account
+        # for the PSD burn-in that has been removed
+        t0 = self.start - self.fduration / 2 + self.psd_length
 
         # now subtract off the time required
         # for the integration window to
@@ -175,6 +179,11 @@ class Callback:
                 "Finished inference on {} steps-long sequence "
                 "with t0 {}".format(self.num_steps, self.start)
             )
+
+            # remove the PSD burn-in
+            self.background = self.background[self.psd_size :]
+            self.foreground = self.foreground[self.psd_size :]
+
             background_events = self.postprocess(self.background)
             foreground_events = self.postprocess(self.foreground)
             logging.debug("Finished postprocessing")

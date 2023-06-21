@@ -17,7 +17,7 @@ accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
 logdir = "${BASE_DIR}/log"
 sample_rate = 2048
-kernel_length = 10
+kernel_length = 2
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 4
 glitch_start = 1262394654
@@ -33,6 +33,9 @@ force_generation = false
 Tb = 5184000  # 60 days of background
 inference_sampling_rate = 16
 inference_batch_size = 128
+inference_psd_length = 64
+training_psd_length = 10
+
 waveform_duration = 8
 minimum_frequency = 20
 reference_frequency = 50
@@ -128,6 +131,7 @@ sample_rate = "${base.sample_rate}"
 kernel_length = "${base.kernel_length}"
 fduration = "${base.fduration}"
 highpass = "${base.minimum_frequency}"
+psd_length = "${base.training_psd_length}"
 
 # augmentation args
 trigger_distance = -0.5
@@ -162,12 +166,12 @@ weights = "${base.basedir}/training/weights.pt"
 num_ifos = 2 
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
-kernel_length = 2
+kernel_length = "${base.kernel_length}"
 batch_size = "${base.inference_batch_size}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
 fftlength = 8
-background_length = 16
+psd_length = "${base.inference_psd_length}" 
 
 # repo/triton parameters
 aframe_instances = 6
@@ -245,6 +249,7 @@ chunk_size = 4096
 integration_window_length = 1
 cluster_window_length = 8
 fduration = "${base.fduration}"
+psd_length = "${base.inference_psd_length}"
 
 # misc
 verbose = "${base.verbose}"
