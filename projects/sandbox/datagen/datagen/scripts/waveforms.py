@@ -8,6 +8,7 @@ from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
 from aframe.logging import configure_logging
+from aframe.priors.priors import convert_mdc_prior_samples
 
 
 @scriptify
@@ -20,6 +21,7 @@ def main(
     minimum_frequency: float,
     sample_rate: float,
     waveform_duration: float,
+    cosmology: Callable,
     waveform_approximant: str = "IMRPhenomPv2",
     force_generation: bool = False,
     verbose: bool = False,
@@ -64,7 +66,9 @@ def main(
 
     # sample gw parameters
     prior, detector_frame_prior = prior()
+    cosmology = cosmology()
     params = prior.sample(num_signals)
+    params = convert_mdc_prior_samples(params, cosmology)
 
     signals = generate_gw(
         params,

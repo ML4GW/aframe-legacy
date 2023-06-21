@@ -17,6 +17,7 @@ from aframe.analysis.ledger.injections import (
 )
 from aframe.deploy import condor
 from aframe.logging import configure_logging
+from aframe.priors.priors import convert_mdc_prior_samples
 from ml4gw.gw import (
     compute_network_snr,
     compute_observed_strain,
@@ -90,6 +91,8 @@ def main(
     rejected_params = InjectionParameterSet()
     while n_samples > 0:
         params = prior.sample(n_samples)
+        # convert sampled chirp distance squared into a luminosity distance
+        params = convert_mdc_prior_samples(params, cosmology)
         waveforms = generate_gw(
             params,
             minimum_frequency,
@@ -170,7 +173,7 @@ def main(
     # since we use a hopeless snr threshold of 0
 
     rejected_fname = output_dir / "rejected-parameters.h5"
-    utils.io_with_blocking(rejected_params.write, rejected_fname)
+    # utils.io_with_blocking(rejected_params.write, rejected_fname)
 
     # TODO: compute probability of all parameters against
     # source and all target priors here then save them somehow

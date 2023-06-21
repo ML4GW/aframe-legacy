@@ -35,6 +35,11 @@ class IntrinsicParameterSet(Ledger):
     tilt_2: np.ndarray = parameter()
     phi_12: np.ndarray = parameter()
     phi_jl: np.ndarray = parameter()
+    # add below for ease of implementing MDC prior
+    # sampling scheme.
+    luminosity_distance: np.ndarray = parameter()
+    redshift: np.ndarray = parameter()
+    chirp_distance: np.ndarray = parameter()
 
 
 @dataclass
