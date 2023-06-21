@@ -1,6 +1,5 @@
 [tool.pinto]
 steps = [
-<<<<<<< HEAD
     "datagen:generate-background",
     "datagen:generate-waveforms",
     "datagen:generate-glitches",
@@ -9,16 +8,6 @@ steps = [
     "export:export-model:resnet",
     "infer:deploy-infer",
     "vizapp:vizapp"
-=======
-    #"datagen:generate-background",
-    #"datagen:generate-waveforms",
-    #"datagen:generate-glitches",
-    #"datagen:deploy-timeslide-waveforms",
-    "train:train:resnet",
-    #"export:export-model:resnet",
-    #"infer:deploy-infer",
-    # "vizapp:vizapp"
->>>>>>> 60ad65b (fix inference bug)
 ]
 
 [tool.typeo.base]
@@ -45,7 +34,7 @@ Tb = 5184000  # 60 days of background
 inference_sampling_rate = 16
 inference_batch_size = 128
 inference_psd_length = 64
-training_psd_length = 8
+training_psd_length = 10
 
 waveform_duration = 4
 minimum_frequency = 20
@@ -182,7 +171,11 @@ valid_frac = "${base.valid_frac}"
 valid_stride = 0.5
 max_fpr = 1e-3
 valid_livetime = 57600  # 16 hours of background
+<<<<<<< HEAD
 early_stop = 200
+=======
+early_stop = 50
+>>>>>>> 66336fb (bump up waveform number and reduce length of generated waveform)
 checkpoint_every = 3
 
 # misc args
