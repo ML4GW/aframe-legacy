@@ -192,7 +192,7 @@ weights = "${base.basedir}/training/weights.pt"
 num_ifos = 2 
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
-kernel_length = 2
+kernel_length = "${base.kernel_length}"
 batch_size = "${base.inference_batch_size}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
@@ -207,7 +207,7 @@ psd_length = "${base.inference_psd_length}"
 aframe_instances = 6
 =======
 fftlength = 8
-background_length = 16
+psd_length = "${base.inference_psd_length}" 
 
 # repo/triton parameters
 <<<<<<< HEAD

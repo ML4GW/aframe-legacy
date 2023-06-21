@@ -218,10 +218,10 @@ def main(
     whitener = preprocessor.Whitener(fduration, sample_rate)
     whitener = whitener.to(device)
 
-    # TODO: don't hardcode this 1, what do we want to call it?
-    background_length = kernel_length - (fduration + 1)
+    sample_length = kernel_length + psd_length
+
     psd_estimator = structures.PsdEstimator(
-        background_length, sample_rate, fftlength=2, fast=highpass is not None
+        psd_length, sample_rate, fftlength=2, fast=highpass is not None
     )
     whitener = preprocessor.Whitener(fduration, sample_rate)
     whitener = whitener.to(device)
