@@ -252,7 +252,7 @@ def mdc_prior_chirp_distance(cosmology: Optional["Cosmology"] = None):
     for key, value in extrinsic_prior.items():
         prior[key] = value
 
-    prior["chirp_distance_squared"] = Uniform(130**2, 350**2)
+    prior["chirp_distance"] = PowerLaw(2, 130, 350)
     detector_frame_prior = True
 
     return prior, detector_frame_prior
@@ -265,7 +265,6 @@ def convert_mdc_prior_samples(
     Convert samples produced by the `mdc_prior_chirp_distance` Prior into
     chirp mass, luminosity distance and redshift.
     """
-    samples["chirp_distance"] = np.sqrt(samples["chirp_distance_squared"])
     samples["chirp_mass"] = (samples["mass_1"] * samples["mass_2"]) ** 0.6 / (
         samples["mass_1"] + samples["mass_2"]
     ) ** 0.2
