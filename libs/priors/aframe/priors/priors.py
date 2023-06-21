@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
+from astropy import units
+from astropy.cosmology import z_at_value
 from bilby.core.prior import (
     ConditionalPowerLaw,
     ConditionalPriorDict,
@@ -256,9 +258,23 @@ def mdc_prior_chirp_distance(cosmology: Optional["Cosmology"] = None):
     return prior, detector_frame_prior
 
 
-def convert_mdc_prior_samples(samples: Dict[str, np.ndarray]):
-    samples["chirp_distance"] = samples["chirp_distance_squared"] ** 0.5
+def convert_mdc_prior_samples(
+    samples: Dict[str, np.ndarray], cosmology: "Cosmology"
+):
+    """
+    Convert samples produced by the `mdc_prior_chirp_distance` Prior into
+    chirp mass, luminosity distance and redshift.
+    """
+    samples["chirp_distance"] = np.sqrt(samples["chirp_distance_squared"])
     samples["chirp_mass"] = (samples["mass_1"] * samples["mass_2"]) ** 0.6 / (
         samples["mass_1"] + samples["mass_2"]
     ) ** 0.2
-    # samples["luminosity_distance"] =
+
+    fiducial = 1.4 / (2 ** (1 / 5))
+    factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)
+    samples["luminosity_distance"] = samples["chirp_distance"] / factor
+    samples["redshift"] = z_at_value(
+        cosmology.luminosity_distance,
+        samples["luminosity_distance"] * units.Mpc,
+    ).value
+    return samples
