@@ -146,7 +146,7 @@ def main(
         # https://github.com/triton-inference-server/server/issues/3418
         aframe.config.optimization.graph.level = -1
     elif platform == qv.Platform.TENSORRT:
-        kwargs["use_fp16"] = True
+        kwargs["use_fp16"] = False
 
     aframe.export_version(
         nn,
