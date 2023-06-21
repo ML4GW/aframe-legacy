@@ -202,6 +202,7 @@ def deploy(
     highpass: float,
     snr_threshold: float,
     ifos: List[str],
+    psd_length: float,
     outdir: Path,
     datadir: Path,
     logdir: Path,
@@ -258,7 +259,8 @@ def deploy(
             # TODO: make this more general
             shift = [(i + 1) * shift for shift in shifts]
             shift = " ".join(map(str, shift))
-            parameters += f"{start},{stop},{shift}\n"
+            # add psd_length to account for the burn in of psd calculation
+            parameters += f"{start + psd_length},{stop},{shift}\n"
 
     # TODO: have typeo do this CLI argument construction?
     arguments = "--start $(start) --stop $(stop) --shifts $(shift) "
