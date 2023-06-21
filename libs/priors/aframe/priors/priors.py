@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
 from bilby.core.prior import (
@@ -233,3 +233,32 @@ def log_normal_masses(
 
     detector_frame_prior = True
     return prior, detector_frame_prior
+
+
+# The below two functions are for direct comparison with the methodology
+# used in the ML MDC paper: https://arxiv.org/abs/2209.11146
+def mdc_prior_chirp_distance(cosmology: Optional["Cosmology"] = None):
+    prior = PriorDict(conversion_function=mass_constraints)
+    prior["mass_2"] = Uniform(7, 50, unit=msun)
+    prior["mass_ratio"] = Constraint(0.00, 1)
+    prior["mass_1"] = Uniform(7, 50, unit=msun)
+    spin_prior = uniform_spin()
+    for key, value in spin_prior.items():
+        prior[key] = value
+
+    extrinsic_prior = uniform_extrinsic()
+    for key, value in extrinsic_prior.items():
+        prior[key] = value
+
+    prior["chirp_distance_squared"] = Uniform(130**2, 350**2)
+    detector_frame_prior = True
+
+    return prior, detector_frame_prior
+
+
+def convert_mdc_prior_samples(samples: Dict[str, np.ndarray]):
+    samples["chirp_distance"] = samples["chirp_distance_squared"] ** 0.5
+    samples["chirp_mass"] = (samples["mass_1"] * samples["mass_2"]) ** 0.6 / (
+        samples["mass_1"] + samples["mass_2"]
+    ) ** 0.2
+    # samples["luminosity_distance"] =
