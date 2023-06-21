@@ -246,7 +246,7 @@ def deploy(
     for start, stop in segments:
         for i in range(shifts_required):
             # TODO: make this more general
-            shift = [i * shift for shift in shifts]
+            shift = [(i + 1) * shift for shift in shifts]
             shift = " ".join(map(str, shift))
             parameters += f"{start},{stop},{shift}\n"
 
