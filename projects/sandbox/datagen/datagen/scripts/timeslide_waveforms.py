@@ -300,10 +300,10 @@ def deploy(
     logging.info(f"Merging output waveforms to file {waveform_fname}")
     LigoResponseSet.aggregate(waveform_files, waveform_fname, clean=True)
 
-    params_fname = writedir / "rejected-parameters.h5"
-    param_files = list(outdir.rglob("rejected-parameters.h5"))
-    logging.info(f"Merging rejected parameters to file {params_fname}")
-    InjectionParameterSet.aggregate(param_files, params_fname, clean=True)
+    # params_fname = writedir / "rejected-parameters.h5"
+    # param_files = list(outdir.rglob("rejected-parameters.h5"))
+    # logging.info(f"Merging rejected parameters to file {params_fname}")
+    # InjectionParameterSet.aggregate(param_files, params_fname, clean=True)
 
     for dirname in outdir.glob("tmp-*"):
         shutil.rmtree(dirname)
