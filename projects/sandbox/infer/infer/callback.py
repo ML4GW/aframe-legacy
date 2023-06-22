@@ -76,7 +76,7 @@ class Callback:
         while not self.started:
             time.sleep(1e-3)
 
-    def initialize(self, start: float, end: float, chunk_size: float):
+    def initialize(self, start: float, end: float):
         if self.start is not None:
             raise ExistingSequence(
                 "Already doing inference on {} prediction "

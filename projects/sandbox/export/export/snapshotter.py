@@ -65,7 +65,6 @@ class BatchWhitener(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         splits = [x.shape[-1] - self.size, self.size]
         background, x = torch.split(x, splits, dim=-1)
-
         psd = self.spectral_density(background.double())
         x = self.whitener(x.double(), psd)
         x = unfold_windows(x, self.kernel_size, self.stride_size)
@@ -88,7 +87,7 @@ def add_streaming_input_preprocessor(
 
     batch_size, num_ifos, kernel_size = input.shape
     snapshotter = BackgroundSnapshotter(
-        psd_length == psd_length,
+        psd_length=psd_length,
         kernel_length=kernel_size / sample_rate,
         fduration=fduration,
         sample_rate=sample_rate,
