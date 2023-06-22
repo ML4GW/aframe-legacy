@@ -8,7 +8,6 @@ steps = [
     "export:export-model:resnet",
     "infer:deploy-infer",
     "vizapp:vizapp"
-
 ]
 
 [tool.typeo.base]
@@ -212,7 +211,7 @@ psd_length = "${base.inference_psd_length}"
 aframe_instances = 6
 =======
 fftlength = 8
-psd_length = "${base.inference_psd_length}" 
+psd_length = "${base.inference_psd_length}"
 
 # repo/triton parameters
 <<<<<<< HEAD

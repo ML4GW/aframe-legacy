@@ -312,7 +312,7 @@ def main(
     # to account for our sky parameter sampling
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
-    batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
+    batches_per_epoch = int(2 * len(waveforms) / waveforms_per_batch)
     train_dataset = structures.ChunkedDataloader(
         background_fnames,
         ifos=ifos,
