@@ -15,14 +15,14 @@ if TYPE_CHECKING:
 class BackgroundSnapshotter(torch.nn.Module):
     def __init__(
         self,
-        background_length,
+        psd_length,
         kernel_length,
         fduration,
         sample_rate,
         inference_sampling_rate,
     ) -> None:
         super().__init__()
-        state_length = kernel_length + fduration + background_length
+        state_length = kernel_length + fduration + psd_length
         state_length -= 1 / inference_sampling_rate
         self.state_size = int(state_length * sample_rate)
 
@@ -75,7 +75,7 @@ class BatchWhitener(torch.nn.Module):
 def add_streaming_input_preprocessor(
     ensemble: "EnsembleModel",
     input: "ExposedTensor",
-    background_length: float,
+    psd_length: float,
     sample_rate: float,
     inference_sampling_rate: float,
     fduration: float,
@@ -88,7 +88,7 @@ def add_streaming_input_preprocessor(
 
     batch_size, num_ifos, kernel_size = input.shape
     snapshotter = BackgroundSnapshotter(
-        background_length=background_length,
+        psd_length == psd_length,
         kernel_length=kernel_size / sample_rate,
         fduration=fduration,
         sample_rate=sample_rate,

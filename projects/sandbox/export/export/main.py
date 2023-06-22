@@ -29,7 +29,7 @@ def main(
     sample_rate: float,
     batch_size: int,
     fduration: float,
-    background_length: float = 16,
+    psd_length: float,
     fftlength: float = 8,
     highpass: Optional[float] = None,
     weights: Optional[Path] = None,
@@ -168,7 +168,7 @@ def main(
         whitened = add_streaming_input_preprocessor(
             ensemble,
             aframe.inputs["whitened"],
-            background_length=background_length,
+            psd_length=psd_length,
             sample_rate=sample_rate,
             inference_sampling_rate=inference_sampling_rate,
             fduration=fduration,
