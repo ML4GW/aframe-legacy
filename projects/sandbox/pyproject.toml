@@ -5,6 +5,8 @@ steps = [
     #"datagen:generate-glitches",
     #"datagen:deploy-timeslide-waveforms",
     "train:train:resnet",
+    "datagen:deploy-timeslide-waveforms",
+    #"train:train:resnet",
     #"export:export-model:resnet",
     #"infer:deploy-infer",
     # "vizapp:vizapp"

@@ -225,6 +225,7 @@ class SkyLocationParameterSet(Ledger):
 @dataclass
 class InjectionParameterSet(SkyLocationParameterSet, IntrinsicParameterSet):
     snr: np.ndarray = parameter()
+    gps_time: np.ndarray = parameter()
 
 
 @dataclass

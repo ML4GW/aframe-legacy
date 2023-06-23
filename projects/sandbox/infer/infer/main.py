@@ -91,7 +91,7 @@ def infer_on_segment(
         result = client.get()
         time.sleep(1e-1)
 
-    logging.info(f"Retreived results from sequence {str_rep}")
+    logging.info(f"Retrieved results from sequence {str_rep}")
     background_events, foreground_events = result
 
     logging.info("Recovering injections from foreground")
