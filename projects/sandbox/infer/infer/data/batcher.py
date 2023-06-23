@@ -81,7 +81,7 @@ def batch_chunks(
         chunk_idx += 1
 
     try:
-        x, x_inj = next(it)
+        x, _ = next(it)
     except StopIteration:
         return
     else:
