@@ -8,6 +8,7 @@ steps = [
     "export:export-model:resnet",
     "infer:deploy-infer",
     "vizapp:vizapp"
+
 ]
 
 [tool.typeo.base]
