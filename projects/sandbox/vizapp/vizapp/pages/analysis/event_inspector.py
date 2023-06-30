@@ -16,6 +16,7 @@ from bokeh.models import (
     Range1d,
 )
 from bokeh.plotting import figure
+from gwpy.plot import Plot
 from gwpy.timeseries import TimeSeries
 from vizapp import palette
 
@@ -53,6 +54,7 @@ def get_strain_fname(data_dir: Path, event_time: float):
 class EventAnalyzer:
     model: torch.nn.Module
     preprocessor: torch.nn.Module
+    snapshotter: torch.nn.Module
     strain_dir: Path
     qscan_dir: Path
     response_path: Path
@@ -60,7 +62,7 @@ class EventAnalyzer:
     kernel_length: float
     inference_sampling_rate: float
     ifos: List[str]
-    background_length: float
+    psd_length: float
     sample_rate: float
     padding: float
     integration_length: float
@@ -72,7 +74,7 @@ class EventAnalyzer:
         # we can analyze pad seconds before event time
         self.length_previous_data = (
             self.padding
-            + self.background_length
+            + self.psd_length
             + self.kernel_length
             + self.fduration / 2
             + self.integration_length
@@ -81,13 +83,15 @@ class EventAnalyzer:
         self.inference_stride = int(
             self.sample_rate / self.inference_sampling_rate
         )
+        self.step_size = int(
+            self.preprocessor.batch_size * self.inference_stride
+        )
+        self.state_shape = (1, len(self.ifos), self.snapshotter.state_size)
         self.integration_size = int(
             self.integration_length * self.inference_sampling_rate
         )
-        self.window = (
-            torch.ones((1, 1, self.integration_size)) / self.integration_size
-        )
-        self.window = self.window.to(self.device)
+        self.window_size = int(self.integration_length * self.sample_rate)
+        self.window = np.ones((self.window_size,)) / self.window_size
 
     def find_strain(self, time: float, shifts: np.ndarray):
         # query the background strain
@@ -142,14 +146,36 @@ class EventAnalyzer:
         return strain
 
     def qscan(self, strain):
-        ts = TimeSeries(strain, sample_rate=self.sample_rate)
-        qscan = ts.q_transform(logf=True, frange=(32, 512), whiten=False)
-        return qscan
+        qscans = []
+        for i in range(len(self.ifos)):
+            ts = TimeSeries(strain[i], sample_rate=self.sample_rate)
+            qscan = ts.q_transform(logf=True, frange=(32, 512), whiten=False)
+            qscans.append(qscan)
+        return qscans
 
-    def integrate(self, nn):
-        nn = nn.squeeze(-1)[None]
-        preds = torch.nn.functional.conv1d(nn, self.window)
-        return preds
+    def integrate(self, y):
+        integrated = np.convolve(y, self.window, mode="full")
+        return integrated[: -self.window_size + 1]
+
+    def analyze(self, X: torch.Tensor):
+        ys, batches = [], []
+        start = 0
+        state = torch.zeros(self.state_shape)
+        while start < (X.shape[-1] - self.step_size):
+            stop = start + self.step_size
+            x = X[:, :, start:stop]
+            with torch.no_grad():
+                x = torch.Tensor(x)
+                x, state = self.snapshotter(x, state)
+                batch = self.preprocessor(x)
+                y_hat = self.model(batch)[:, 0].numpy()
+
+            batches.append(batch.numpy())
+            ys.append(y_hat)
+            start += self.step_size
+        batches = np.concatenate(batches)
+        ys = np.concatenate(ys)
+        return ys, batches
 
     def __call__(self, time: float, shifts: np.ndarray, foreground: bool):
         strain, times = self.find_strain(time, shifts)
@@ -158,29 +184,11 @@ class EventAnalyzer:
             strain = self.inject(strain, waveform)
         strain = strain[None]
 
-        splits = [strain.shape[-1] - self.preprocessor.size]
-        _, times = np.split(times, splits)
-        fduration_size = int(self.fduration * self.sample_rate / 2)
-        times = times[fduration_size:-fduration_size]
+        outputs, whitened = self.analyze(strain)
+        # qscans = self.qscan(whitened[0])
 
-        windows, whitened = self.preprocessor(strain)
-        whitened = whitened.detach().numpy()[0]
-
-        # TODO: find window where trigger is center
-        # center = whitened[0][0].detach().numpy()
-        # qscan = self.qscan(center)
-        # qscan_path = self.qscan_dir / "qscan.png"
-        # plot = qscan.plot()
-        # plot.save(qscan_path)
-
-        outputs = self.model(windows)
         integrated = self.integrate(outputs)
-
-        outputs = outputs.detach().numpy().flatten()
-        integrated = integrated.detach().numpy().flatten()
-
         outputs = outputs[self.integration_size :]
-        integrated = integrated[:-1]
 
         inference_times = (
             times[self.kernel_size :: self.inference_stride][
@@ -189,7 +197,13 @@ class EventAnalyzer:
             + self.kernel_length
         )
 
-        return outputs, integrated, whitened, times, inference_times
+        return (
+            outputs,
+            integrated,
+            whitened[0],
+            times,
+            inference_times,
+        )  # qscans
 
 
 class EventInspectorPlot:
@@ -213,7 +227,6 @@ class EventInspectorPlot:
             x_range=(-3, 3),
             x_axis_label="Time [s]",
             y_axis_label="Strain [unitless]",
-            tools="",
         )
         self.timeseries_plot.toolbar.autohide = True
 
@@ -269,6 +282,17 @@ class EventInspectorPlot:
 
         return row(self.timeseries_plot, self.spectrogram)
 
+    def plot(self, qscans, det):
+        fig = Plot(
+            *qscans,
+            figsize=(12, 6),
+            geometry=(1, 2),
+            yscale="log",
+            method="pcolormesh",
+            cmap="viridis",
+        )
+        fig.savefig(self.analyzer.qscan_dir / f"qscan-{det}.png")
+
     def update(
         self,
         event_time: float,
@@ -276,11 +300,17 @@ class EventInspectorPlot:
         shift: np.ndarray,
         title: str,
     ) -> None:
-
         foreground = event_type == "foreground"
-        nn, integrated, whitened, times, inference_times = self.analyzer(
-            event_time, shift, foreground
-        )
+        (
+            nn,
+            integrated,
+            whitened,
+            times,
+            inference_times,
+            # qscans,
+        ) = self.analyzer(event_time, shift, foreground)
+        # det = integrated.max()
+        # self.plot(qscans, det)
 
         # self.spectrogram.text = f"<img src=myapp/{qscan_path}>"
 
@@ -319,7 +349,7 @@ class EventInspectorPlot:
         self.timeseries_plot.title.text = title
 
     def reset(self):
-        self.configure_sources()
+        # TODO: implement this
         for r in self.strain_renderers:
             r.data_source.data = dict(H1=[], L1=[], t=[])
 

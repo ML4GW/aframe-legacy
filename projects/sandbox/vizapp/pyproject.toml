@@ -22,7 +22,7 @@ torch = {version = "^1.12", source = "torch"}
 "aframe.logging" = {path = "../../../libs/logging", develop = true}
 "aframe.priors" = {path = "../../../libs/priors", develop = true}
 "aframe.architectures" = {path = "../../../libs/architectures", develop = true}
-gwpy = "^2.1"
+gwpy = ">2.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"

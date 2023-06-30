@@ -21,6 +21,7 @@ class AnalysisPage(Page):
         return EventAnalyzer(
             self.app.model,
             self.app.preprocessor,
+            self.app.snapshotter,
             self.app.strain_dir,
             self.app.qscan_dir,
             self.app.response_path,

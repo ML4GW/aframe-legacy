@@ -9,21 +9,19 @@ from bokeh.models import Div, MultiChoice, TabPanel, Tabs
 from vizapp.pages import AnalysisPage, PerformanceSummaryPage
 
 from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
-from aframe.analysis.ledger.injections import InjectionParameterSet
 
 if TYPE_CHECKING:
     import torch
     from astropy.cosmology import Cosmology
     from vizapp.vetoes import VetoParser
 
-    from .structures import Preprocessor
-
 
 class VizApp:
     def __init__(
         self,
         model: "torch.nn.Module",
-        preprocessor: "Preprocessor",
+        preprocessor: "torch.nn.Module",
+        snapshotter: "torch.nn.Module",
         base_directory: Path,
         data_directory: Path,
         cosmology: "Cosmology",
@@ -45,6 +43,7 @@ class VizApp:
         # set a bunch of attributes
         self.model = model
         self.preprocessor = preprocessor
+        self.snapshotter = snapshotter
         self.veto_parser = veto_parser
         self.ifos = ifos
         self.source_prior = source_prior
@@ -58,20 +57,20 @@ class VizApp:
         self.integration_length = integration_length
         self.padding = padding
 
-        self.strain_dir = data_directory / "train" / "background"
+        self.strain_dir = data_directory / "test" / "background"
         self.qscan_dir = Path("./qscans/")
         self.qscan_dir.mkdir(exist_ok=True)
 
         # load results and data from the run we're visualizing
-        self.response_path = data_directory / "test" / "old-waveforms.h5"
-        rejected = data_directory / "test" / "old-rejected-parameters.h5"
+        self.response_path = data_directory / "test" / "waveforms.h5"
+        # rejected = data_directory / "test" / "rejected-parameters.h5"
 
         infer_dir = base_directory / "infer"
-        self.background = EventSet.read(infer_dir / "background-float32.h5")
+        self.background = EventSet.read(infer_dir / "background.h5")
         self.foreground = RecoveredInjectionSet.read(
-            infer_dir / "foreground-float32.h5"
+            infer_dir / "foreground.h5"
         )
-        self.rejected_params = InjectionParameterSet.read(rejected)
+        # self.rejected_params = InjectionParameterSet.read(rejected)
 
         # set up our veto selecter and set up the initially
         # blank veto mask, use this to update the sources

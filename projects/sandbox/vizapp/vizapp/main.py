@@ -78,6 +78,13 @@ def main(
         fduration,
         highpass=highpass,
     )
+    snapshotter = structures.BackgroundSnapshotter(
+        psd_length=background_length,
+        kernel_length=kernel_length,
+        fduration=fduration,
+        sample_rate=sample_rate,
+        inference_sampling_rate=inference_sampling_rate,
+    )
 
     veto_definer_file = _normalize_path(veto_definer_file)
     for ifo in ifos:
@@ -96,6 +103,7 @@ def main(
     bkapp = VizApp(
         model=model,
         preprocessor=preprocessor,
+        snapshotter=snapshotter,
         base_directory=basedir,
         data_directory=datadir,
         cosmology=cosmology,

@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from bokeh.layouts import row
 from bokeh.models import (
@@ -22,12 +24,27 @@ def find_glitches(events, times, shifts):
         mask = times == t
         values = events[mask]
         shift_values = shifts[mask]
-
-        arg = np.argmax(values)
         # use the worst case scenario event
+        arg = np.argmax(values)
         shift_groups.append(shift_values[arg])
         centers.append(values[arg])
     return unique_times, counts, centers, shift_groups
+
+
+def find_single_glitches(events, times, shifts):
+    unique_times, counts = np.unique(times, return_counts=True)
+    mask = counts == 1
+    unique_times, counts = unique_times[mask], counts[mask]
+
+    dets, shift_values = [], []
+    for t in unique_times:
+        idx = np.where(times == t)[0][0]
+        value = events[idx]
+        shift = shifts[idx]
+        dets.append(value)
+        shift_values.append(shift)
+
+    return unique_times, dets, shift_values
 
 
 FORE_ATTRS = [
@@ -227,13 +244,28 @@ class DistributionPlot:
             events, l1_times, shifts
         )
 
-        centers = h1_centers + l1_centers
-        times = np.concatenate([unique_h1_times, unique_l1_times])
-        counts = np.concatenate([h1_counts, l1_counts])
-        shifts = h1_shifts + l1_shifts
-        colors = [palette[0]] * len(h1_counts) + [palette[1]] * len(l1_counts)
-        labels = ["Hanford"] * len(h1_counts) + ["Livingston"] * len(l1_counts)
-        print(shifts)
+        single_times, single_events, single_shifts = find_single_glitches(
+            events, h1_times, shifts
+        )
+
+        # centers = h1_centers + l1_centers
+        times = np.concatenate(
+            [unique_h1_times, unique_l1_times, single_times]
+        )
+        counts = np.concatenate(
+            [h1_counts, l1_counts, np.ones(len(single_events))]
+        )
+        shifts = np.concatenate([h1_shifts, l1_shifts, single_shifts])
+        colors = (
+            [palette[0]] * len(h1_counts)
+            + [palette[1]] * len(l1_counts)
+            + [palette[2]] * len(single_events)
+        )
+        labels = (
+            ["Hanford"] * len(h1_counts)
+            + ["Livingston"] * len(l1_counts)
+            + ["Unique"] * len(single_events)
+        )
         t0 = h1_times.min()
         self.background_plot.xaxis.axis_label = f"Time from {t0:0.3f} [hours]"
         self.background_plot.legend.visible = True
@@ -243,22 +275,24 @@ class DistributionPlot:
         self.background_source.data.update(
             dict(
                 x=times - t0,
-                time=times,
-                detection_statistic=centers,
+                time=h1_times,
+                detection_statistic=events,
                 color=colors,
                 label=labels,
                 count=counts,
                 shift=shifts,
-                size=2 * (counts**0.8),
+                size=8 * (counts**0.8),
             )
         )
         self.background_source.selected.indices = []
 
     def inspect_event(self, attr, old, new):
-        print("inspecting event")
-        if len(new) != 1:
-            print("too many indices")
+        if len(new) > 1:
+            logging.debug("too many indices")
             return
+        if new == old:
+            return
+
         idx = new[0]
         event_time = self.foreground_source.data["time"][idx]
         shift = self.foreground_source.data["shift"][idx]
@@ -269,8 +303,6 @@ class DistributionPlot:
         title += f"SNR = {snr:0.1f}, "
         title += f"Chirp Mass = {chirp_mass:0.1f}"
 
-        # don't need to subtract 1 from the event time here
-        # since we're using the actual known injection time
         self.event_inspector.update(
             event_time,
             "foreground",
@@ -279,8 +311,10 @@ class DistributionPlot:
         )
 
     def inspect_glitch(self, attr, old, new):
-        print("inspecting glitch")
-        if len(new) != 1:
+        if len(new) > 1:
+            logging.debug("too many indices")
+            return
+        if new == old:
             return
 
         idx = new[0]
