@@ -139,7 +139,7 @@ def mdc_prior(
         )
     elif method == "luminosity_distance":
         prior["luminosity_distance"] = PowerLaw(
-            alpha=2, minimum=500, maximum=6800, unit=msun
+            alpha=2, minimum=500, maximum=6800, unit=mpc
         )
     else:
         raise ValueError(f"Unknown MDC sampling method {method}")

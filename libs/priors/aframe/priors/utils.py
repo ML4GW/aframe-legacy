@@ -17,11 +17,6 @@ def chirp_mass(m1, m2):
     return ((m1 * m2) ** 3 / (m1 + m2)) ** (1 / 5)
 
 
-def chirp_distance(chirp_mass, luminosity_distance):
-    fiducial = 1.4 / (2 ** (1 / 5))
-    return luminosity_distance * ((fiducial / chirp_mass) ** (5 / 6))
-
-
 def mass_condition_uniform(reference_params, mass_1):
     return dict(
         minimum=reference_params["minimum"],
