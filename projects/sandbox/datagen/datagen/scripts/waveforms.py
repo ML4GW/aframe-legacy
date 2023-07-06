@@ -8,11 +8,13 @@ from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
 from aframe.logging import configure_logging
+from aframe.priors.utils import parameter_conversion
 
 
 @scriptify
 def main(
     prior: Callable,
+    cosmology: Callable,
     num_signals: int,
     logdir: Path,
     datadir: Path,
@@ -63,8 +65,10 @@ def main(
     logging.info("Prior name            : {}".format(prior.__name__))
 
     # sample gw parameters
-    prior, detector_frame_prior = prior()
+    cosmology = cosmology()
+    prior, detector_frame_prior = prior(cosmology)
     params = prior.sample(num_signals)
+    params = parameter_conversion(params, cosmology)
 
     signals = generate_gw(
         params,

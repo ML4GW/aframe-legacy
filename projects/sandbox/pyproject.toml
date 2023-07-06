@@ -96,6 +96,7 @@ datadir = "${base.datadir}/train"
 logdir = "${base.logdir}"
 num_signals = 100000
 prior = "${base.training_prior}"
+cosmology = "${base.cosmology}"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = "${base.waveform_duration}"
 force_generation = "${base.force_generation}"
