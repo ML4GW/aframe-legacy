@@ -140,11 +140,7 @@ def main(
         # insert our accepted parameters into the output array
         start, stop = idx, idx + num_accepted
         for key, value in params.items():
-            if key not in (
-                "mass_ratio",
-                "chirp_mass",
-            ):
-                parameters[key][start:stop] = value[mask]
+            parameters[key][start:stop] = value[mask]
 
         # do the same for our accepted projected waveforms
         projected = projected[mask].numpy()

@@ -68,7 +68,7 @@ def parameter_conversion(
     if "redshift" in samples:
         samples["luminosity_distance"] = cosmology.luminosity_distance(
             samples["redshift"]
-        )
+        ).value
 
     samples = generate_source_frame_parameters(samples)
 

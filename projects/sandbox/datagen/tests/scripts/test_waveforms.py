@@ -2,10 +2,11 @@ import h5py
 import pytest
 from datagen.scripts import generate_waveforms
 
+from aframe.priors.cosmologies import planck
 from aframe.priors.priors import end_o3_ratesandpops, nonspin_bbh
 
 
-@pytest.fixture(params=[0, 10, 100])
+@pytest.fixture(params=[10, 100])
 def n_samples(request):
     return request.param
 
@@ -35,6 +36,11 @@ def prior(request):
     return request.param
 
 
+@pytest.fixture(params=[planck])
+def cosmology(request):
+    return request.param
+
+
 def test_check_file_contents(
     datadir,
     logdir,
@@ -42,11 +48,13 @@ def test_check_file_contents(
     waveform_duration,
     sample_rate,
     prior,
+    cosmology,
     minimum_frequency,
     reference_frequency,
 ):
     signal_file = generate_waveforms(
         prior,
+        cosmology,
         n_samples,
         logdir,
         datadir,
