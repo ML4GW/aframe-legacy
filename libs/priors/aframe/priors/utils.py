@@ -1,13 +1,32 @@
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple
+
+if TYPE_CHECKING:
+    from astropy.cosmology import Cosmology
 
 import h5py
 import numpy as np
 from bilby.core.prior import Interped, PriorDict
+from bilby.gw.conversion import (
+    generate_mass_parameters,
+    generate_source_frame_parameters,
+)
 
 
 def chirp_mass(m1, m2):
     return ((m1 * m2) ** 3 / (m1 + m2)) ** (1 / 5)
+
+
+def chirp_distance(chirp_mass, luminosity_distance):
+    fiducial = 1.4 / (2 ** (1 / 5))
+    return luminosity_distance * ((fiducial / chirp_mass) ** (5 / 6))
+
+
+def mass_condition_uniform(reference_params, mass_1):
+    return dict(
+        minimum=reference_params["minimum"],
+        maximum=mass_1,
+    )
 
 
 def mass_condition_powerlaw(reference_params, mass_1):
@@ -28,6 +47,35 @@ def mass_constraints(samples):
 
 def transpose(d: Dict[str, List]):
     return [dict(zip(d, col)) for col in zip(*d.values())]
+
+
+def parameter_conversion(
+    samples: Dict[str, np.ndarray], cosmology: "Cosmology"
+):
+    """
+    Convert mass parameters and distance parameters into various useful forms.
+    Requires at 2 mass parameters and one distance parameter in `samples`.
+    Assumes that the given masses are specified in the detector frame.
+    """
+
+    samples = generate_mass_parameters(samples)
+
+    fiducial = 1.4 / (2 ** (1 / 5))
+    factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)
+
+    if "chirp_distance" in samples:
+        samples["luminosity_distance"] = samples["chirp_distance"] / factor
+    if "redshift" in samples:
+        samples["luminosity_distance"] = cosmology.luminosity_distance(
+            samples["redshift"]
+        )
+
+    samples = generate_source_frame_parameters(samples)
+
+    if "chirp_distance" not in samples:
+        samples["chirp_distance"] = samples["luminosity_distance"] * factor
+
+    return samples
 
 
 def pdf_from_events(
