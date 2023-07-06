@@ -54,7 +54,7 @@ def parameter_conversion(
 ):
     """
     Convert mass parameters and distance parameters into various useful forms.
-    Requires at 2 mass parameters and one distance parameter in `samples`.
+    Requires 2 mass parameters and one distance parameter in `samples`.
     Assumes that the given masses are specified in the detector frame.
     """
 
@@ -63,17 +63,16 @@ def parameter_conversion(
     fiducial = 1.4 / (2 ** (1 / 5))
     factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)
 
-    if "chirp_distance" in samples:
-        samples["luminosity_distance"] = samples["chirp_distance"] / factor
     if "redshift" in samples:
         samples["luminosity_distance"] = cosmology.luminosity_distance(
             samples["redshift"]
         ).value
+    if "chirp_distance" in samples:
+        samples["luminosity_distance"] = samples["chirp_distance"] / factor
+    else:
+        samples["chirp_distance"] = samples["luminosity_distance"] * factor
 
     samples = generate_source_frame_parameters(samples)
-
-    if "chirp_distance" not in samples:
-        samples["chirp_distance"] = samples["luminosity_distance"] * factor
 
     return samples
 
