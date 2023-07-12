@@ -8,7 +8,6 @@ steps = [
     "export:export-model:resnet",
     "infer:deploy-infer",
     "vizapp:vizapp"
-
 ]
 
 [tool.typeo.base]
@@ -21,10 +20,10 @@ sample_rate = 2048
 kernel_length = 1.5
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
-#glitch_start = 1262394654
-train_start = 1239770547 
-train_stop = 1241205077# 10 day train window
-test_stop = 1241705077 # 5 day window for test
+glitch_start = 1262394654
+train_start = 1262686622
+train_stop = 1262945822 # 3 day train window
+test_stop = 1263809822 # 10 day window for test
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -37,7 +36,7 @@ inference_batch_size = 128
 inference_psd_length = 64
 training_psd_length = 8
 
-waveform_duration = 4
+waveform_duration = 8
 minimum_frequency = 20
 reference_frequency = 50
 highpass = 32
@@ -95,7 +94,7 @@ minimum_frequency = "${base.minimum_frequency}"
 reference_frequency = "${base.reference_frequency}"
 datadir = "${base.datadir}/train"
 logdir = "${base.logdir}"
-num_signals = 100000
+num_signals = 50000
 prior = "${base.training_prior}"
 sample_rate = "${base.sample_rate}" 
 waveform_duration = "${base.waveform_duration}"
@@ -135,7 +134,7 @@ batch_size = 640
 >>>>>>> 5147616 (fixing kernel size problem in training)
 max_epochs = 200
 max_lr = 1e-3
-lr_ramp_epochs = 60
+lr_ramp_epochs = 18
 weight_decay = 0.0
 
 snr_thresh = 4
@@ -173,10 +172,14 @@ valid_stride = 0.5
 max_fpr = 1e-3
 valid_livetime = 57600  # 16 hours of background
 <<<<<<< HEAD
+<<<<<<< HEAD
 early_stop = 200
 =======
 early_stop = 50
 >>>>>>> 66336fb (bump up waveform number and reduce length of generated waveform)
+=======
+early_stop = 25
+>>>>>>> 3d7ab97 (remove comments in pyproject)
 checkpoint_every = 3
 
 # misc args
@@ -212,7 +215,7 @@ psd_length = "${base.inference_psd_length}"
 aframe_instances = 6
 =======
 fftlength = 8
-psd_length = "${base.inference_psd_length}"
+psd_length = "${base.inference_psd_length}" 
 
 # repo/triton parameters
 <<<<<<< HEAD
