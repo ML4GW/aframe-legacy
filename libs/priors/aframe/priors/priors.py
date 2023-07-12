@@ -1,20 +1,12 @@
 from typing import TYPE_CHECKING, Dict, Optional
 
 import numpy as np
-from astropy import units
-from astropy.cosmology import z_at_value
-from bilby.core.prior import (
-    ConditionalPowerLaw,
-    ConditionalPriorDict,
-    Constraint,
-    Cosine,
-    Gaussian,
-    LogNormal,
-    PowerLaw,
-    PriorDict,
-    Sine,
-    Uniform,
-)
+from astropy.cosmology import Planck15
+from bilby.core.prior import ConditionalPowerLaw
+from bilby.core.prior import ConditionalPriorDict as BilbyConditionalPriorDict
+from bilby.core.prior import Constraint, Cosine, Gaussian, LogNormal, PowerLaw
+from bilby.core.prior import PriorDict as BilbyPriorDict
+from bilby.core.prior import Sine, Uniform
 from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
 
 if TYPE_CHECKING:
@@ -23,6 +15,7 @@ if TYPE_CHECKING:
 from aframe.priors.utils import (
     mass_condition_powerlaw,
     mass_constraints,
+    parameter_conversion,
     read_priors_from_file,
 )
 
@@ -32,14 +25,26 @@ mpc = "Mpc"
 rad = "rad"
 
 
-class SourceFramePrior(PriorDict):
-    def __init__(self, *args, **kwargs):
+class PriorDict(BilbyPriorDict):
+    def __init__(self, source_frame=None, cosmology=Planck15, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.source_frame = source_frame
+        self.cosmology = cosmology
+
+    def sample(self, size=None):
+        samples = super().sample(size)
+        return parameter_conversion(samples, self.cosmology, self.source_frame)
 
 
-class DetectorFramePrior(PriorDict):
-    def __init__(self, *args, **kwargs):
+class ConditionalPriorDict(BilbyConditionalPriorDict):
+    def __init__(self, source_frame=None, cosmology=Planck15, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.source_frame = source_frame
+        self.cosmology = cosmology
+
+    def sample(self, size=None):
+        samples = super().sample(size)
+        return parameter_conversion(samples, self.cosmology, self.source_frame)
 
 
 def uniform_extrinsic() -> PriorDict:
@@ -65,7 +70,8 @@ def uniform_spin() -> PriorDict:
 
 
 def nonspin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
-    prior = DetectorFramePrior(uniform_extrinsic())
+    prior = PriorDict(source_frame=False)
+    prior |= uniform_extrinsic()
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0, 1)
@@ -84,7 +90,8 @@ def nonspin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
 
 
 def spin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
-    prior = DetectorFramePrior(uniform_extrinsic())
+    prior = PriorDict(source_frame=False)
+    prior |= uniform_extrinsic()
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0, 1)
@@ -105,7 +112,9 @@ def spin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
 def end_o3_ratesandpops(
     cosmology: Optional["Cosmology"] = None,
 ) -> ConditionalPriorDict:
-    prior = SourceFramePrior(ConditionalPriorDict(uniform_extrinsic()))
+    prior = ConditionalPriorDict(source_frame=True)
+    prior |= uniform_extrinsic()
+    prior |= uniform_spin()
     prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=10, maximum=100, unit=msun)
     prior["mass_2"] = ConditionalPowerLaw(
         condition_func=mass_condition_powerlaw,
@@ -117,28 +126,17 @@ def end_o3_ratesandpops(
     prior["redshift"] = UniformComovingVolume(
         0, 2, name="redshift", cosmology=cosmology
     )
-    spin_prior = uniform_spin()
-    for key, value in spin_prior.items():
-        prior[key] = value
+
     return prior
 
 
-def mdc_prior(
-    cosmology: Optional["Cosmology"] = None, method="chirp_distance"
-):
-    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
-
+def mdc_prior(method="chirp_distance"):
+    prior = PriorDict(source_frame=False, conversion_function=mass_constraints)
+    prior |= uniform_extrinsic()
+    prior |= uniform_spin()
     prior["mass_1"] = Uniform(7, 50, unit=msun)
     prior["mass_2"] = Uniform(7, 50, unit=msun)
     prior["mass_ratio"] = Constraint(0.0, 1)
-
-    spin_prior = uniform_spin()
-    for key, value in spin_prior.items():
-        prior[key] = value
-
-    extrinsic_prior = uniform_extrinsic()
-    for key, value in extrinsic_prior.items():
-        prior[key] = value
 
     if method == "chirp_distance":
         prior["chirp_distance"] = PowerLaw(
@@ -155,7 +153,8 @@ def mdc_prior(
 
 
 def power_law_dip_break():
-    prior = SourceFramePrior(uniform_extrinsic())
+    prior = PriorDict(source_frame=True)
+    prior |= uniform_extrinsic()
     event_file = "./event_files/\
         O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_bbh.h5"
     prior |= read_priors_from_file(event_file)
@@ -178,7 +177,7 @@ def gaussian_masses(
 
     Returns a PriorDict
     """
-    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
+    prior = PriorDict(source_frame=False, conversion_function=mass_constraints)
     prior["mass_1"] = Gaussian(name="mass_1", mu=m1, sigma=sigma)
     prior["mass_2"] = Gaussian(name="mass_2", mu=m2, sigma=sigma)
     prior["redshift"] = UniformSourceFrame(
@@ -213,7 +212,7 @@ def log_normal_masses(
 
     Returns a PriorDict
     """
-    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
+    prior = PriorDict(source_frame=False, conversion_function=mass_constraints)
 
     mu1, sigma1 = get_log_normal_params(m1, sigma)
     mu2, sigma2 = get_log_normal_params(m2, sigma)

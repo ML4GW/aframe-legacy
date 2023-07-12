@@ -17,8 +17,6 @@ from aframe.analysis.ledger.injections import (
 )
 from aframe.deploy import condor
 from aframe.logging import configure_logging
-from aframe.priors.priors import SourceFramePrior
-from aframe.priors.utils import parameter_conversion
 from ml4gw.gw import (
     compute_network_snr,
     compute_observed_strain,
@@ -92,9 +90,6 @@ def main(
     rejected_params = InjectionParameterSet()
     while n_samples > 0:
         params = prior.sample(n_samples)
-        params = parameter_conversion(
-            params, cosmology, isinstance(prior, SourceFramePrior)
-        )
         waveforms = generate_gw(
             params,
             minimum_frequency,

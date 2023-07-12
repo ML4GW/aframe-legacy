@@ -8,8 +8,6 @@ from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
 from aframe.logging import configure_logging
-from aframe.priors.priors import SourceFramePrior
-from aframe.priors.utils import parameter_conversion
 
 
 @scriptify
@@ -69,9 +67,6 @@ def main(
     cosmology = cosmology()
     prior = prior(cosmology)
     params = prior.sample(num_signals)
-    params = parameter_conversion(
-        params, cosmology, isinstance(prior, SourceFramePrior)
-    )
 
     signals = generate_gw(
         params,
