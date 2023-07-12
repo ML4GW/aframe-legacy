@@ -32,6 +32,16 @@ mpc = "Mpc"
 rad = "rad"
 
 
+class SourceFramePrior(PriorDict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class DetectorFramePrior(PriorDict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 def uniform_extrinsic() -> PriorDict:
     prior = PriorDict()
     prior["dec"] = Cosine()
@@ -55,7 +65,7 @@ def uniform_spin() -> PriorDict:
 
 
 def nonspin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
-    prior = uniform_extrinsic()
+    prior = DetectorFramePrior(uniform_extrinsic())
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0, 1)
@@ -70,12 +80,11 @@ def nonspin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
     prior["phi_12"] = 0
     prior["phi_jl"] = 0
 
-    detector_frame_prior = True
-    return prior, detector_frame_prior
+    return prior
 
 
 def spin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
-    prior = uniform_extrinsic()
+    prior = DetectorFramePrior(uniform_extrinsic())
     prior["mass_1"] = Uniform(5, 100, unit=msun)
     prior["mass_2"] = Uniform(5, 100, unit=msun)
     prior["mass_ratio"] = Constraint(0, 1)
@@ -90,14 +99,13 @@ def spin_bbh(cosmology: Optional["Cosmology"] = None) -> PriorDict:
     prior["phi_12"] = 0
     prior["phi_jl"] = 0
 
-    detector_frame_prior = True
-    return prior, detector_frame_prior
+    return prior
 
 
 def end_o3_ratesandpops(
     cosmology: Optional["Cosmology"] = None,
 ) -> ConditionalPriorDict:
-    prior = ConditionalPriorDict(uniform_extrinsic())
+    prior = SourceFramePrior(ConditionalPriorDict(uniform_extrinsic()))
     prior["mass_1"] = PowerLaw(alpha=-2.35, minimum=10, maximum=100, unit=msun)
     prior["mass_2"] = ConditionalPowerLaw(
         condition_func=mass_condition_powerlaw,
@@ -112,14 +120,13 @@ def end_o3_ratesandpops(
     spin_prior = uniform_spin()
     for key, value in spin_prior.items():
         prior[key] = value
-    detector_frame_prior = False
-    return prior, detector_frame_prior
+    return prior
 
 
 def mdc_prior(
     cosmology: Optional["Cosmology"] = None, method="chirp_distance"
 ):
-    prior = PriorDict(conversion_function=mass_constraints)
+    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
 
     prior["mass_1"] = Uniform(7, 50, unit=msun)
     prior["mass_2"] = Uniform(7, 50, unit=msun)
@@ -144,18 +151,16 @@ def mdc_prior(
     else:
         raise ValueError(f"Unknown MDC sampling method {method}")
 
-    detector_frame_prior = True
-    return prior, detector_frame_prior
+    return prior
 
 
 def power_law_dip_break():
-    prior = uniform_extrinsic()
+    prior = SourceFramePrior(uniform_extrinsic())
     event_file = "./event_files/\
         O1O2O3all_mass_h_iid_mag_iid_tilt_powerlaw_redshift_maxP_events_bbh.h5"
     prior |= read_priors_from_file(event_file)
 
-    detector_frame_prior = False
-    return prior, detector_frame_prior
+    return prior
 
 
 def gaussian_masses(
@@ -173,7 +178,7 @@ def gaussian_masses(
 
     Returns a PriorDict
     """
-    prior = PriorDict(conversion_function=mass_constraints)
+    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
     prior["mass_1"] = Gaussian(name="mass_1", mu=m1, sigma=sigma)
     prior["mass_2"] = Gaussian(name="mass_2", mu=m2, sigma=sigma)
     prior["redshift"] = UniformSourceFrame(
@@ -184,8 +189,7 @@ def gaussian_masses(
         name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
 
-    detector_frame_prior = True
-    return prior, detector_frame_prior
+    return prior
 
 
 def get_log_normal_params(mean, std):
@@ -209,7 +213,7 @@ def log_normal_masses(
 
     Returns a PriorDict
     """
-    prior = PriorDict(conversion_function=mass_constraints)
+    prior = DetectorFramePrior(PriorDict(conversion_function=mass_constraints))
 
     mu1, sigma1 = get_log_normal_params(m1, sigma)
     mu2, sigma2 = get_log_normal_params(m2, sigma)
@@ -225,47 +229,4 @@ def log_normal_masses(
         name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
 
-    detector_frame_prior = True
-    return prior, detector_frame_prior
-
-
-# The below two functions are for direct comparison with the methodology
-# used in the ML MDC paper: https://arxiv.org/abs/2209.11146
-def mdc_prior_chirp_distance(cosmology: Optional["Cosmology"] = None):
-    prior = PriorDict(conversion_function=mass_constraints)
-    prior["mass_2"] = Uniform(7, 50, unit=msun)
-    prior["mass_ratio"] = Constraint(0.00, 1)
-    prior["mass_1"] = Uniform(7, 50, unit=msun)
-    spin_prior = uniform_spin()
-    for key, value in spin_prior.items():
-        prior[key] = value
-
-    extrinsic_prior = uniform_extrinsic()
-    for key, value in extrinsic_prior.items():
-        prior[key] = value
-
-    prior["chirp_distance"] = PowerLaw(2, 130, 350)
-    detector_frame_prior = True
-
-    return prior, detector_frame_prior
-
-
-def convert_mdc_prior_samples(
-    samples: Dict[str, np.ndarray], cosmology: "Cosmology"
-):
-    """
-    Convert samples produced by the `mdc_prior_chirp_distance` Prior into
-    chirp mass, luminosity distance and redshift.
-    """
-    samples["chirp_mass"] = (samples["mass_1"] * samples["mass_2"]) ** 0.6 / (
-        samples["mass_1"] + samples["mass_2"]
-    ) ** 0.2
-
-    fiducial = 1.4 / (2 ** (1 / 5))
-    factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)
-    samples["luminosity_distance"] = samples["chirp_distance"] / factor
-    samples["redshift"] = z_at_value(
-        cosmology.luminosity_distance,
-        samples["luminosity_distance"] * units.Mpc,
-    ).value
-    return samples
+    return prior

@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple
 
 if TYPE_CHECKING:
-    from astropy.cosmology import Cosmology
+    from astropy.cosmology import Cosmology, z_at_value
+    import astropy.units as u
 
 import h5py
 import numpy as np
@@ -15,6 +16,18 @@ from bilby.gw.conversion import (
 
 def chirp_mass(m1, m2):
     return ((m1 * m2) ** 3 / (m1 + m2)) ** (1 / 5)
+
+
+def luminosity_distance_to_chirp_distance(d, mchirp):
+    fiducial = 1.4 / 2 ** (1 / 5)
+    factor = (fiducial / mchirp) ** (5 / 6)
+    return d * factor
+
+
+def chirp_distance_to_luminosity_distance(dchirp, mchirp):
+    fiducial = 1.4 / 2 ** (1 / 5)
+    factor = (fiducial / mchirp) ** (5 / 6)
+    return dchirp / factor
 
 
 def mass_condition_uniform(reference_params, mass_1):
@@ -44,8 +57,43 @@ def transpose(d: Dict[str, List]):
     return [dict(zip(d, col)) for col in zip(*d.values())]
 
 
-def parameter_conversion(
+def convert_masses_to_detector_frame(samples: Dict[str, np.ndarray]):
+    """
+    Helper function to put all masses into the detector frame if they
+    were sampled from a SourceFramePrior, as the parameter conversion
+    function below assumes detector frame specification
+    """
+    mass_keys = ["mass_1", "mass_2", "chirp_mass", "total_mass"]
+    if "redshift" not in samples:
+        samples = convert_distance_to_redshift(samples)
+
+    for key in mass_keys:
+        if key in samples:
+            samples[key] *= 1 + samples["redshift"]
+
+    return samples
+
+
+def convert_distance_to_redshift(
     samples: Dict[str, np.ndarray], cosmology: "Cosmology"
+):
+    """
+    If redshift is not among the keys in `samples`, we assume that we
+    have sampled either luminosity distance or chirp distance
+    """
+    if "luminosity_distance" not in samples:
+        samples["luminosity_distance"] = chirp_distance_to_luminosity_distance(
+            samples["chirp_distance"], samples["chirp_mass"]
+        )
+    samples["redshift"] = z_at_value(
+        cosmology.luminosity_distance, samples["luminosity_distance"] * u.Mpc
+    )
+
+    return samples
+
+
+def parameter_conversion(
+    samples: Dict[str, np.ndarray], cosmology: "Cosmology", source_frame: bool
 ):
     """
     Convert mass parameters and distance parameters into various useful forms.
@@ -54,6 +102,8 @@ def parameter_conversion(
     """
 
     samples = generate_mass_parameters(samples)
+    if source_frame:
+        samples = convert_masses_to_detector_frame(samples)
 
     fiducial = 1.4 / (2 ** (1 / 5))
     factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)

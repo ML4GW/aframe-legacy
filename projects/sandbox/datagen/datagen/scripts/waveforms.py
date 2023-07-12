@@ -8,6 +8,7 @@ from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
 from aframe.logging import configure_logging
+from aframe.priors.priors import SourceFramePrior
 from aframe.priors.utils import parameter_conversion
 
 
@@ -66,9 +67,11 @@ def main(
 
     # sample gw parameters
     cosmology = cosmology()
-    prior, detector_frame_prior = prior(cosmology)
+    prior = prior(cosmology)
     params = prior.sample(num_signals)
-    params = parameter_conversion(params, cosmology)
+    params = parameter_conversion(
+        params, cosmology, isinstance(prior, SourceFramePrior)
+    )
 
     signals = generate_gw(
         params,
@@ -77,7 +80,6 @@ def main(
         sample_rate,
         waveform_duration,
         waveform_approximant,
-        detector_frame_prior,
     )
 
     # Write params and similar to output file

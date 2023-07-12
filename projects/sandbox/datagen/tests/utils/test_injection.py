@@ -51,7 +51,7 @@ def test_generate_gw(
 ):
 
     n_pols = 2
-    prior, detector_frame_prior = prior()
+    prior = prior()
     sample_params = prior.sample(n_samples)
 
     waveforms = injection.generate_gw(
@@ -61,7 +61,6 @@ def test_generate_gw(
         sample_rate,
         waveform_duration,
         approximant,
-        detector_frame_prior,
     )
 
     expected_waveform_size = waveform_duration * sample_rate

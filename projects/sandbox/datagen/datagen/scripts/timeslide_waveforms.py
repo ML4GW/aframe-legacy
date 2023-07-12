@@ -17,6 +17,7 @@ from aframe.analysis.ledger.injections import (
 )
 from aframe.deploy import condor
 from aframe.logging import configure_logging
+from aframe.priors.priors import SourceFramePrior
 from aframe.priors.utils import parameter_conversion
 from ml4gw.gw import (
     compute_network_snr,
@@ -55,7 +56,7 @@ def main(
     configure_logging(log_file, verbose=verbose)
 
     cosmology = cosmology()
-    prior, detector_frame_prior = prior(cosmology)
+    prior = prior(cosmology)
 
     injection_times = utils.calc_segment_injection_times(
         start,
@@ -91,7 +92,9 @@ def main(
     rejected_params = InjectionParameterSet()
     while n_samples > 0:
         params = prior.sample(n_samples)
-        params = parameter_conversion(params, cosmology)
+        params = parameter_conversion(
+            params, cosmology, isinstance(prior, SourceFramePrior)
+        )
         waveforms = generate_gw(
             params,
             minimum_frequency,
@@ -99,7 +102,6 @@ def main(
             sample_rate,
             waveform_duration,
             waveform_approximant,
-            detector_frame_prior,
         )
         polarizations = {
             "cross": torch.Tensor(waveforms[:, 0, :]),
