@@ -177,6 +177,7 @@ max_fpr = 1e-3
 valid_livetime = 57600  # 16 hours of background
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 early_stop = 200
 =======
 early_stop = 50
@@ -184,6 +185,12 @@ early_stop = 50
 =======
 early_stop = 25
 >>>>>>> 3d7ab97 (remove comments in pyproject)
+=======
+early_stop = 25
+=======
+early_stop = 200
+>>>>>>> 6b80f4b (make early stop equal to max epochs)
+>>>>>>> 6cadc1a (make early stop equal to max epochs)
 checkpoint_every = 3
 
 # misc args
