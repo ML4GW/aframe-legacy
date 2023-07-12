@@ -249,7 +249,7 @@ def deploy(
     # to accumulate desired background livetime
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
     segments = query_segments(state_flags, start, stop, min_segment_length)
-    shifts_required = utils.get_num_shifts(segments, Tb, shifts[1])
+    shifts_required = utils.get_num_shifts(segments, Tb, max(shifts))
 
     # create text file from which the condor job will read
     # the start, stop, and shift for each job
