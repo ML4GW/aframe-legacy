@@ -27,11 +27,9 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 "hermes.aeriel" = {path = "../../../hermes/hermes/hermes.aeriel", extras=["serve"], develop = true}
 "hermes.stillwater" = {path = "../../../hermes/hermes/hermes.stillwater", develop = true}
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.3"
-
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
+pytest = "^7.3"
 
 [build-system]
 requires = ["poetry-core"]
