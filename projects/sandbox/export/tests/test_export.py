@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 import torch
-from export import export
+from export import main as export
 from google.protobuf import text_format
 from tritonclient.grpc.model_config_pb2 import ModelConfig
 
-from aframe.architectures import Preprocessor, ResNet
+from aframe.architectures import ResNet
 
 
 # set up a directory for the entirety of the session
@@ -38,13 +38,8 @@ def get_network_weights(weights_dir, architecture):
     def fn(num_ifos, sample_rate, kernel_length, target):
         weights = weights_dir / f"{num_ifos}-{sample_rate}-{kernel_length}.pt"
         if not weights.exists():
-            preprocessor = Preprocessor(num_ifos, sample_rate, fduration=1)
-            preprocessor.whitener.build(
-                kernel_length=torch.Tensor((kernel_length,))
-            )
             aframe = architecture(num_ifos)
-            model = torch.nn.Sequential(preprocessor, aframe)
-            torch.save(model.state_dict(prefix=""), weights)
+            torch.save(aframe.state_dict(prefix=""), weights)
 
         shutil.copy(weights, target)
 
