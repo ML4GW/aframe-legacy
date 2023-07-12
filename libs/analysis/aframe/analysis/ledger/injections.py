@@ -36,7 +36,6 @@ class IntrinsicParameterSet(Ledger):
     total_mass_source: np.ndarray = parameter()
     chirp_mass_source: np.ndarray = parameter()
     luminosity_distance: np.ndarray = parameter()
-    comoving_distance: np.ndarray = parameter()
     chirp_distance: np.ndarray = parameter()
     redshift: np.ndarray = parameter()
     psi: np.ndarray = parameter()
