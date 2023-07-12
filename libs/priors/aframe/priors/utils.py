@@ -2,16 +2,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Sequence, Tuple
 
 if TYPE_CHECKING:
-    from astropy.cosmology import Cosmology, z_at_value
-    import astropy.units as u
+    from astropy.cosmology import Cosmology
 
+import astropy.units as u
 import h5py
 import numpy as np
+from astropy.cosmology import z_at_value
 from bilby.core.prior import Interped, PriorDict
-from bilby.gw.conversion import (
-    generate_mass_parameters,
-    generate_source_frame_parameters,
-)
+from bilby.gw.conversion import generate_mass_parameters
 
 
 def chirp_mass(m1, m2):
@@ -57,29 +55,13 @@ def transpose(d: Dict[str, List]):
     return [dict(zip(d, col)) for col in zip(*d.values())]
 
 
-def convert_masses_to_detector_frame(samples: Dict[str, np.ndarray]):
-    """
-    Helper function to put all masses into the detector frame if they
-    were sampled from a SourceFramePrior, as the parameter conversion
-    function below assumes detector frame specification
-    """
-    mass_keys = ["mass_1", "mass_2", "chirp_mass", "total_mass"]
-    if "redshift" not in samples:
-        samples = convert_distance_to_redshift(samples)
-
-    for key in mass_keys:
-        if key in samples:
-            samples[key] *= 1 + samples["redshift"]
-
-    return samples
-
-
 def convert_distance_to_redshift(
     samples: Dict[str, np.ndarray], cosmology: "Cosmology"
 ):
     """
     If redshift is not among the keys in `samples`, we assume that we
-    have sampled either luminosity distance or chirp distance
+    have sampled either luminosity distance or chirp distance.
+    Luminosity distance is assumed to be in units of Mpc
     """
     if "luminosity_distance" not in samples:
         samples["luminosity_distance"] = chirp_distance_to_luminosity_distance(
@@ -88,6 +70,25 @@ def convert_distance_to_redshift(
     samples["redshift"] = z_at_value(
         cosmology.luminosity_distance, samples["luminosity_distance"] * u.Mpc
     )
+
+    return samples
+
+
+def _generate_detector_frame_masses(samples: Dict[str, np.ndarray]):
+    mass_keys = ["mass_1", "mass_2", "chirp_mass", "total_mass"]
+    for key in mass_keys:
+        if key in samples:
+            samples[f"{key}_source"] = samples[key]
+            samples[key] *= 1 + samples["redshift"]
+
+    return samples
+
+
+def _generate_source_frame_masses(samples: Dict[str, np.ndarray]):
+    mass_keys = ["mass_1", "mass_2", "chirp_mass", "total_mass"]
+    for key in mass_keys:
+        if key in samples:
+            samples[f"{key}_source"] = samples[key] / (1 + samples["redshift"])
 
     return samples
 
@@ -102,22 +103,27 @@ def parameter_conversion(
     """
 
     samples = generate_mass_parameters(samples)
+    if "redshift" not in samples:
+        samples = convert_distance_to_redshift(samples, cosmology)
     if source_frame:
-        samples = convert_masses_to_detector_frame(samples)
+        samples = _generate_detector_frame_masses(samples)
+    else:
+        samples = _generate_source_frame_masses(samples)
 
     fiducial = 1.4 / (2 ** (1 / 5))
     factor = (fiducial / samples["chirp_mass"]) ** (5 / 6)
 
-    if "redshift" in samples:
+    # We'll assume that we don't have both chirp and luminosity distance
+    # We know that we have redshift at the very least
+    if "chirp_distance" in samples:
+        samples["luminosity_distance"] = samples["chirp_distance"] / factor
+    elif "luminosity_distance" in samples:
+        samples["chirp_distance"] = samples["luminosity_distance"] * factor
+    else:
         samples["luminosity_distance"] = cosmology.luminosity_distance(
             samples["redshift"]
         ).value
-    if "chirp_distance" in samples:
-        samples["luminosity_distance"] = samples["chirp_distance"] / factor
-    else:
         samples["chirp_distance"] = samples["luminosity_distance"] * factor
-
-    samples = generate_source_frame_parameters(samples)
 
     return samples
 

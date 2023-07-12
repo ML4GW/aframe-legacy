@@ -48,7 +48,7 @@ class ConditionalPriorDict(BilbyConditionalPriorDict):
 
 
 def uniform_extrinsic() -> PriorDict:
-    prior = PriorDict()
+    prior = BilbyPriorDict()
     prior["dec"] = Cosine()
     prior["ra"] = Uniform(0, 2 * np.pi)
     prior["theta_jn"] = Sine()
@@ -58,7 +58,7 @@ def uniform_extrinsic() -> PriorDict:
 
 
 def uniform_spin() -> PriorDict:
-    prior = PriorDict()
+    prior = BilbyPriorDict()
     prior["psi"] = Uniform(0, np.pi)
     prior["a_1"] = Uniform(0, 0.998)
     prior["a_2"] = Uniform(0, 0.998)
