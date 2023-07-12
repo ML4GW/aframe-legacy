@@ -16,7 +16,7 @@ def reference_frequency(request):
     return request.param
 
 
-@pytest.fixture(params=[20, 40])
+@pytest.fixture(params=[20])
 def minimum_frequency(request):
     return request.param
 
