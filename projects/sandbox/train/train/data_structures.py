@@ -143,6 +143,8 @@ class ChannelSwapper(torch.nn.Module):
         self.frac = frac
 
     def forward(self, X):
+        print("swapper")
+        print(X.shape)
         num = int(X.shape[0] * self.frac)
         indices = []
         if num > 0:
