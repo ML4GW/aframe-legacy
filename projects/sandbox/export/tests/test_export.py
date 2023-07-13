@@ -154,7 +154,17 @@ def validate_repo(repo_dir):
                 assert (model / "1").is_dir()
                 assert not (model / "2").is_dir()
             elif model.name == "preprocessor":
-                assert True
+                assert config.input[0].dims == [
+                    1,
+                    expected_num_ifos,
+                    expected_state_size
+                    + (expected_stream_size * expected_batch_size),
+                ]
+                assert config.output[0].dims == [
+                    expected_batch_size,
+                    expected_num_ifos,
+                    expected_aframe_size,
+                ]
             else:
                 raise ValueError(f"Unexpected model {model.name} in repo")
 
