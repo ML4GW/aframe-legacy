@@ -17,7 +17,15 @@ accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
 logdir = "${BASE_DIR}/log"
 sample_rate = 2048
+<<<<<<< HEAD
 kernel_length = 1.5
+=======
+<<<<<<< HEAD
+kernel_length = 2
+=======
+kernel_length = 1.5
+>>>>>>> e25e850 (kernel_length now refers just to what is fed to aframe)
+>>>>>>> 1655cb1 (kernel_length now refers just to what is fed to aframe)
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
 glitch_start = 1262394654
