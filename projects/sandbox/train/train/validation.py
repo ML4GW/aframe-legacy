@@ -233,6 +233,7 @@ class Validator:
         # now cut out a window symmetrically about the
         # coalescence time and inject it into the background
         kernel_size = X.shape[-1]
+
         start = waveforms.shape[-1] // 2 - kernel_size // 2
         stop = start + kernel_size
         waveforms = waveforms[:, :, int(start) : int(stop)]

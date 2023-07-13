@@ -210,7 +210,6 @@ def main(
     # load background, infer ifos, and get start and end times
     # of the combined training + validation period
     background_fnames = train_utils.get_background_fnames(background_dir)
-
     sample_length = kernel_length + psd_length
 
     psd_estimator = structures.PsdEstimator(
@@ -277,7 +276,8 @@ def main(
         alpha=snr_alpha,
         decay_steps=snr_decay_steps,
     )
-    cross, plus = waveforms.transpose(1, 0, 2)
+    print(waveforms)
+    cross, plus = waveforms.transpose(1, 0)
     augmentor = AframeBatchAugmentor(
         ifos,
         sample_rate,

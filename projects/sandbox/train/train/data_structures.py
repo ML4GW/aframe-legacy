@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import torch
 
+import ml4gw.utils.slicing as slicing
 from ml4gw import gw
 from ml4gw.distributions import PowerLaw
 from ml4gw.transforms import SpectralDensity
@@ -220,7 +221,7 @@ class GlitchSampler(torch.nn.Module):
             # timeseries, but rather a batch of single
             # channel timeseries
             glitches = glitches[idx, None]
-            glitches = sample_kernels(
+            glitches = slicing.sample_kernels(
                 glitches,
                 kernel_size=X.shape[-1],
                 max_center_offset=self.max_offset,
