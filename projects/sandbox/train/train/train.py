@@ -210,7 +210,7 @@ def main(
     # load background, infer ifos, and get start and end times
     # of the combined training + validation period
     background_fnames = train_utils.get_background_fnames(background_dir)
-    sample_length = kernel_length + psd_length
+    sample_length = kernel_length + psd_length + fduration
 
     psd_estimator = structures.PsdEstimator(
         psd_length, sample_rate, fftlength=2, fast=highpass is not None
