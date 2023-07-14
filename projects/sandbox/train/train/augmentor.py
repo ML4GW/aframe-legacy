@@ -127,9 +127,53 @@ class AframeBatchAugmentor(torch.nn.Module):
         )
         return kernels
 
+    def insert_glitches(self, X, glitches, y):
+        channels = X.shape[1]
+
+        # sample batch indices which will be replaced with
+        # a glitch independently from each interferometer
+        indices = torch.randint(len(X), size=(channels, len(glitches)))
+        for i, glitches in enumerate(glitches):
+            idx = indices[i]
+
+            # finally sample kernels from the selected glitches.
+            # Add a dummy dimension so that sample_kernels
+            # doesn't think this is a single multi-channel
+            # timeseries, but rather a batch of single
+            # channel timeseries
+            glitches = glitches[None]
+            glitches = sample_kernels(
+                glitches,
+                kernel_size=X.shape[-1],
+                max_center_offset=self.trigger_offset,
+            )
+
+            # replace the appropriate channel in our
+            # strain data with the sampled glitches
+            X[idx, i] = glitches[:, 0]
+
+            # use bash file permissions style
+            # numbers to indicate which channels
+            # go inserted on
+            y[idx] -= 2 ** (i + 1)
+
+        return X, y
+
     @torch.no_grad()
-    def forward(self, X, y):
+    def forward(self, X, glitches, y):
+        # calculate psds of glitches,
+        # this also will split glitches up into portion used to whiten them,
+        # and portion used to sample kernels from
+        glitches, glitch_psds = self.psd_estimator(glitches)
+
+        # calculate the psds of the background batch,
+        # and insert glitches into the batch
         X, psds = self.psd_estimator(X)
+        X, y = self.insert_glitches(X, glitches, y)
+
+        # replace psds with glitch psds where appropriate
+        mask = y[:, 0] < -4
+        psds[mask] = glitch_psds
 
         # apply inversion / flip augementations
         X = self.inverter(X)
@@ -148,14 +192,13 @@ class AframeBatchAugmentor(torch.nn.Module):
 
         # perform swapping and muting augmentations
         # on those responses, and then inject them
-        print(responses.shape)
+
         responses, swap_indices = self.swapper(responses)
-        print(responses.shape)
         responses, mute_indices = self.muter(responses)
-        print(X.shape)
         X[mask] += responses
 
-        # now that injections have been made,
+        # now that glitches have been inserted and
+        # injections have been made,
         # whiten _all_ the strain using the
         # background psds computed up top
         X = self.whitener(X, psds)
