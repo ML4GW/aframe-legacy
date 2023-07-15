@@ -18,6 +18,7 @@ accounting_group = "${LIGO_GROUP}"
 logdir = "${BASE_DIR}/log"
 sample_rate = 2048
 <<<<<<< HEAD
+<<<<<<< HEAD
 kernel_length = 1.5
 =======
 <<<<<<< HEAD
@@ -26,12 +27,15 @@ kernel_length = 2
 kernel_length = 1.5
 >>>>>>> e25e850 (kernel_length now refers just to what is fed to aframe)
 >>>>>>> 1655cb1 (kernel_length now refers just to what is fed to aframe)
+=======
+kernel_length = 1.5
+>>>>>>> 731c1c6 (fix glitch script to accomodate glitch loading)
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
-glitch_start = 1262394654
-train_start = 1262686622
-train_stop = 1262945822 # 3 day train window
-test_stop = 1263809822 # 10 day window for test
+glitch_start = 1239770547 
+train_start = 1239770547 
+train_stop = 1241205077# 10 day train window
+test_stop = 1241705077 # 5 day window for test
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -74,6 +78,9 @@ force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 5
+kernel_length = "${base.kernel_length}"
+fduration = "${base.fduration}"
+psd_length = "${base.training_psd_length}"
 window = 2
 start = "${base.glitch_start}"
 stop = "${base.train_stop}"

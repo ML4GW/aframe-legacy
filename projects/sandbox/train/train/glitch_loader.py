@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 
 import h5py
@@ -8,43 +9,55 @@ import torch
 class GlitchLoader(torch.utils.data.IterableDataset):
     def __init__(
         self,
-        fnames: List[str],
         glitches_per_read: int,
         reads_per_chunk: int,
         chunks_per_epoch: int,
-        ifos: List[str],
+        **ifo_files: List[Path],
     ) -> None:
-        self.fnames = fnames
         self.reads_per_chunk = reads_per_chunk
         self.chunks_per_epoch = chunks_per_epoch
-        self.ifos = ifos
+        self.glitches_per_read = glitches_per_read
+        self.ifo_files = ifo_files
 
-        sizes = []
-        for f in self.fnames:
-            with h5py.File(f, "r") as f:
-                size = len(f[self.ifos[0]])
-                sizes.append(size)
+        sizes = {}
+        probs = {}
+        for ifo, fnames in self.ifo_files.items():
+            sizes = []
+            for f in self.fnames:
+                with h5py.File(f, "r") as f:
+                    size = len(f["glitches"])
+                    sizes.append(size)
 
-        self.glitches_per_read = min(glitches_per_read, min(sizes))
-        total = sum(sizes)
-        self.probs = np.array([i / total for i in sizes])
+            total = sum(sizes)
+            probs[ifo] = np.array([i / total for i in sizes])
+
+        self.probs = probs
 
     def sample_fnames(self):
-        return np.random.choice(
-            self.fnames,
-            p=self.probs,
-            size=(self.reads_per_chunk,),
-            replace=True,
-        )
+        sampled = {}
+        for ifo, files in self.ifo_files.items():
+            sampled[ifo] = np.random.choice(
+                files,
+                p=self.probs[ifo],
+                size=(self.reads_per_chunk,),
+                replace=True,
+            )
+        return sampled
 
     def load(self):
         fnames = self.sample_fnames()
         glitches = []
-        for fname in fnames:
-            with h5py.File(fname, "r") as f:
-                for ifo in self.ifos:
-                    indices = torch.randint(self.glitches_per_read)
-                    glitches.append(f[ifo][indices])
+        for ifo in self.ifos:
+            ifo_glitches = []
+            ifo_files = fnames[ifo]
+            for fname in ifo_files:
+                with h5py.File(fname, "r") as f:
+                    num = len(f["glitches"])
+                    indices = torch.randint(
+                        num, size=(self.glitches_per_read,)
+                    )
+                    ifo_glitches.extend(f["glitches"][indices])
+            glitches.append(ifo_glitches)
 
         return np.stack(glitches)
 
@@ -62,42 +75,38 @@ class GlitchLoader(torch.utils.data.IterableDataset):
 class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
     def __init__(
         self,
-        fnames: List[str],
-        ifos: List[str],
         reads_per_chunk: int,  # number of files to read per chunk
         batches_per_chunk: int,  # number of batches before loading new chunk
         glitches_per_read: int,  # number of glitches to read per file
         glitches_per_batch: int,  # glitch_prob * batch_size
         device: str,
         num_workers: Optional[int] = None,
+        **ifo_paths: List[Path],
     ):
-        self.fnames = fnames
         self.batches_per_chunk = batches_per_chunk
         self.glitches_per_batch = glitches_per_batch
         self.reads_per_chunk = reads_per_chunk
         self.glitches_per_read = glitches_per_read
-        self.ifos = ifos
 
+        self.ifos = list(ifo_paths.keys())
         self.device = device
         self.num_workers = num_workers
 
         glitch_loader = GlitchLoader(
-            fnames,
             glitches_per_read,
             reads_per_chunk,
             batches_per_chunk,
-            ifos,
+            **ifo_paths,
         )
 
         if not num_workers:
             self.glitch_loader = glitch_loader
         else:
-            self.chunk_loader = torch.utils.data.DataLoader(
-                fnames,
-                glitches_per_read,
-                reads_per_chunk,
-                batches_per_chunk,
-                ifos,
+            self.glitch_loader = torch.utils.data.DataLoader(
+                glitch_loader,
+                batch_size=num_workers,
+                num_workers=num_workers,
+                pin_memory=True,
                 collate_fn=glitch_loader.collate,
             )
 
