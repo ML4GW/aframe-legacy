@@ -14,6 +14,7 @@ class GlitchLoader(torch.utils.data.IterableDataset):
         chunks_per_epoch: int,
         **ifo_files: List[Path],
     ) -> None:
+        super().__init__()
         self.reads_per_chunk = reads_per_chunk
         self.chunks_per_epoch = chunks_per_epoch
         self.glitches_per_read = glitches_per_read
@@ -21,11 +22,12 @@ class GlitchLoader(torch.utils.data.IterableDataset):
 
         sizes = {}
         probs = {}
+        self.ifos = list(ifo_files.keys())
         for ifo, fnames in self.ifo_files.items():
             sizes = []
-            for f in self.fnames:
+            for f in fnames:
                 with h5py.File(f, "r") as f:
-                    size = len(f["glitches"])
+                    size = len(f[ifo]["glitches"])
                     sizes.append(size)
 
             total = sum(sizes)
@@ -52,14 +54,14 @@ class GlitchLoader(torch.utils.data.IterableDataset):
             ifo_files = fnames[ifo]
             for fname in ifo_files:
                 with h5py.File(fname, "r") as f:
-                    num = len(f["glitches"])
-                    indices = torch.randint(
-                        num, size=(self.glitches_per_read,)
+                    num = len(f[ifo]["glitches"])
+                    indices = np.sort(
+                        np.random.permutation(num)[: self.glitches_per_read]
                     )
-                    ifo_glitches.extend(f["glitches"][indices])
+                    ifo_glitches.extend(f[ifo]["glitches"][indices])
             glitches.append(ifo_glitches)
 
-        return np.stack(glitches)
+        return np.stack(glitches, axis=1)
 
     def iter_epoch(self):
         for _ in range(self.chunks_per_epoch):
@@ -76,14 +78,17 @@ class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
     def __init__(
         self,
         reads_per_chunk: int,  # number of files to read per chunk
-        batches_per_chunk: int,  # number of batches before loading new chunk
+        batches_per_chunk: int,  # number of batches to load per chunk
+        chunks_per_epoch: int,  # number of chunks to load per epoch
         glitches_per_read: int,  # number of glitches to read per file
         glitches_per_batch: int,  # glitch_prob * batch_size
         device: str,
         num_workers: Optional[int] = None,
         **ifo_paths: List[Path],
     ):
+        super().__init__()
         self.batches_per_chunk = batches_per_chunk
+        self.chunks_per_epoch = chunks_per_epoch
         self.glitches_per_batch = glitches_per_batch
         self.reads_per_chunk = reads_per_chunk
         self.glitches_per_read = glitches_per_read
@@ -95,7 +100,7 @@ class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
         glitch_loader = GlitchLoader(
             glitches_per_read,
             reads_per_chunk,
-            batches_per_chunk,
+            chunks_per_epoch,
             **ifo_paths,
         )
 
@@ -110,14 +115,19 @@ class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
                 collate_fn=glitch_loader.collate,
             )
 
+    def __len__(self):
+        if not self.num_workers:
+            return self.chunks_per_epoch * self.batches_per_chunk
+
+        num_chunks = (self.chunks_per_epoch - 1) // self.num_workers + 1
+        return num_chunks * self.num_workers * self.batches_per_chunk
+
     def iter_epoch(self):
         for glitches in self.glitch_loader:
             for _ in range(self.batches_per_chunk):
-                indices = torch.randint(
-                    len(glitches),
-                    size=(self.glitches_per_batch,),
-                )
+                num = glitches.shape[1]
+                indices = torch.randint(num, size=(self.glitches_per_batch,))
                 yield glitches[indices].to(self.device)
 
     def __iter__(self):
-        self.iter_epoch()
+        return self.iter_epoch()

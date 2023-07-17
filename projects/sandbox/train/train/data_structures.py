@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 import h5py
 import numpy as np
@@ -9,6 +9,9 @@ import ml4gw.utils.slicing as slicing
 from ml4gw import gw
 from ml4gw.distributions import PowerLaw
 from ml4gw.transforms import SpectralDensity
+
+if TYPE_CHECKING:
+    from train.glitch_loader import ChunkedGlitchDataset
 
 
 def sample_kernels(chunk, kernel_size, batch_size):
@@ -337,3 +340,21 @@ class SnrSampler:
         self.dist.x_min = new
         self.dist.normalization = new ** (-self.alpha + 1)
         self.dist.normalization -= self.max_snr ** (-self.alpha + 1)
+
+
+class AframeDataloader:
+    def __init__(
+        self,
+        background_loader: ChunkedDataloader,
+        glitch_loader: "ChunkedGlitchDataset",
+        augmentor: torch.nn.Module,
+    ):
+        self.background_loader = background_loader
+        self.glitch_loader = glitch_loader
+        self.augmentor = augmentor
+
+    def __next__(self):
+        X, y = next(self.background_loader)
+        glitches = next(self.glitch_loader)
+        X, y = self.augmentor(X, glitches, y)
+        return X, y
