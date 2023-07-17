@@ -138,7 +138,10 @@ def main(
         # insert our accepted parameters into the output array
         start, stop = idx, idx + num_accepted
         for key, value in params.items():
-            if key not in ("mass_ratio", "chirp_mass"):
+            if key not in (
+                "mass_ratio",
+                "chirp_mass",
+            ):
                 parameters[key][start:stop] = value[mask]
 
         # do the same for our accepted projected waveforms
@@ -162,6 +165,9 @@ def main(
     response_set = LigoResponseSet(**parameters)
     waveform_fname = output_dir / "waveforms.h5"
     utils.io_with_blocking(response_set.write, waveform_fname)
+
+    # For MDC dataset we don't need to save rejected parameters
+    # since we use a hopeless snr threshold of 0
 
     rejected_fname = output_dir / "rejected-parameters.h5"
     utils.io_with_blocking(rejected_params.write, rejected_fname)
@@ -192,6 +198,7 @@ def deploy(
     highpass: float,
     snr_threshold: float,
     ifos: List[str],
+    psd_length: float,
     outdir: Path,
     datadir: Path,
     logdir: Path,
@@ -238,7 +245,7 @@ def deploy(
     # to accumulate desired background livetime
     state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
     segments = query_segments(state_flags, start, stop, min_segment_length)
-    shifts_required = utils.calc_shifts_required(segments, Tb, max(shifts))
+    shifts_required = utils.get_num_shifts(segments, Tb, max(shifts))
 
     # create text file from which the condor job will read
     # the start, stop, and shift for each job
@@ -246,9 +253,10 @@ def deploy(
     for start, stop in segments:
         for i in range(shifts_required):
             # TODO: make this more general
-            shift = [i * shift for shift in shifts]
+            shift = [(i + 1) * shift for shift in shifts]
             shift = " ".join(map(str, shift))
-            parameters += f"{start},{stop},{shift}\n"
+            # add psd_length to account for the burn in of psd calculation
+            parameters += f"{start + psd_length},{stop},{shift}\n"
 
     # TODO: have typeo do this CLI argument construction?
     arguments = "--start $(start) --stop $(stop) --shifts $(shift) "
