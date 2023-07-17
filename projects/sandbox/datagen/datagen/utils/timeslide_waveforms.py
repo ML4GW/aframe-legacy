@@ -14,7 +14,7 @@ def calc_shifts_required(Tb: float, T: float, delta: float) -> int:
     r"""
     The algebra to get this is gross but straightforward.
     Just solving
-    $$\sum_{i=0}^{N-1}(T - i\delta) \geq T_b$$
+    $$\sum_{i=1}^{N}(T - i\delta) \geq T_b$$
     for the lowest value of N, where \delta is the
     shift increment.
 
@@ -26,8 +26,8 @@ def calc_shifts_required(Tb: float, T: float, delta: float) -> int:
     combinations in front of the sum above.
     """
 
-    discriminant = (T - delta / 2) ** 2 - 2 * delta * Tb
-    N = (T + delta / 2 - discriminant**0.5) / delta
+    discriminant = (delta / 2 - T) ** 2 - 2 * delta * Tb
+    N = (T - delta / 2 - discriminant**0.5) / delta
     return math.ceil(N)
 
 
