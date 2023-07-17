@@ -77,11 +77,11 @@ class GlitchLoader(torch.utils.data.IterableDataset):
 class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
     def __init__(
         self,
-        reads_per_chunk: int,  # number of files to read per chunk
-        batches_per_chunk: int,  # number of batches to load per chunk
-        chunks_per_epoch: int,  # number of chunks to load per epoch
-        glitches_per_read: int,  # number of glitches to read per file
-        glitches_per_batch: int,  # glitch_prob * batch_size
+        reads_per_chunk: int,
+        batches_per_chunk: int,
+        chunks_per_epoch: int,
+        glitches_per_read: int,
+        glitches_per_batch: int,
         device: str,
         num_workers: Optional[int] = None,
         **ifo_paths: List[Path],
