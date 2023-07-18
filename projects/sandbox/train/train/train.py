@@ -279,8 +279,7 @@ def main(
         alpha=snr_alpha,
         decay_steps=snr_decay_steps,
     )
-
-    cross, plus = waveforms.transpose(1, 0)
+    cross, plus = waveforms.transpose(1, 0, 2)
     augmentor = AframeBatchAugmentor(
         ifos,
         sample_rate,
@@ -335,13 +334,13 @@ def main(
         reads_per_chunk=10,
         batches_per_chunk=int(batches_per_epoch / 4),
         chunks_per_epoch=4,
-        glitches_per_read=50,
+        glitches_per_read=20,
         glitches_per_batch=int(glitch_prob * batch_size),
         device=device,
         **glitch_paths,  # TODO: just take the datadir?
     )
 
-    train_dataset = structures.AframeDataLoader(
+    train_dataset = structures.AframeDataloader(
         background_loader, glitch_loader, augmentor
     )
     return train_dataset, validator, None

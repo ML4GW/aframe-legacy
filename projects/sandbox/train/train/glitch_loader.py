@@ -61,7 +61,7 @@ class GlitchLoader(torch.utils.data.IterableDataset):
                     ifo_glitches.extend(f[ifo]["glitches"][indices])
             glitches.append(ifo_glitches)
 
-        return np.stack(glitches, axis=1)
+        return np.stack(glitches)
 
     def iter_epoch(self):
         for _ in range(self.chunks_per_epoch):
@@ -123,11 +123,11 @@ class ChunkedGlitchDataset(torch.utils.data.IterableDataset):
         return num_chunks * self.num_workers * self.batches_per_chunk
 
     def iter_epoch(self):
+        num = self.reads_per_chunk * self.glitches_per_read
         for glitches in self.glitch_loader:
             for _ in range(self.batches_per_chunk):
-                num = glitches.shape[1]
                 indices = torch.randint(num, size=(self.glitches_per_batch,))
-                yield glitches[indices].to(self.device)
+                yield glitches[:, indices, :].to(self.device)
 
     def __iter__(self):
         return self.iter_epoch()

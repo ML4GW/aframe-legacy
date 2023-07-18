@@ -55,9 +55,6 @@ class ChunkedDataloader:
     def __len__(self):
         return self.batches_per_chunk * self.chunks_per_epoch
 
-    def __len__(self):
-        return self.batches_per_chunk * self.chunks_per_epoch
-
     def __iter__(self):
         kernel_size = int(self.kernel_length * self.sample_rate)
         chunk_size = int(self.chunk_length * self.sample_rate)
@@ -349,12 +346,23 @@ class AframeDataloader:
         glitch_loader: "ChunkedGlitchDataset",
         augmentor: torch.nn.Module,
     ):
+
         self.background_loader = background_loader
         self.glitch_loader = glitch_loader
         self.augmentor = augmentor
+        self.size = len(background_loader)
+
+    def __len__(self):
+        return self.size
+
+    def __iter__(self):
+        self.background_iter = iter(self.background_loader)
+        self.glitch_iter = iter(self.glitch_loader)
+        return self
 
     def __next__(self):
-        X, y = next(self.background_loader)
-        glitches = next(self.glitch_loader)
+        X, y = next(self.background_iter)
+        glitches = next(self.glitch_iter)
+        glitches = glitches.transpose(1, 0)
         X, y = self.augmentor(X, glitches, y)
         return X, y

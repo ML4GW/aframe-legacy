@@ -1,9 +1,9 @@
 [tool.pinto]
 steps = [
-    "datagen:generate-background",
-    "datagen:generate-waveforms",
-    "datagen:generate-glitches",
-    "datagen:deploy-timeslide-waveforms",
+    #"datagen:generate-background",
+    #"datagen:generate-waveforms",
+    #"datagen:generate-glitches",
+    #"datagen:deploy-timeslide-waveforms",
     "train:train:resnet",
     "export:export-model:resnet",
     "infer:deploy-infer",
@@ -34,8 +34,8 @@ ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
 glitch_start = 1239770547 
 train_start = 1239770547 
-train_stop = 1239810030 #1241205077# 10 day train window
-test_stop = 1241705077 # 5 day window for test
+train_stop = 1239878773 # 10 day train window
+test_stop = 1239878773 # 5 day window for test
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -120,12 +120,14 @@ cosmology = "${base.cosmology}"
 [tool.typeo.scripts.train]
 # input and output paths
 background_dir = "${base.datadir}/train/background"
+glitch_dir = "${base.datadir}/train/glitches"
 waveform_dataset = "${base.datadir}/train/signals.h5"
 
 logdir = "${base.logdir}"
 outdir = "${base.basedir}/training"
 
 # optimization args
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 
@@ -135,6 +137,8 @@ batch_size = 640
 =======
 =======
 >>>>>>> 5147616 (fixing kernel size problem in training)
+=======
+>>>>>>> 3ac5fce (reduce batch size for memory issues)
 <<<<<<< HEAD
 batch_size = 512
 =======
@@ -146,7 +150,16 @@ batch_size = 64
 =======
 batch_size = 640
 >>>>>>> e2557fe (fixing kernel size problem in training)
+<<<<<<< HEAD
 >>>>>>> 5147616 (fixing kernel size problem in training)
+=======
+=======
+
+batch_size = 320
+
+
+>>>>>>> 26135bf (reduce batch size for memory issues)
+>>>>>>> 3ac5fce (reduce batch size for memory issues)
 max_epochs = 200
 max_lr = 1e-3
 <<<<<<< HEAD
@@ -174,14 +187,24 @@ psd_length = "${base.training_psd_length}"
 trigger_distance = -0.5
 waveform_prob = 0.5
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
+=======
+>>>>>>> 3ac5fce (reduce batch size for memory issues)
 <<<<<<< HEAD
 glitch_prob = 0.0833
 glitch_downweight = 0.33
 =======
 >>>>>>> 720c981 (getting training running)
+<<<<<<< HEAD
 >>>>>>> 3d26a9d (getting training running)
+=======
+=======
+glitch_prob = 0.3
+
+>>>>>>> 26135bf (reduce batch size for memory issues)
+>>>>>>> 3ac5fce (reduce batch size for memory issues)
 swap_frac = 0.025
 mute_frac = 0.12
 

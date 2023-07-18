@@ -128,29 +128,28 @@ class AframeBatchAugmentor(torch.nn.Module):
         return kernels
 
     def insert_glitches(self, X, glitches, y):
-        channels = X.shape[1]
+        glitches = glitches.transpose(1, 0)
+        # loop over channels and insert glitches
+        for i, tensor in enumerate(glitches):
 
-        # sample batch indices which will be replaced with
-        # a glitch independently from each interferometer
-        indices = torch.randint(len(X), size=(channels, len(glitches)))
-        for i, glitches in enumerate(glitches):
-            idx = indices[i]
+            # randomly sample batch indices which
+            # will be replaced with a glitch
+            idx = torch.randperm(len(X))[: len(glitches)]
 
-            # finally sample kernels from the selected glitches.
+            # sample kernels from the selected glitches.
             # Add a dummy dimension so that sample_kernels
             # doesn't think this is a single multi-channel
             # timeseries, but rather a batch of single
             # channel timeseries
-            glitches = glitches[None]
-            glitches = sample_kernels(
-                glitches,
+            tensor = tensor[None]
+            tensor = sample_kernels(
+                tensor,
                 kernel_size=X.shape[-1],
-                max_center_offset=self.trigger_offset,
             )
 
             # replace the appropriate channel in our
             # strain data with the sampled glitches
-            X[idx, i] = glitches[:, 0]
+            X[idx, i] = tensor[:, 0]
 
             # use bash file permissions style
             # numbers to indicate which channels
@@ -161,21 +160,13 @@ class AframeBatchAugmentor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, X, glitches, y):
-        # calculate psds of glitches,
-        # this also will split glitches up into portion used to whiten them,
-        # and portion used to sample kernels from
-        glitches, glitch_psds = self.psd_estimator(glitches)
-
-        # calculate the psds of the background batch,
-        # and insert glitches into the batch
-        X, psds = self.psd_estimator(X)
+        # first insert glitches into the batch
         X, y = self.insert_glitches(X, glitches, y)
 
-        # replace psds with glitch psds where appropriate
-        mask = y[:, 0] < -4
-        psds[mask] = glitch_psds
+        # estimate PSDs
+        X, psds = self.psd_estimator(X)
 
-        # apply inversion / flip augementations
+        # apply inversion / flip augmentations
         X = self.inverter(X)
         X = self.reverser(X)
 
