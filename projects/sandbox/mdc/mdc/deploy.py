@@ -113,8 +113,8 @@ def main(
         parameters += f"{start},{seq_id}\n"
 
     submit_file = condor.make_submit_file(
-        executable="infer",
-        name="infer",
+        executable="mdc",
+        name="mdc-infer",
         parameters=parameters,
         arguments=arguments,
         submit_dir=condor_dir,

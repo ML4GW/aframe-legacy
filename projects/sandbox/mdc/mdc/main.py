@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import List, Optional
 
 import h5py
-from infer.callback import Callback
-from infer.data import ChunkedSegmentLoader, batch_chunks
+from mdc.callback import Callback
+from mdc.data import ChunkedSegmentLoader, batch_chunks
 from typeo import scriptify
 
 from aframe.logging import configure_logging
