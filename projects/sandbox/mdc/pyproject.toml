@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "infer"
+name = "mdc"
 version = "0.0.1"
-description = "Perform local IaaS inference with aframe"
+description = "Perform local IaaS inference on MDC data with aframe"
 authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 # readme = "README.md"
 
 [tool.poetry.scripts]
-infer = "infer.main:main"
-deploy-infer = "infer.deploy:main"
+mdc = "mdc.main:main"
+deploy-mdc = "mdc.deploy:main"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
