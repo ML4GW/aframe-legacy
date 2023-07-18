@@ -1,7 +1,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional
+from typing import List, Optional
 
 import h5py
 from infer.callback import Callback
@@ -10,72 +10,6 @@ from typeo import scriptify
 
 from aframe.logging import configure_logging
 from hermes.aeriel.client import InferenceClient
-
-
-def infer_on_segment(
-    client: InferenceClient,
-    callback: Callable,
-    sequence_id: int,
-    it: Iterator,
-    start: float,
-    end: float,
-    batch_size: int,
-    inference_sampling_rate: float,
-    sample_rate: float,
-    throughput: float,
-):
-    str_rep = f"{int(start)}-{int(end)}"
-    num_steps = callback.initialize(start, end)
-
-    # create an iterator that will break
-    # these chunks up into update-sized pieces
-    batcher = batch_chunks(
-        it,
-        num_steps,
-        batch_size,
-        inference_sampling_rate,
-        sample_rate,
-        throughput,
-    )
-
-    duration = end - start
-    logging.info(f"Beginning inference on {duration}s sequence {str_rep}")
-    for i, (background, injected) in enumerate(batcher):
-        if not (i + 1) % 10:
-            logging.debug(f"Sending request {i + 1}/{num_steps}")
-
-        client.infer(
-            background,
-            request_id=i,
-            sequence_id=sequence_id,
-            sequence_start=i == 0,
-            sequence_end=i == (num_steps - 1),
-        )
-        client.infer(
-            injected,
-            request_id=i,
-            sequence_id=sequence_id + 1,
-            sequence_start=i == 0,
-            sequence_end=i == (num_steps - 1),
-        )
-
-        # wait for the first response to come back
-        # before proceeding in case the snapshot
-        # state requires some warm up
-        if not i:
-            logging.debug("Waiting for initial response")
-            callback.wait()
-
-    # don't start inference on next sequence
-    # until this one is complete
-    result = client.get()
-    while result is None:
-        result = client.get()
-        time.sleep(1e-1)
-
-    logging.info(f"Retreived results from sequence {str_rep}")
-    background_events, foreground_events = result
-    return background_events, foreground_events
 
 
 @scriptify
@@ -185,21 +119,52 @@ def main(
     chunk_size = int(chunk_size * sample_rate)
     loader = ChunkedSegmentLoader(data_dir, str(start), ifos, chunk_size)
     with client, loader as loader:
-        logging.info(f"Iterating through data from directory {data_dir}")
-        background, foreground = infer_on_segment(
-            client,
-            callback,
-            sequence_id=sequence_id,
-            it=loader,
-            start=start,
-            end=end,
-            batch_size=batch_size,
-            inference_sampling_rate=inference_sampling_rate,
-            sample_rate=sample_rate,
-            throughput=throughput,
+        logging.info(
+            f"Beginning inference on {duration}s sequence {start}-{end}"
         )
-        logging.info("Completed inference on all segments")
+        num_steps = callback.initialize(start, end)
 
+        # create an iterator that will break
+        # these chunks up into update-sized pieces
+        batcher = batch_chunks(
+            loader,
+            num_steps,
+            batch_size,
+            inference_sampling_rate,
+            sample_rate,
+            throughput,
+        )
+
+        for i, (background, injected) in enumerate(batcher):
+            client.infer(
+                background,
+                request_id=i,
+                sequence_id=sequence_id,
+                sequence_start=i == 0,
+                sequence_end=i == (num_steps - 1),
+            )
+            client.infer(
+                injected,
+                request_id=i,
+                sequence_id=sequence_id + 1,
+                sequence_start=i == 0,
+                sequence_end=i == (num_steps - 1),
+            )
+
+            # wait for the first response to come back
+            # before proceeding in case the snapshot
+            # state requires some warm up
+            if not i:
+                logging.debug("Waiting for initial response")
+                callback.wait()
+
+        result = client.get()
+        while result is None:
+            time.sleep(1e-1)
+            result = client.get()
+        background, foreground = result
+
+    logging.info("Completed inference")
     logging.info("Building event sets and writing to files")
     background.write(output_dir / "background.hdf")
     foreground.write(output_dir / "foreground.hdf")

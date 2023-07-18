@@ -60,7 +60,6 @@ class Callback:
 
     def __post_init__(self):
         # @alec can this be removed? I don't think it's used
-        self._sequence = None
         self.offset = self.fduration / 2
         self.reset()
 

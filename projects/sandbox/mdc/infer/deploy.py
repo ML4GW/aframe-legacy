@@ -22,20 +22,20 @@ re_fname = re.compile(r"([0-9]{10})-([1-9][0-9]*)\.")
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-def aggregate_results(output_directory: Path):
+def aggregate_results(output_directory: Path, time_var: float = 1):
     results = {k: defaultdict(list) for k in ["background", "foreground"]}
-    var = 1 / 8
     for data_dir in (output_directory / "tmp").iterdir():
         for key, value in results.items():
             events = TimeSlideEventSet.read(data_dir / f"{key}.hdf")
             value["time"].append(events.time)
             value["stat"].append(events.detection_statistic)
+
     for key, value in results.items():
         with h5py.File(output_directory / f"{key}.hdf", "w") as f:
             for k, v in value.items():
                 v = np.concatenate(v)
                 f[k] = v
-            f["var"] = var * np.ones_like(v)
+            f["var"] = time_var * np.ones_like(v)
     shutil.rmtree(output_directory / "tmp")
 
 
