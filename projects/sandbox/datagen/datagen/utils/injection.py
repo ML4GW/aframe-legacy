@@ -49,7 +49,6 @@ def generate_gw(
 
     if not detector_frame_prior:
         sample_params = convert_to_detector_frame(sample_params)
-
     sample_params = [
         dict(zip(sample_params, col)) for col in zip(*sample_params.values())
     ]
