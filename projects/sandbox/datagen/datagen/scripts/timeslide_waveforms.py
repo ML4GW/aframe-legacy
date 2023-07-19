@@ -140,9 +140,15 @@ def main(
         # insert our accepted parameters into the output array
         start, stop = idx, idx + num_accepted
         for key, value in params.items():
+            # TODO: at this point, start using the
+            # __dataclass_fields__ instead. Maybe
+            # arm the metaclasses with a .parameters
+            # method to make the logic of getting those simpler
             if key not in (
                 "mass_ratio",
                 "chirp_mass",
+                "luminosity_distance",
+                "chirp_distance",
             ):
                 parameters[key][start:stop] = value[mask]
 
