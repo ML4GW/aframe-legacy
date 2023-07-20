@@ -22,6 +22,7 @@ class AframeBatchAugmentor(torch.nn.Module):
         ifos: List[str],
         sample_rate: float,
         signal_prob: float,
+        glitch_downweight: float,
         dec: Callable,
         psi: Callable,
         phi: Callable,
@@ -41,6 +42,7 @@ class AframeBatchAugmentor(torch.nn.Module):
         signal_prob = signal_prob / (
             1 - (swap_frac + mute_frac - (swap_frac * mute_frac))
         )
+        self.glitch_downweight = glitch_downweight
 
         if not 0 < signal_prob <= 1.0:
             raise ValueError(
@@ -134,7 +136,7 @@ class AframeBatchAugmentor(torch.nn.Module):
 
             # randomly sample batch indices which
             # will be replaced with a glitch
-            idx = torch.randperm(len(X))[: len(glitches)]
+            idx = torch.randperm(len(X))[: glitches.shape[1]]
 
             # sample kernels from the selected glitches.
             # Add a dummy dimension so that sample_kernels
@@ -154,6 +156,7 @@ class AframeBatchAugmentor(torch.nn.Module):
             # use bash file permissions style
             # numbers to indicate which channels
             # go inserted on
+
             y[idx] -= 2 ** (i + 1)
 
         return X, y
@@ -171,7 +174,12 @@ class AframeBatchAugmentor(torch.nn.Module):
         X = self.reverser(X)
 
         # calculate number of waveforms to generate
+        # based on waveform prob, mute prob, and swap prob and downweight
+        # likelihood of injecting a signal on top of a glitch.
+        # y == -2 means one glitch, y == -6 means two
         probs = torch.ones_like(y) * self.signal_prob
+        probs[y < 0] *= self.glitch_downweight
+        probs[y < -4] *= self.glitch_downweight
         rvs = torch.rand(size=X.shape[:1], device=probs.device)
         mask = rvs < probs[:, 0]
 

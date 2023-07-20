@@ -47,6 +47,7 @@ def main(
     # augmentation args
     waveform_prob: float,
     glitch_prob: float,
+    glitch_downweight: float,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
     trigger_distance: float = 0,
@@ -284,6 +285,7 @@ def main(
         ifos,
         sample_rate,
         waveform_prob,
+        glitch_downweight=glitch_downweight,
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
