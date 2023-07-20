@@ -7,6 +7,7 @@ from train import data_structures as structures
 from train import utils as train_utils
 from train import validation as valid_utils
 from train.augmentor import AframeBatchAugmentor
+from train.glitch_loader import ChunkedGlitchDataset
 
 from aframe.architectures import preprocessor
 from aframe.logging import configure_logging
@@ -25,6 +26,7 @@ from ml4gw.distributions import Cosine, Uniform
 def main(
     # paths and environment args
     background_dir: Path,
+    glitch_dir: Path,
     waveform_dataset: Path,
     outdir: Path,
     logdir: Path,
@@ -44,6 +46,8 @@ def main(
     highpass: float,
     # augmentation args
     waveform_prob: float,
+    glitch_prob: float,
+    glitch_downweight: float,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
     trigger_distance: float = 0,
@@ -279,12 +283,12 @@ def main(
         alpha=snr_alpha,
         decay_steps=snr_decay_steps,
     )
-
     cross, plus = waveforms.transpose(1, 0, 2)
     augmentor = AframeBatchAugmentor(
         ifos,
         sample_rate,
         waveform_prob,
+        glitch_downweight=glitch_downweight,
         dec=Cosine(),
         psi=Uniform(0, pi),
         phi=Uniform(-pi, pi),
@@ -322,6 +326,25 @@ def main(
         batches_per_chunk=int(batches_per_epoch / 8),
         chunks_per_epoch=8,
         device=device,
-        preprocessor=augmentor,
+    )
+
+    # find glitch paths and initiate glitch loader
+    glitch_paths = {}
+    for ifo in ifos:
+        ifo_dir = glitch_dir / ifo
+        glitch_paths[ifo] = list(ifo_dir.iterdir())
+
+    glitch_loader = ChunkedGlitchDataset(
+        reads_per_chunk=10,
+        batches_per_chunk=int(batches_per_epoch / 4),
+        chunks_per_epoch=4,
+        glitches_per_read=20,
+        glitches_per_batch=int(glitch_prob * batch_size),
+        device=device,
+        **glitch_paths,  # TODO: just take the datadir?
+    )
+
+    train_dataset = structures.AframeDataloader(
+        background_loader, glitch_loader, augmentor
     )
     return train_dataset, validator, None
