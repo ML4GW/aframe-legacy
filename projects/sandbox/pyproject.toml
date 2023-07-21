@@ -21,10 +21,16 @@ sample_rate = 2048
 kernel_length = 1.5
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
-#glitch_start = 1262394654
-train_start = 1238205077
-train_stop = 1239069077  # 10 day train window
-test_stop = 1241661077 # 30 day test window
+
+# start/stop times reflect use of
+# --start-duration $((24 * 3600 * 10)) flag
+# when generating MDC test dataset.
+# train_stop is the start of the first segment
+# of the generated dataset.
+train_start = 1240579783
+train_stop = 1241443783  # 10 day train window
+test_stop = 1244035783 # 30 day test window
+
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
