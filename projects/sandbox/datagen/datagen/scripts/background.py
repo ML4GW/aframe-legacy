@@ -193,7 +193,7 @@ def deploy(
     # note that doing consecutive runs while changing max_segment_length
     # will screw with the caching checking, so be careful
     max_segment_length: float = 20000,
-    request_memory: int = 4096,
+    request_memory: int = 8192,
     request_disk: int = 1024,
     force_generation: bool = False,
     verbose: bool = False,
