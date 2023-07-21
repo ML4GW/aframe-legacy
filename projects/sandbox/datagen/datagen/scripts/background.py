@@ -191,12 +191,11 @@ def deploy(
         train_stop,
         minimum_train_length,
     )
-    try:
-        train_segment = train_segments[0]
-    except IndexError:
+    if not train_segments:
         raise ValueError(
             "No segments of minimum length, not producing background"
         )
+
     test_segments = query_segments(
         [f"{ifo}:{state_flag}" for ifo in ifos],
         train_stop,
@@ -204,7 +203,7 @@ def deploy(
         minimum_test_length,
     )
 
-    segments = [train_segment] + test_segments
+    segments = train_segments + test_segments
 
     # determine which segments we need to generate data for
     segments = validate_segments(
