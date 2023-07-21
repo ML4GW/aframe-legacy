@@ -35,11 +35,11 @@ def generate_gw(
         sample_rate:
             Rate at which to sample time series
         waveform_duration:
-            Duration of waveform
+            Duration of waveform in seconds
         waveform_approximant:
-            Name of waveform approximant to use.
+            Name of the waveform approximant to use.
         detector_frame_prior:
-            if False, converts parameters to detector frame
+            If False, converts parameters to detector frame
     Returns:
         An (n_samples, 2, waveform_size) array, containing both polarizations
         for each of the desired number of samples.
@@ -104,12 +104,12 @@ def inject_waveforms(
             The second tuple is the background strain values
             sampled at those times.
         waveforms:
-            An np.ndarary of shape (n_waveforms, waveform_size)
+            An np.ndarray of shape (n_waveforms, waveform_size)
             that contains the waveforms to inject
-        signal_times: np.ndarray,:
+        signal_times:
             An array of times where signals will be injected. Corresponds to
             first sample of waveforms.
-    Returns
+    Returns:
         A dictionary where the key is an interferometer and the value
         is a timeseries with the signals injected
     """

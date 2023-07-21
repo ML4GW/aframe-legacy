@@ -72,14 +72,14 @@ def calc_segment_injection_times(
     Calculate the times at which to inject signals into a segment
 
     Args:
-        start: The start time of the segment
-        stop: The stop time of the segment
-        spacing: The spacing between signals
-        jitter: The jitter to apply to the signal times
-        buffer: The buffer to apply to the start and end of the segment
-        waveform_duration: The duration of the waveform
+        start: The GPS start time of the segment
+        stop: The GPS stop time of the segment
+        spacing: The spacing between signals in seconds
+        jitter: The jitter to apply to the signal times in seconds
+        buffer: The buffer to apply to each side of the segment in seconds
+        waveform_duration: The duration of the waveform in seconds
 
-    Returns np.ndarray of injection times
+    Returns: np.ndarray of injection times
     """
 
     buffer += waveform_duration // 2

@@ -81,10 +81,27 @@ def main(
     """Generates background data for training and testing aframe
 
     Args:
-        start: start gpstime
-        stop: stop gpstime
-        ifos: which ifos to query data for
-        outdir: where to store data
+        train_start: GPS time of the beginning of the training period
+        train_stop: GPS time of the end of the training period.
+            Also corresponds to the beginning of the testing period
+        test_stop: GPS time of the end of the testing period
+        minimum_train_length: The shortest a contiguous segment of training
+            background can be. Specified in seconds
+        minimum_test_length: The shortest a contiguous segment of testing
+            background can be. Specified in seconds
+        ifos: List of interferometers to query data from. Expected to be given
+            by prefix; e.g. "H1" for Hanford
+        sample_rate: Sample rate to which the timesires will be resampled
+        channel: Channel from which to fetch the timeseries
+        state_flag: Identifier for which segments to use
+        datadir: Directory to which data will be written
+        logdir: Directory to which the log file will be written
+        force_generation: If false, will not generate data if an existing
+            dataset exists
+        verbose:
+            If true, logs verbosely
+
+    Returns: The name of the data directory
     """
     # make logdir dir
     logdir.mkdir(exist_ok=True, parents=True)
