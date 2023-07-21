@@ -231,20 +231,26 @@ class Validator:
         self._injection_idx += len(waveforms)
 
         # threshold the SNRs of the injections to the desired value.
-        if self.snr_thresh > 0:
-            waveforms = self.threshold_snrs(waveforms, psds)
+        # if self.snr_thresh > 0:
+        #     waveforms = self.threshold_snrs(waveforms, psds)
 
         # now cut out a window symmetrically about the
         # coalescence time and inject it into the background
         kernel_size = X.shape[-1]
         center = waveforms.shape[-1] // 2
-        step = (kernel_size - 2 * self.pad) / (self.num_views - 1)
+        step = (kernel_size - 2 * self.pad_size) / (self.num_views - 1)
+        batch_X, batch_psd = [], []
         for i in range(self.num_views):
-            start = center - self.pad - int(i * step)
+            start = center - self.pad_size - int(i * step)
             stop = start + kernel_size
-            waveforms = waveforms[:, :, int(start) : int(stop)]
-            X += waveforms
-            yield X, psds
+            injected = X + waveforms[:, :, int(start) : int(stop)]
+
+            batch_X.append(injected)
+            batch_psd.append(psds)
+
+        batch_X = torch.cat(batch_X, dim=0)
+        batch_psd = torch.cat(batch_psd, dim=0)
+        return batch_X, batch_psd
 
     def predict(self, model, X, psd):
         X = self.whitener(X, psd)
@@ -261,10 +267,10 @@ class Validator:
             if self._injection_idx >= len(self.waveforms):
                 continue
 
-            y = 0
-            for x, p in self.inject(X, psd):
-                y += self.predict(model, x, p)
-            y /= self.num_views
+            X, psd = self.inject(X, psd)
+            y = self.predict(model, X, psd)
+            y = y.reshape(self.num_views, -1)
+            y = y.mean(dim=0)
             inj_preds.append(y)
 
         preds = torch.cat(preds)

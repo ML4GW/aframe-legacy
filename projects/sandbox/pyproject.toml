@@ -118,16 +118,13 @@ logdir = "${base.logdir}"
 outdir = "${base.basedir}/training"
 
 # optimization args
-
-batch_size = 640
-
-
+batch_size = 384
 max_epochs = 200
 max_lr = 1e-3
 lr_ramp_epochs = 9
 weight_decay = 0.0
 
-snr_thresh = 0
+snr_thresh = 4
 max_min_snr = 12
 max_snr = 100
 snr_alpha = 3

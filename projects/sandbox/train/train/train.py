@@ -277,7 +277,7 @@ def main(
         decay_steps=snr_decay_steps,
     )
 
-    cross, plus = waveforms.transpose(1, 0)
+    cross, plus = waveforms.transpose(1, 0, 2)
     augmentor = AframeBatchAugmentor(
         ifos,
         sample_rate,
@@ -305,7 +305,7 @@ def main(
     # to account for our sky parameter sampling
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
-    batches_per_epoch = int(2 * len(waveforms) / waveforms_per_batch)
+    batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
     train_dataset = structures.ChunkedDataloader(
         background_fnames,
         ifos=ifos,
@@ -316,8 +316,8 @@ def main(
         # or set some sensible defaults?
         reads_per_chunk=10,
         chunk_length=1024,
-        batches_per_chunk=int(batches_per_epoch / 4),
-        chunks_per_epoch=4,
+        batches_per_chunk=int(batches_per_epoch / 8),
+        chunks_per_epoch=8,
         device=device,
         preprocessor=augmentor,
     )
