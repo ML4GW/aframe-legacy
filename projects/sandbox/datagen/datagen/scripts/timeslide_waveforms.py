@@ -78,7 +78,8 @@ def main(
             by prefix; e.g. "H1" for Hanford
         output_dir:
         log_file: File containing the logged information
-        verbose: If true, logs verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
 
     Returns:
         The name of the waveform file and the name of the file containing the
@@ -292,7 +293,8 @@ def deploy(
         request_disk: Amount of disk space for condor jobs to request in Mb
         force_generation: If false, will not generate data if an existing
             dataset exists
-        verbose: If true, logs verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
     """
     # define some directories:
     # outdir: where we'll write the temporary

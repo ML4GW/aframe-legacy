@@ -40,7 +40,8 @@ def main(
         waveform_approximant: The lalsimulation waveform approximant to use
         force_generation: If false, will not generate data if an existing
             dataset exists
-        verbose: If true, log verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
 
     Returns: The name of the file containing the waveforms and parameters
     """

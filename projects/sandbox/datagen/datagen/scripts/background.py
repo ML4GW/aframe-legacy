@@ -98,8 +98,8 @@ def main(
         logdir: Directory to which the log file will be written
         force_generation: If false, will not generate data if an existing
             dataset exists
-        verbose:
-            If true, logs verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
 
     Returns: The name of the data directory
     """

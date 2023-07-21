@@ -263,7 +263,8 @@ def main(
         analyze_testing_set: If true, get glitches for the testing dataset
         force_generation: If false, will not generate data if an existing
             dataset exists
-        verbose: If true, logs verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
 
     Returns: The name of the file containing the glitch data
     """

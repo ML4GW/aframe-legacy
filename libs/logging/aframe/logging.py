@@ -11,7 +11,8 @@ def configure_logging(
 
     Args:
         filename: Name of file to which logging messages will be written
-        verbose: If true, log verbosely
+        verbose: If true, log at `DEBUG` verbosity, otherwise log at
+            `INFO` verbosity.
     """
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(
