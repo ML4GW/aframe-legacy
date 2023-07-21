@@ -63,6 +63,23 @@ def validate_file(
         )
 
 
+def split_segments(segments: List[tuple], chunk_size: float):
+    out_segments = []
+    for segment in segments:
+        start, stop = segment
+        duration = stop - start
+        if duration > chunk_size:
+            num_segments = int((duration - 1) // chunk_size) + 1
+            logging.info(f"Chunking segment into {num_segments} parts")
+            for i in range(num_segments):
+                end = min(start + (i + 1) * chunk_size, stop)
+                seg = (start + i * chunk_size, end)
+                out_segments.append(seg)
+        else:
+            out_segments.append(segment)
+    return out_segments
+
+
 def validate_segments(
     segments: List[Tuple[float, float]],
     train_start: float,
@@ -70,13 +87,16 @@ def validate_segments(
     test_stop: float,
     minimum_train_length: float,
     minimum_test_length: float,
+    max_segment_length: float,
     datadir: Path,
     force_generation: bool,
     ifos: List[str],
     sample_rate: float,
 ):
+    segments = split_segments(segments, max_segment_length)
     validated = []
     for start, stop in segments:
+
         # using start/stops to decide if something
         # is a training file or not to make robust
         # to future use of multiple training background
@@ -170,6 +190,9 @@ def deploy(
     logdir: Path,
     accounting_group: str,
     accounting_group_user: str,
+    # note that doing consecutive runs while changing max_segment_length
+    # will screw with the caching checking, so be careful
+    max_segment_length: float = 20000,
     request_memory: int = 4096,
     request_disk: int = 1024,
     force_generation: bool = False,
@@ -213,6 +236,7 @@ def deploy(
         test_stop,
         minimum_train_length,
         minimum_test_length,
+        max_segment_length,
         datadir,
         force_generation,
         ifos,
@@ -251,3 +275,4 @@ def deploy(
     dag_id = condor.submit(subfile)
     logging.info(f"Launching background generation jobs with dag id {dag_id}")
     condor.watch(dag_id, condordir, held=False)
+    logging.info("Completed background generation jobs")
