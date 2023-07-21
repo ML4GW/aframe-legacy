@@ -17,6 +17,7 @@ from aframe.analysis.ledger.injections import (
 )
 from aframe.deploy import condor
 from aframe.logging import configure_logging
+from aframe.priors.priors import convert_mdc_prior_samples
 from ml4gw.gw import (
     compute_network_snr,
     compute_observed_strain,
@@ -90,6 +91,7 @@ def main(
     rejected_params = InjectionParameterSet()
     while n_samples > 0:
         params = prior.sample(n_samples)
+        params = convert_mdc_prior_samples(params, cosmology)
         waveforms = generate_gw(
             params,
             minimum_frequency,
@@ -138,9 +140,15 @@ def main(
         # insert our accepted parameters into the output array
         start, stop = idx, idx + num_accepted
         for key, value in params.items():
+            # TODO: at this point, start using the
+            # __dataclass_fields__ instead. Maybe
+            # arm the metaclasses with a .parameters
+            # method to make the logic of getting those simpler
             if key not in (
                 "mass_ratio",
                 "chirp_mass",
+                "luminosity_distance",
+                "chirp_distance",
             ):
                 parameters[key][start:stop] = value[mask]
 

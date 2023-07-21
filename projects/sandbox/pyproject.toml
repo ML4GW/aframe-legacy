@@ -7,6 +7,7 @@ steps = [
     "train:train:resnet",
     "export:export-model:resnet",
     "infer:deploy-infer",
+    "mdc:deploy-mdc",
     "vizapp:vizapp"
 ]
 
@@ -20,10 +21,16 @@ sample_rate = 2048
 kernel_length = 1.5
 ifos = ['H1', 'L1']
 hopeless_snr_thresh = 0
-#glitch_start = 1262394654
-train_start = 1239770547 
-train_stop = 1241205077# 10 day train window
-test_stop = 1241705077 # 5 day window for test
+
+# start/stop times reflect use of
+# --start-duration $((24 * 3600 * 10)) flag
+# when generating MDC test dataset.
+# train_stop is the start of the first segment
+# of the generated dataset.
+train_start = 1240579783
+train_stop = 1241443783  # 10 day train window
+test_stop = 1244035783 # 30 day test window
+
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
@@ -255,6 +262,44 @@ psd_length = "${base.inference_psd_length}"
 
 # misc
 verbose = "${base.verbose}"
+
+
+[tool.typeo.scripts.deploy-mdc]
+# paths
+model_repo_dir = "${base.repository_directory}"
+data_dir = "${base.datadir}"
+output_dir = "${base.basedir}/mdc"
+log_dir = "${base.logdir}"
+
+# condor args
+accounting_group_user = "${base.accounting_group_user}"
+accounting_group = "${base.accounting_group}"
+
+# triton args
+model_name = "aframe-stream"
+model_version = -1
+image = "hermes/tritonserver:22.12"
+sequence_id = 1001
+
+# timeslide args
+Tb = "${base.Tb}"
+throughput = 100
+
+# data args
+sample_rate = "${base.sample_rate}"
+inference_sampling_rate = "${base.inference_sampling_rate}"
+batch_size = "${base.inference_batch_size}"
+ifos = "${base.ifos}"
+chunk_size = 4096
+
+# analysis args
+integration_window_length = 1
+cluster_window_length = 8
+fduration = "${base.fduration}"
+
+# misc
+verbose = "${base.verbose}"
+
 
 [tool.typeo.scripts.analyze]
 data_dir = "${base.basedir}/timeslide_injections/"
