@@ -282,6 +282,7 @@ def deploy(
             but saved for later use
         ifos: List of interferometers to query data from. Expected to be given
             by prefix; e.g. "H1" for Hanford
+        psd_length: Length of background in seconds to use for PSD
         outdir: Directory to which the condor files will be written
         datadir: Directory to which the waveform dataset will be written
         logdir: Directory to which the log file will be written
