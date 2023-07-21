@@ -133,6 +133,8 @@ class Validator:
     shift: float
     max_fpr: float
     device: str
+    num_views: int = 5
+    pad: float = 0.1
 
     def __post_init__(self):
         self.auroc = BinaryAUROC(max_fpr=self.max_fpr)
@@ -140,6 +142,7 @@ class Validator:
         self.kernel_size = int(self.kernel_length * self.sample_rate)
         self.stride_size = int(self.stride * self.sample_rate)
         self.pool_size = int(self.pool_length / self.stride)
+        self.pad_size = int(self.pad * self.sample_rate)
 
         integration_size = int(self.integration_length / self.stride)
         self.window = torch.ones((1, 1, integration_size)) / integration_size
@@ -228,19 +231,20 @@ class Validator:
         self._injection_idx += len(waveforms)
 
         # threshold the SNRs of the injections to the desired value.
-        waveforms = self.threshold_snrs(waveforms, psds)
+        if self.snr_thresh > 0:
+            waveforms = self.threshold_snrs(waveforms, psds)
 
         # now cut out a window symmetrically about the
         # coalescence time and inject it into the background
         kernel_size = X.shape[-1]
-
-        start = waveforms.shape[-1] // 2 - kernel_size // 2
-        stop = start + kernel_size
-        waveforms = waveforms[:, :, int(start) : int(stop)]
-        X += waveforms
-
-        # return the downsampled PSDs for whitening
-        return X, psds
+        center = waveforms.shape[-1] // 2
+        step = (kernel_size - 2 * self.pad) / (self.num_views - 1)
+        for i in range(self.num_views):
+            start = center - self.pad - int(i * step)
+            stop = start + kernel_size
+            waveforms = waveforms[:, :, int(start) : int(stop)]
+            X += waveforms
+            yield X, psds
 
     def predict(self, model, X, psd):
         X = self.whitener(X, psd)
@@ -257,8 +261,10 @@ class Validator:
             if self._injection_idx >= len(self.waveforms):
                 continue
 
-            X, psd = self.inject(X, psd)
-            y = self.predict(model, X, psd)
+            y = 0
+            for x, p in self.inject(X, psd):
+                y += self.predict(model, x, p)
+            y /= self.num_views
             inj_preds.append(y)
 
         preds = torch.cat(preds)
