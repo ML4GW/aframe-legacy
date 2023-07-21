@@ -6,6 +6,13 @@ from typing import Optional
 def configure_logging(
     filename: Optional[str] = None, verbose: bool = False
 ) -> None:
+    """
+    Utility function to standardize logging format
+
+    Args:
+        filename: Name of file to which logging messages will be written
+        verbose: If true, log verbosely
+    """
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(
         format=log_format,
