@@ -86,7 +86,9 @@ def train(
     use_amp: bool = False,
     profile: bool = False,
 ) -> None:
-    """Train aframe model on in-memory data
+    """
+    Train aframe model on a training dataset
+
     Args:
         architecture:
             A callable which takes as its only input the number
@@ -98,9 +100,12 @@ def train(
         train_dataset:
             An Iterable of (X, y) pairs where X is a batch of training
             data and y is the corresponding targets
-        valid_dataset:
-            An Iterable of (X, y) pairs where X is a batch of training
-            data and y is the corresponding targets
+        validator:
+            Callable object containing the validation dataset and the
+            method of validation. If given, the model will be evaluated
+            on the validation dataset after each epoch.
+        preprocessor:
+            A `torch.nn.Module` object with which to preprocess the data.
         max_epochs:
             Maximum number of epochs over which to train.
         init_weights:
@@ -128,6 +133,9 @@ def train(
             a specific GPU (alternatively, consider setting the environment
             variable `CUDA_VISIBLE_DEVICES=${i}` and using just `"cuda"`
             here).
+        use_amp:
+            If true, use `torch`'s automatic mixed precision gradient scaler
+            during training
         profile:
             Whether to generate a tensorboard profile of the
             training step on the first epoch. This will make
