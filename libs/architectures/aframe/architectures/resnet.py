@@ -12,6 +12,11 @@ from torch import Tensor
 
 
 class ChannelNorm(torch.nn.Module):
+    """
+    Custom implementation of ChannelNorm which is faster than the
+    out-of-the-box PyTorch version.
+    """
+
     def __init__(
         self,
         num_channels: int,
@@ -62,6 +67,16 @@ class ChannelNorm(torch.nn.Module):
 
 
 def get_norm_layer(groups: Optional[int] = None) -> nn.Module:
+    """
+    Group normalization is used for each normalization layer in aframe,
+    rather than the typical batch normalization, because there is better
+    agreement between training and testing group statistics than
+    batch statistics.
+
+    The `GroupNorm` layer is defined using faster implementation of
+    `ChannelNorm`.
+    """
+
     class GroupNorm(ChannelNorm):
         def __init__(self, num_channels: int) -> None:
             num_groups = None if groups is None else min(num_channels, groups)
@@ -95,13 +110,15 @@ def convN(
 
 
 def conv1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv1d:
-    """kernel-size 1 convolution"""
+    """Kernel-size 1 convolution"""
     return nn.Conv1d(
         in_planes, out_planes, kernel_size=1, stride=stride, bias=False
     )
 
 
 class BasicBlock(nn.Module):
+    """Defines the structure of the blocks used to build the ResNet"""
+
     expansion: int = 1
 
     def __init__(
