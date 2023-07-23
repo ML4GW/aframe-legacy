@@ -32,7 +32,6 @@ def strain_from_triggers(
     stop: float,
     sample_rate: float,
     channel: str,
-    chunk_size: float = 4096,
 ):
     """
     Generate a list of omicron trigger times that satisfy snr threshold
@@ -98,9 +97,9 @@ def strain_from_triggers(
     mask = (triggers["time"] > times[0] + pad[0]) & (
         triggers["time"] < times[-1] - pad[1]
     )
-    chunk_triggers = triggers[mask]
+    triggers = triggers[mask]
     # query data for each trigger
-    for trigger in chunk_triggers:
+    for trigger in triggers:
         time = trigger["time"]
         try:
             glitch_ts = data.crop(time - pad[0], time + pad[1])
@@ -219,7 +218,6 @@ def main(
     segment_duration: int,
     overlap: int,
     mismatch_max: float,
-    window: float,
     datadir: Path,
     logdir: Path,
     channel: str,
@@ -230,7 +228,6 @@ def main(
     fduration: float,
     psd_length: float,
     kernel_length: float,
-    chunk_size: float = 4096,
     analyze_testing_set: bool = False,
     force_generation: bool = False,
     verbose: bool = False,
@@ -410,7 +407,6 @@ def main(
                     stop,
                     sample_rate,
                     f"{ifo}:{channel}",
-                    chunk_size,
                 )
 
                 with h5py.File(out, "a") as f:
