@@ -50,6 +50,7 @@ def main(
     # validation args
     valid_frac: Optional[float] = None,
     valid_stride: Optional[float] = None,
+    num_valid_views: int = 5,
     max_fpr: float = 1e-3,
     valid_livetime: float = (3600 * 12),
     early_stop: Optional[int] = None,
@@ -259,6 +260,8 @@ def main(
             shift=1,
             max_fpr=max_fpr,
             device=device,
+            pad=trigger_distance,
+            num_views=num_valid_views,
         )
     else:
         validator = None
