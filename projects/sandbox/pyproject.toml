@@ -139,7 +139,7 @@ highpass = "${base.minimum_frequency}"
 psd_length = "${base.training_psd_length}"
 
 # augmentation args
-trigger_distance = -0.5
+trigger_distance = -0.75
 waveform_prob = 0.5
 
 swap_frac = 0.025
