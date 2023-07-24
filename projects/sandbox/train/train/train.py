@@ -260,7 +260,7 @@ def main(
             shift=1,
             max_fpr=max_fpr,
             device=device,
-            pad=trigger_distance,
+            pad=-trigger_distance,
             num_views=num_valid_views,
         )
     else:
