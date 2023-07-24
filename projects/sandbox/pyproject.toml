@@ -72,6 +72,7 @@ force_generation = "${base.force_generation}"
 accounting_group = "${base.accounting_group}"
 accounting_group_user = "${base.accounting_group_user}"
 
+
 [tool.typeo.scripts.generate-glitches]
 snr_thresh = 5
 window = 2
