@@ -134,7 +134,7 @@ def validate_segments(
         write_dir.mkdir(parents=True, exist_ok=True)
         fname = _make_fname("background", start, stop - start)
         write_path = write_dir / fname
-
+        logging.info(write_path)
         if write_path.exists() and not force_generation:
             if is_train:
                 validate_file(

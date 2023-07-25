@@ -201,11 +201,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         # background psds computed up top
         X = self.whitener(X, psds)
 
-        # now that injections have been made,
-        # whiten _all_ the strain using the
-        # background psds computed up top
-        X = self.whitener(X, psds)
-
         # set response augmentation labels to noise
         idx = torch.where(mask)[0]
         mask[idx[mute_indices]] = 0

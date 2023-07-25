@@ -66,17 +66,18 @@ train_stop = "${base.train_stop}"
 test_stop = "${base.test_stop}"
 ifos = "${base.ifos}"
 sample_rate = "${base.sample_rate}" 
-minimum_train_length = 8000
-minimum_test_length = 1024
+min_segment_length = 1024
 force_generation = "${base.force_generation}"
 accounting_group = "${base.accounting_group}"
 accounting_group_user = "${base.accounting_group_user}"
 
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 5
-window = 2
-start = "${base.glitch_start}"
+snr_thresh = 8
+fduration = "${base.fduration}"
+psd_length = "${base.training_psd_length}"
+kernel_length = "${base.kernel_length}"
+start = "${base.train_start}"
 stop = "${base.train_stop}"
 test_stop = "${base.test_stop}"
 channel = "${base.channel}"
@@ -92,11 +93,14 @@ overlap = 4
 mismatch_max = 0.2
 force_generation = "${base.force_generation}"
 ifos = "${base.ifos}"
-datadir = "${base.datadir}/train"
+datadir = "${base.datadir}"
 logdir = "${base.logdir}"
 sample_rate = "${base.sample_rate}"
 analyze_testing_set = false
+accounting_group = "${base.accounting_group}"
+accounting_group_user = "${base.accounting_group_user}"
 verbose = true
+
 
 [tool.typeo.scripts.generate-waveforms]
 minimum_frequency = "${base.minimum_frequency}" 
@@ -112,6 +116,7 @@ waveform_approximant = "${base.waveform_approximant}"
 
 [tool.typeo.scripts.train]
 # input and output paths
+glitch_dir = "${base.datadir}/train/glitches"
 background_dir = "${base.datadir}/train/background"
 waveform_dataset = "${base.datadir}/train/signals.h5"
 

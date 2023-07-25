@@ -27,7 +27,7 @@ class GlitchLoader(torch.utils.data.IterableDataset):
             sizes = []
             for f in fnames:
                 with h5py.File(f, "r") as f:
-                    size = len(f[ifo]["glitches"])
+                    size = len(f["glitches"])
                     sizes.append(size)
 
             total = sum(sizes)
@@ -54,11 +54,11 @@ class GlitchLoader(torch.utils.data.IterableDataset):
             ifo_files = fnames[ifo]
             for fname in ifo_files:
                 with h5py.File(fname, "r") as f:
-                    num = len(f[ifo]["glitches"])
+                    num = len(f["glitches"])
                     indices = np.sort(
                         np.random.permutation(num)[: self.glitches_per_read]
                     )
-                    ifo_glitches.extend(f[ifo]["glitches"][indices])
+                    ifo_glitches.extend(f["glitches"][indices])
             glitches.append(ifo_glitches)
 
         return np.stack(glitches)
