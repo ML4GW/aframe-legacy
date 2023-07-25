@@ -101,11 +101,14 @@ def train(
             An Iterable of (X, y) pairs where X is a batch of training
             data and y is the corresponding targets
         validator:
-            Callable object containing the validation dataset and the
-            method of validation. If given, the model will be evaluated
-            on the validation dataset after each epoch.
+            Callable object that takes as input a model and training
+            loss value at each epoch and returns a flag indicating
+            whether to terminate training or not
         preprocessor:
-            A `torch.nn.Module` object with which to preprocess the data.
+            A `torch.nn.Module` object with which to preprocess both X
+            and y from `train_dataset`. Preprocessing occurs between
+            the iteration of `train_dataset` and the forward call of
+            the neural network
         max_epochs:
             Maximum number of epochs over which to train.
         init_weights:
@@ -134,7 +137,7 @@ def train(
             variable `CUDA_VISIBLE_DEVICES=${i}` and using just `"cuda"`
             here).
         use_amp:
-            If true, use `torch`'s automatic mixed precision gradient scaler
+            If True, use `torch`'s automatic mixed precision gradient scaler
             during training
         profile:
             Whether to generate a tensorboard profile of the
