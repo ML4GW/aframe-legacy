@@ -86,7 +86,7 @@ class Preprocessor(torch.nn.Module):
             Length of background data, in seconds, to use for PSD
             calculation.
         sample_rate:
-            Sample rate of timeseries to be whitened.
+            Sample rate of timeseries to be whitened, specified in Hz
         fduration:
             Length of the time-domain whitening filter in seconds. After
             whitening, `fduration / 2` seconds will be removed from either

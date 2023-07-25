@@ -11,10 +11,10 @@ import torch.nn as nn
 from torch import Tensor
 
 
-class ChannelNorm(torch.nn.Module):
+class GroupNorm(torch.nn.Module):
     """
-    Custom implementation of ChannelNorm which is faster than the
-    out-of-the-box PyTorch version.
+    Custom implementation of GroupNorm which is faster than the
+    out-of-the-box PyTorch version at inference time.
     """
 
     def __init__(
@@ -72,12 +72,9 @@ def get_norm_layer(groups: Optional[int] = None) -> nn.Module:
     rather than the typical batch normalization, because there is better
     agreement between training and testing group statistics than
     batch statistics.
-
-    The `GroupNorm` layer is defined using faster implementation of
-    `ChannelNorm`.
     """
 
-    class GroupNorm(ChannelNorm):
+    class NormLayer(GroupNorm):
         def __init__(self, num_channels: int) -> None:
             num_groups = None if groups is None else min(num_channels, groups)
             super().__init__(num_channels, num_groups)
