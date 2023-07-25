@@ -95,8 +95,7 @@ def validate_segments(
     train_start: float,
     train_stop: float,
     test_stop: float,
-    minimum_train_length: float,
-    minimum_test_length: float,
+    min_segment_length: float,
     max_segment_length: float,
     datadir: Path,
     force_generation: bool,
@@ -127,23 +126,9 @@ def validate_segments(
         if is_train:
             subdir = "train"
             stop = min(stop, train_stop)
-            if duration < minimum_train_length:
-                logging.info(
-                    "Skipping segment {}-{}, too short for training".format(
-                        start, stop
-                    )
-                )
-                continue
         else:
             subdir = "test"
             stop = min(stop, test_stop)
-            if duration < minimum_test_length:
-                logging.info(
-                    "Skipping segment {}-{}, too short for testing".format(
-                        start, stop
-                    )
-                )
-                continue
 
         write_dir = datadir / subdir / "background"
         write_dir.mkdir(parents=True, exist_ok=True)
@@ -158,7 +143,7 @@ def validate_segments(
                     sample_rate,
                     train_start,
                     train_stop,
-                    minimum_train_length,
+                    min_segment_length,
                 )
             else:
                 validate_file(
@@ -167,12 +152,20 @@ def validate_segments(
                     sample_rate,
                     train_stop,
                     test_stop,
-                    minimum_test_length,
+                    min_segment_length,
                 )
 
             logging.info(
                 "Skipping download of segment {}-{}, already "
                 "cached in file {}".format(start, stop, fname)
+            )
+            continue
+
+        if duration < min_segment_length:
+            logging.info(
+                "Skipping segment {}-{}, too short for training".format(
+                    start, stop
+                )
             )
             continue
 
@@ -230,8 +223,7 @@ def deploy(
     train_start: float,
     train_stop: float,
     test_stop: float,
-    minimum_train_length: float,
-    minimum_test_length: float,
+    min_segment_length: float,
     ifos: List[str],
     sample_rate: float,
     channel: str,
@@ -312,7 +304,7 @@ def deploy(
         [f"{ifo}:{state_flag}" for ifo in ifos],
         train_start,
         train_stop,
-        minimum_train_length,
+        min_segment_length,
     )
     if not train_segments:
         raise ValueError(
@@ -323,7 +315,7 @@ def deploy(
         [f"{ifo}:{state_flag}" for ifo in ifos],
         train_stop,
         test_stop,
-        minimum_test_length,
+        min_segment_length,
     )
 
     segments = list(train_segments) + list(test_segments)
@@ -334,8 +326,7 @@ def deploy(
         train_start,
         train_stop,
         test_stop,
-        minimum_train_length,
-        minimum_test_length,
+        min_segment_length,
         max_segment_length,
         datadir,
         force_generation,
