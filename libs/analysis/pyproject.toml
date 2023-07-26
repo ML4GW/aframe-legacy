@@ -13,7 +13,7 @@ packages = [
 python = ">=3.8,<3.11"
 scipy = "^1.7.3"
 astropy = "^5.2.1"
-bilby = "^1.4.1"
+bilby = "^2.1.2"
 
 "aframe.priors" = {path = "../priors", develop = true}
 
