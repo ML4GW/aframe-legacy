@@ -39,6 +39,7 @@ def collect_glitches(
     stop: float,
     sample_rate: float,
     channel: str,
+    minimum_per_file: int,
 ):
     """
     Generate a list of omicron trigger times that satisfy snr threshold
@@ -73,15 +74,17 @@ def collect_glitches(
     gpstimes = []
 
     with h5py.File(trigger_path) as f:
-        # restrict triggers to within gps start and stop times
-        # and apply snr threshold
+        # apply snr thr4esh
         triggers = f["triggers"][:]
-        times = triggers["time"][:]
         mask = triggers["snr"][:] > snr_thresh
         triggers = triggers[mask]
 
-    if len(triggers) == 0:
+    # this is to ensure that we have at least glitches_per_read
+    # triggers per file. TODO: merge files with low number of triggers
+    # into neighbors
+    if len(triggers) < minimum_per_file:
         return
+
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - pad[0]
     stop = np.max(triggers["time"]) + pad[1]
@@ -136,6 +139,7 @@ def deploy_collect_glitches(
     condordir: Path,
     accounting_group: str,
     accounting_group_user: str,
+    minimum_per_file: int,
     request_memory: float = 32678,
 ):
 
@@ -165,6 +169,7 @@ def deploy_collect_glitches(
     arguments += "--start $(start) --stop $(stop) "
     arguments += f"--pad {pad[0]} {pad[1]} --snr-thresh {snr_thresh} "
     arguments += f"--channel {channel} --sample-rate {sample_rate} "
+    arguments += f"--minimum-per-file {minimum_per_file}"
 
     subfile = condor.make_submit_file(
         executable="collect-glitches",
@@ -186,6 +191,7 @@ def deploy_collect_glitches(
     )
     condor.watch(dag_id, condordir, held=False)
     logging.info(f"Completed collection of glitches for {ifo} ")
+    return outdir
 
 
 def omicron_main_wrapper(
@@ -303,6 +309,7 @@ def main(
     kernel_length: float,
     accounting_group: str,
     accounting_group_user: str,
+    minimum_per_file: int,
     analyze_testing_set: bool = False,
     force_generation: bool = False,
     verbose: bool = False,
@@ -461,6 +468,7 @@ def main(
             )
 
     deploy_futures = []
+
     for future in as_completed(train_futures):
         ifo = future.result()
         outdir = datadir / "train" / "glitches" / ifo

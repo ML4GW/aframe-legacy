@@ -73,7 +73,7 @@ accounting_group_user = "${base.accounting_group_user}"
 
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 8
+snr_thresh = 5
 fduration = "${base.fduration}"
 psd_length = "${base.training_psd_length}"
 kernel_length = "${base.kernel_length}"
