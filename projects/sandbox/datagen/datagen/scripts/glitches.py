@@ -82,7 +82,7 @@ def collect_glitches(
     # this is to ensure that we have at least glitches_per_read
     # triggers per file. TODO: merge files with low number of triggers
     # into neighbors
-    if len(triggers) < minimum_per_file:
+    if len(triggers) < minimum_per_file or len(triggers) == 0:
         return
 
     # re-set 'start' and 'stop' so we aren't querying unnecessary data
@@ -309,7 +309,7 @@ def main(
     kernel_length: float,
     accounting_group: str,
     accounting_group_user: str,
-    minimum_per_file: int,
+    minimum_per_file: int = 0,
     analyze_testing_set: bool = False,
     force_generation: bool = False,
     verbose: bool = False,
@@ -489,6 +489,7 @@ def main(
             condordir,
             accounting_group,
             accounting_group_user,
+            minimum_per_file,
         ]
         future = pool.submit(deploy_collect_glitches, *args)
         deploy_futures.append(future)

@@ -41,6 +41,7 @@ inference_sampling_rate = 16
 inference_batch_size = 128
 inference_psd_length = 64
 training_psd_length = 8
+glitches_per_read = 20
 
 waveform_duration = 4
 reference_frequency = 50

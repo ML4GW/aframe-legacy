@@ -30,9 +30,17 @@ class GlitchLoader(torch.utils.data.IterableDataset):
                     size = len(f["glitches"])
                     sizes.append(size)
 
+            # Set the probability of a file to be chosen to 0 if it has less
+            # than the required number of glitches per read.
+            # TODO: merge files in the glitch project
+            # with low numbers of glitches?
+            sizes = np.array(sizes)
+            mask = sizes < self.glitches_per_read
+            sizes[mask] = 0
             total = sum(sizes)
             probs[ifo] = np.array([i / total for i in sizes])
 
+        print(probs)
         self.probs = probs
 
     def sample_fnames(self):
