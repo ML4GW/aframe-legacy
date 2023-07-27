@@ -10,7 +10,7 @@ infer = "infer.main:main"
 deploy-infer = "infer.deploy:main"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.11"
 ratelimiter = "^1.2"
 psutil = "^5.0"
 

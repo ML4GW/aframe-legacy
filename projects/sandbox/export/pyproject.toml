@@ -4,6 +4,9 @@ version = "0.0.1"
 description = "Export aframe for IaaS inference"
 authors = ["Alec Gunny <alec.gunny@gmail.com>"]
 # readme = "README.md"
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
 
 [tool.pinto]
 cuda-version = "11.7"
@@ -12,8 +15,7 @@ cuda-version = "11.7"
 export-model = "export.main:main"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
-gwpy = "^2.1"
+python = ">=3.9,<3.11"
 
 # TODO: this cryptography constraint seems to be
 # necessary for cross-platform builds, though it

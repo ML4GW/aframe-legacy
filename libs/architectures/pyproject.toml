@@ -9,7 +9,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.12"
 torch = {version = "^1.10", source = "torch"}
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main", optional = true}
 ml4gw = {path = "../../ml4gw", develop = true}

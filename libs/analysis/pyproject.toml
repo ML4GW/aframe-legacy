@@ -10,7 +10,7 @@ packages = [
 # readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.12"
 scipy = "^1.7.3"
 astropy = "^5.2.1"
 bilby = "^2.1.2"

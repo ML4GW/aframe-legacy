@@ -10,7 +10,7 @@ mdc = "mdc.main:main"
 deploy-mdc = "mdc.deploy:main"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.11"
 ratelimiter = "^1.2"
 psutil = "^5.0"
 
@@ -28,6 +28,9 @@ typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.3"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

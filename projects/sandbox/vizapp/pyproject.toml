@@ -9,7 +9,7 @@ license = "MIT"
 vizapp = "vizapp.main:main"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.12"
 bokeh = "^3.0"
 scipy = "^1.7"
 h5py = "^3.5"
