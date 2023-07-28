@@ -115,6 +115,100 @@ class LocalTracker:
 
 @dataclass
 class Validator:
+    """
+    Callable class that takes as input a model and training loss
+    value at each epoch and returns a flag indicating whether to
+    terminate training or not. This is decided by the current
+    model's performance on the validation dataset. After each
+    epoch, the background validation data is time-shifted to
+    create `livetime` seconds worth of background.
+
+    A foreground dataset is created by injecting validation
+    waveforms into the background. Each waveform is added onto the
+    background `num_views` times, with each instance containing a
+    different, overlapping, `kernel_length`-second portion of the
+    signal.
+
+    The model is evaluated on the background and foreground and
+    the output is integrated and pooled to identify events. From
+    this, the area under the ROC curve up to a false positive rate
+    of `max_fpr` is calculated as the validation metric. This value
+    is used by `tracker` to decide whether training should be
+    stopped.
+
+    Args:
+        tracker:
+            `LocalTracker` object which keeps track of model
+            performance on different metrics, creates model
+            checkpoints, and determines if training should be
+            stopped
+        background:
+            Tensor containing background data for each interferometer
+        waveforms:
+            Tensor containing injections for each interferometer
+        psd_estimator:
+            Callable that takes a timeseries and returns a PSD
+            and a timeseries. Using the `PsdEstimator` in
+            `aframe.train.data_structures`, this will return
+            the PSD of an intial segment of the given timeseries
+            as well as the part of the timeseries not used for
+            PSD calculation.
+        whitener:
+            Callable that takes a timeseries and a PSD and returns the
+            whitened timeseries
+        sample_rate:
+            The rate at which the background data and waveforms have
+            been sampled, specified in Hz
+        stride:
+            Length in seconds of the time between background kernels
+        injection_stride:
+            Length in seconds of the time between injections
+        snr_thresh:
+            Minimum allowable SNR of an injection. Injections with SNRs
+            below this value will be rescaled to have an SNR of this
+            value.
+        highpass:
+            Minimum frequency over which to compute SNR values
+            for waveform injection, in Hz. If left as `None`, the
+            SNR will be computed over all frequency bins.
+        kernel_length:
+            The length, in seconds, of each batch element. This
+            does not include the length of data removed after
+            whitening.
+        batch_size:
+            Number of kernels to perform inference over at once
+        pool_length:
+            Length in seconds over which to perform max pooling of
+            network output after integration
+        integration_length:
+            Length in seconds of the boxcar window with which to
+            convolve network output
+        livetime:
+            Length in seconds of background to create via time shifts
+        shift:
+            Length in seconds of the shift step size. During time
+            shifting, the timeseries of the nth interferometer after
+            the first will be shifted by `n * shift` seconds in both
+            directions, and then `2 * n * shift` seconds, etc.,
+            until `livetime` seconds of background have been created.
+        max_fpr:
+            The value of the false positive rate up to which the area
+            under the ROC curve will be calculated
+        device:
+            Device on which training is being performed
+        num_views:
+            Number of instances to create of each injection. Each
+            instance will contain a different, possibly overlapping,
+            `kernel_length`-second portion of the injection. The
+            coalescence point of the the signal, assumed to be in
+            the center of the timeseries, will be contained in each
+            instance.
+        pad:
+            Amount of time in seconds on either side of an injection
+            that will not be included in any of the `num_views`
+            instances
+    """
+
     tracker: LocalTracker
     background: torch.Tensor
     waveforms: torch.Tensor
@@ -153,10 +247,15 @@ class Validator:
         self._injection_step = int(self.injection_stride // self.stride)
 
     def steps_for_shift(self, shift: float):
+        """Compute the number of kernels that will be taken per shift"""
         shift = abs(shift)  # doesn't matter which direction
         return (self.duration - shift - self.kernel_length) // self.stride + 1
 
     def shift_background(self, shift: float):
+        """
+        Return the background with the nth interferometer after
+        the first being shifted by `n * shift` seconds
+        """
         if not shift:
             return self.background
 
@@ -178,6 +277,10 @@ class Validator:
             )
 
     def iter_shift(self, shift):
+        """
+        Compute a particular shift of the background and yield
+        batches of `batch_size` kernels
+        """
         num_steps = self.steps_for_shift(shift)
         num_batches = (num_steps - 1) // self.batch_size + 1
         background = self.shift_background(shift)
@@ -191,6 +294,7 @@ class Validator:
             yield X
 
     def postprocess(self, preds: torch.Tensor) -> torch.Tensor:
+        """Integrate and pool the network outputs"""
         preds = preds.view(1, 1, -1)
         preds = torch.nn.functional.pad(preds, [self.integration_size - 1, 0])
         preds = torch.nn.functional.conv1d(preds, self.window)
@@ -200,6 +304,11 @@ class Validator:
         return preds[0, 0]
 
     def threshold_snrs(self, waveforms: torch.Tensor, psds: torch.Tensor):
+        """
+        Compute the SNRs of a set of injections, and if any fall below
+        the threshold, scale those injections to have an SNR of
+        `snr_thresh`.
+        """
         num_freqs = waveforms.shape[-1] // 2 + 1
         if num_freqs != psds.shape[-1]:
             psds = torch.nn.functional.interpolate(psds, (num_freqs,))
@@ -235,7 +344,8 @@ class Validator:
             waveforms = self.threshold_snrs(waveforms, psds)
 
         # create `num_view` instances of the injection on top of
-        # the background in evenly spaced locations
+        # the background, each showing a different, overlapping
+        # portion of the signal
         kernel_size = X.shape[-1]
         center = waveforms.shape[-1] // 2
         step = (kernel_size - 2 * self.pad_size) / (self.num_views - 1)
@@ -253,11 +363,17 @@ class Validator:
         return batch_X, batch_psd
 
     def predict(self, model, X, psd):
+        """Whiten the given data and pass it through the model"""
         X = self.whitener(X, psd)
         return model(X)[:, 0]
 
     @torch.no_grad()
     def infer_shift(self, model: torch.nn.Module, shift: float):
+        """
+        Evaluate the model against a particular time shift,
+        integrate and pool the results, and return the model
+        predictions of the background and foreground
+        """
         preds, inj_preds = [], []
         for X in self.iter_shift(shift):
             X, psd = self.psd_estimator(X)

@@ -51,7 +51,8 @@ class AframeBatchAugmentor(torch.nn.Module):
             as well as the part of the timeseries not used for
             PSD calculation.
         whitener:
-            Callable that will whiten a timeseries given a PSD
+            Callable that takes a timeseries and a PSD and returns the
+            whitened timeseries
         trigger_distance:
             The maximum length, in seconds, from the center of
             each waveform or glitch segment that a sampled
