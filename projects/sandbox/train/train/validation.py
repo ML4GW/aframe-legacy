@@ -234,8 +234,8 @@ class Validator:
         if self.snr_thresh > 0:
             waveforms = self.threshold_snrs(waveforms, psds)
 
-        # now cut out a window symmetrically about the
-        # coalescence time and inject it into the background
+        # create `num_view` instances of the injection on top of
+        # the background in evenly spaced locations
         kernel_size = X.shape[-1]
         center = waveforms.shape[-1] // 2
         step = (kernel_size - 2 * self.pad_size) / (self.num_views - 1)
