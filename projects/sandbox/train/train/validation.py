@@ -233,6 +233,7 @@ class Validator:
     def __post_init__(self):
         self.auroc = BinaryAUROC(max_fpr=self.max_fpr)
         self.duration = self.background.shape[-1] / self.sample_rate
+        self.num_channels = len(self.background)
         self.kernel_size = int(self.kernel_length * self.sample_rate)
         self.stride_size = int(self.stride * self.sample_rate)
         self.pool_size = int(self.pool_length / self.stride)
@@ -249,7 +250,10 @@ class Validator:
     def steps_for_shift(self, shift: float):
         """Compute the number of kernels that will be taken per shift"""
         shift = abs(shift)  # doesn't matter which direction
-        return (self.duration - shift - self.kernel_length) // self.stride + 1
+        max_shift = shift * (self.num_channels - 1)
+        return (
+            self.duration - max_shift - self.kernel_length
+        ) // self.stride + 1
 
     def shift_background(self, shift: float):
         """
@@ -259,22 +263,19 @@ class Validator:
         if not shift:
             return self.background
 
-        # TODO: how to generalize for >1 IFO?
-        shift_size = int(shift * self.sample_rate)
-        if shift_size > 0:
-            return np.stack(
-                [
-                    self.background[0, :-shift_size],
-                    self.background[1, shift_size:],
-                ]
-            )
-        else:
-            return np.stack(
-                [
-                    self.background[0, -shift_size:],
-                    self.background[1, :shift_size],
-                ]
-            )
+        shift_size = int(abs(shift) * self.sample_rate)
+        max_shift_size = shift_size * (self.num_channels - 1)
+        remainder_size = self.background.shape[-1] - max_shift_size
+        start_idxs = [i * shift_size for i in range(self.num_channels)]
+        if shift < 0:
+            start_idxs.reverse()
+
+        return np.stack(
+            [
+                ifo_background[start : start + remainder_size]
+                for start, ifo_background in zip(start_idxs, self.background)
+            ]
+        )
 
     def iter_shift(self, shift):
         """
@@ -413,7 +414,8 @@ class Validator:
 
             # do the positive and negative shifts
             # for each shift value
-            T += self.duration - abs(shift)
+            max_shift = abs(shift) * (self.num_channels - 1)
+            T += self.duration - max_shift
             i *= -1
             if i > 0:
                 i += 1
