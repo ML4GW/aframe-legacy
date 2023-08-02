@@ -48,7 +48,6 @@ cosmology = "aframe.priors.cosmologies.planck"
 streams_per_gpu = 3
 waveform_approximant = "IMRPhenomPv2"
 verbose = true
-kernel_length = 10
 
 [tool.typeo.scripts.deploy-background]
 datadir = "${base.datadir}"
@@ -134,7 +133,6 @@ psd_length = "${base.training_psd_length}"
 
 # augmentation args
 trigger_distance = -0.75
-<<<<<<< HEAD
 waveform_prob = 0.277
 swap_frac = 0.014
 mute_frac = 0.055
