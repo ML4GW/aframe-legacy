@@ -99,7 +99,7 @@ def main(
     accounting_group: str,
     accounting_group_user: str,
     Tb: float,
-    shifts: float,
+    shifts: List[float],
     sample_rate: float,
     inference_sampling_rate: float,
     ifos: List[str],

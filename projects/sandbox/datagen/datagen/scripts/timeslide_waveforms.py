@@ -34,7 +34,7 @@ def main(
     background_dir: Path,
     spacing: float,
     buffer: float,
-    prior: Callable,
+    prior: str,
     minimum_frequency: float,
     reference_frequency: float,
     sample_rate: float,
