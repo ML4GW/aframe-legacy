@@ -11,17 +11,18 @@ from typing import List, Tuple
 import h5py
 import numpy as np
 from gwpy.timeseries import TimeSeries
-from mldatafind.authenticate import authenticate
 from omicron.cli.process import main as omicron_main
 from typeo import scriptify
 
 from aframe.deploy import condor
 from aframe.logging import configure_logging
+from mldatafind.authenticate import authenticate
 
 # re for omicron trigger files
 re_trigger_fname = re.compile(
     r"(?P<ifo>[A-Za-z]1)-(?P<name>.+)-(?P<t0>\d{10}\.*\d*)-(?P<length>\d+\.*\d*).h5$"  # noqa
 )
+
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
@@ -80,8 +81,9 @@ def collect_glitches(
         triggers = triggers[mask]
 
     # this is to ensure that we have at least glitches_per_read
-    # triggers per file. TODO: merge files with low number of triggers
-    # into neighbors
+    # triggers per file.
+    # ]TODO: merge files with low number of triggers
+    # into neighbors?
     if len(triggers) < minimum_per_file or len(triggers) == 0:
         return
 
@@ -191,6 +193,7 @@ def deploy_collect_glitches(
     )
     condor.watch(dag_id, condordir, held=False)
     logging.info(f"Completed collection of glitches for {ifo} ")
+
     return outdir
 
 
@@ -228,7 +231,6 @@ def omicron_main_wrapper(
     config = configparser.ConfigParser()
     section = "GW"
     config.add_section(section)
-
     config.set(section, "q-range", f"{q_min} {q_max}")
     config.set(section, "frequency-range", f"{f_min} {f_max}")
     config.set(section, "frametype", f"{ifo}_{frame_type}")

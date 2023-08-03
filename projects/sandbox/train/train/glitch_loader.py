@@ -40,7 +40,6 @@ class GlitchLoader(torch.utils.data.IterableDataset):
             total = sum(sizes)
             probs[ifo] = np.array([i / total for i in sizes])
 
-        print(probs)
         self.probs = probs
 
     def sample_fnames(self):

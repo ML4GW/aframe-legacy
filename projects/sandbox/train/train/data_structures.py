@@ -5,7 +5,6 @@ import h5py
 import numpy as np
 import torch
 
-import ml4gw.utils.slicing as slicing
 from ml4gw import gw
 from ml4gw.distributions import PowerLaw
 from ml4gw.transforms import SpectralDensity
@@ -180,61 +179,6 @@ class ChannelMuter(torch.nn.Module):
             X[indices, channel] = torch.zeros(X.shape[-1], device=X.device)
 
         return X, indices
-
-
-class GlitchSampler(torch.nn.Module):
-    def __init__(
-        self, prob: float, max_offset: int, **glitches: np.ndarray
-    ) -> None:
-        super().__init__()
-        for ifo, glitch in glitches.items():
-            self.register_buffer(ifo, torch.Tensor(glitch))
-
-        self.prob = prob
-        self.max_offset = max_offset
-
-    def forward(self, X: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        glitch_channels = len(list(self.buffers()))
-        if X.shape[1] < glitch_channels:
-            raise ValueError(
-                "Can't insert glitches into tensor with {} channels "
-                "using glitches from {} ifos".format(
-                    X.shape[1], glitch_channels
-                )
-            )
-
-        # sample batch indices which will be replaced with
-        # a glitch independently from each interferometer
-        masks = torch.rand(size=(glitch_channels, len(X))) < self.prob
-        for i, glitches in enumerate(self.buffers()):
-            mask = masks[i]
-
-            # now sample from our bank of glitches for this
-            # interferometer the number we want to insert
-            N = mask.sum().item()
-            idx = torch.randint(len(glitches), size=(N,))
-
-            # finally sample kernels from the selected glitches.
-            # Add a dummy dimension so that sample_kernels
-            # doesn't think this is a single multi-channel
-            # timeseries, but rather a batch of single
-            # channel timeseries
-            glitches = glitches[idx, None]
-            glitches = slicing.sample_kernels(
-                glitches,
-                kernel_size=X.shape[-1],
-                max_center_offset=self.max_offset,
-            )
-
-            # replace the appropriate channel in our
-            # strain data with the sampled glitches
-            X[mask, i] = glitches[:, 0]
-
-            # use bash file permissions style
-            # numbers to indicate which channels
-            # go inserted on
-            y[mask] -= 2 ** (i + 1)
-        return X, y
 
 
 class SignalInverter(torch.nn.Module):
