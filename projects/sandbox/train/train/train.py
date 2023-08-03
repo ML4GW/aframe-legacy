@@ -313,6 +313,8 @@ def main(
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
     batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
+    batches_per_chunk = int(batches_per_epoch / 8)
+    chunks_per_epoch = 8
     background_loader = structures.ChunkedDataloader(
         background_fnames,
         ifos=ifos,
@@ -323,8 +325,8 @@ def main(
         # or set some sensible defaults?
         reads_per_chunk=10,
         chunk_length=1024,
-        batches_per_chunk=int(batches_per_epoch / 8),
-        chunks_per_epoch=8,
+        batches_per_chunk=batches_per_chunk,
+        chunks_per_epoch=chunks_per_epoch,
         device=device,
     )
 
@@ -336,8 +338,8 @@ def main(
 
     glitch_loader = ChunkedGlitchDataset(
         reads_per_chunk=10,
-        batches_per_chunk=int(batches_per_epoch / 4),
-        chunks_per_epoch=8,
+        batches_per_chunk=batches_per_chunk,
+        chunks_per_epoch=chunks_per_epoch,
         glitches_per_read=20,
         glitches_per_batch=int(glitch_prob * batch_size),
         device=device,
