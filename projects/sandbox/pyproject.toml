@@ -50,7 +50,7 @@ highpass = 32
 training_prior = "aframe.priors.priors.mdc_prior_chirp_distance"
 testing_prior = "aframe.priors.priors.mdc_prior_chirp_distance"
 fduration = 1
-#valid_frac = 0.25
+valid_frac = 0.25
 cosmology = "aframe.priors.cosmologies.planck"
 streams_per_gpu = 3
 waveform_approximant = "IMRPhenomPv2"
@@ -155,7 +155,7 @@ swap_frac = 0.0620
 mute_frac = 0.1394
 
 # validation args
-#valid_frac = "${base.valid_frac}"
+valid_frac = "${base.valid_frac}"
 valid_stride = 0.5
 max_fpr = 1e-3
 valid_livetime = 57600  # 16 hours of background

@@ -476,7 +476,7 @@ def main(
         outdir = datadir / "train" / "glitches" / ifo
         condordir = datadir / "condor" / "glitches"
         condordir.mkdir(exist_ok=True, parents=True)
-        outdir.mkdir(exist_ok=True, parents=True)
+        Path(outdir / "log").mkdir(exist_ok=True, parents=True)
         trigger_dir = train_run_dir / ifo / "merge" / f"{ifo}:{channel}"
         trigger_paths = sorted(list(trigger_dir.glob("*.h5")))
 
