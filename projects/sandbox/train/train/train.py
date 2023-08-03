@@ -46,7 +46,7 @@ def main(
     highpass: float,
     # augmentation args
     waveform_prob: float,
-    glitch_prob: float,
+    glitch_frac: float,
     glitch_downweight: float,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
@@ -341,7 +341,7 @@ def main(
         batches_per_chunk=batches_per_chunk,
         chunks_per_epoch=chunks_per_epoch,
         glitches_per_read=20,
-        glitches_per_batch=int(glitch_prob * batch_size),
+        glitches_per_batch=int(glitch_frac * batch_size),
         device=device,
         **glitch_paths,  # TODO: just take the datadir?
     )
