@@ -249,12 +249,9 @@ def deploy(
             Also corresponds to the beginning of the testing period.
         test_stop:
             GPS time of the end of the testing period.
-        minimum_train_length:
-            The shortest a contiguous segment of training background can be.
-            Specified in seconds.
-        minimum_test_length:
-            The shortest a contiguous segment of testing background can be.
-            Specified in seconds.
+        min_segment_length:
+            The shortest a contiguous segment that training
+            __or__ testing background can be. Specified in seconds.
         ifos:
             List of interferometers to query data from. Expected to be given
             by prefix; e.g. "H1" for Hanford
@@ -271,10 +268,10 @@ def deploy(
             Directory to which data will be written
         logdir:
             Directory to which the log file will be written
-        accounting_group_user:
-            Username of the person running the condor jobs
         accounting_group:
             Accounting group for the condor jobs
+        accounting_group_user:
+            Username of the person running the condor jobs
         max_segment_length:
             Maximum length of a segment in seconds. Note that doing
             consecutive runs while changing `max_segment_length` will
