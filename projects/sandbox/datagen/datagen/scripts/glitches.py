@@ -360,9 +360,6 @@ def main(
             Overlap in seconds between neighbouring segments and chunks
         mismatch_max:
             Maximum distance between (Q, f) tiles
-        window:
-            Amount of time in seconds on either side of a glitch to
-            query data for
         datadir:
             Directory to which the glitch dataset will be written
         logdir:
@@ -381,8 +378,26 @@ def main(
         ifos:
             List of interferometers to query data from. Expected to be given
             by prefix; e.g. "H1" for Hanford
-        chunk_size:
-            Length in seconds of data to query at one time
+        fduration:
+            Duration of the time domain filter used
+            to whiten the data as a preprocessing step.
+            Used here to determine quantity of data around glitch
+            to query
+        psd_length:
+            The length, in seconds, of data used to whiten during
+            training. Used here to determine quantity of data around glitch
+            to query
+        kernel_length:
+            The length, in seconds, of each window of data
+            (after cropping from whitening) that the
+            neural network will analyze. Used here to determine
+            quantity of data around glitch to query
+        accounting_group:
+            Accounting group for the condor jobs
+        accounting_group_user:
+            Username of the person running the condor jobs
+        minimum_per_file:
+            Minimum number of glitches required to save a segment to disk.
         analyze_testing_set:
             If True, get glitches for the testing dataset
         force_generation:
