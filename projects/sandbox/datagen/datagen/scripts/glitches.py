@@ -36,37 +36,33 @@ def collect_glitches(
     outfile: Path,
     pad: Tuple[float, float],
     snr_thresh: float,
-    start: float,
-    stop: float,
     sample_rate: float,
     channel: str,
     minimum_per_file: int,
 ):
     """
-    Generate a list of omicron trigger times that satisfy snr threshold
+    Collect strain data for a list of glitches
 
     Args:
+        trigger_path:
+            Path to file produced by omicron that contains trigger information
+        outfile:
+            Path to file to store queried strain data
+        pad:
+            Tuple where the first element is amount of data, in seconds,
+            to query before trigger time, and second element is
+            amount of data to query after trigger time
         snr_thresh:
-            SNR threshold above which glitches will be kept
-        start:
-            GPS time at which to begin looking for glitches
-        stop:
-            GPS time at which to stop looking for glitches
-        window:
-            Amount of time in seconds on either side of a glitch
-            to query data for
+            snr threshold above which strain data should be queried
         sample_rate:
-            Sample rate of queried data, specified in Hz
+            rate at which to sample strain data
         channel:
-            Channel name used to read data. Should include the
-            interferometer prefix
-        trigger_files:
-            List of h5 files containing omicron triggers
-        chunk_size:
-            Length in seconds of data to query at one time
+            Channel of the form `{ifo}:{channel_name}`
+        minimum_per_file:
+            Minimum number of triggers for a file to be saved
 
-    Returns:
-        A list of glitch timeseries, a list of SNRs, and a list timestamps
+    Returns Path to outfile
+
     """
 
     authenticate()
@@ -75,19 +71,19 @@ def collect_glitches(
     gpstimes = []
 
     with h5py.File(trigger_path) as f:
-        # apply snr thr4esh
+        # apply snr thresh
         triggers = f["triggers"][:]
         mask = triggers["snr"][:] > snr_thresh
         triggers = triggers[mask]
 
     # this is to ensure that we have at least glitches_per_read
     # triggers per file.
-    # ]TODO: merge files with low number of triggers
+    # TODO: merge files with low number of triggers
     # into neighbors?
     if len(triggers) < minimum_per_file or len(triggers) == 0:
         return
 
-    # re-set 'start' and 'stop' so we aren't querying unnecessary data
+    # set 'start' and 'stop' so we aren't querying unnecessary data
     start = np.min(triggers["time"]) - pad[0]
     stop = np.max(triggers["time"]) + pad[1]
 
@@ -101,14 +97,7 @@ def collect_glitches(
         start=start,
         end=stop,
     )
-
-    # restrict to triggers within current data chunk
     data = data.resample(sample_rate)
-    times = data.times.value
-    mask = (triggers["time"] > times[0] + pad[0]) & (
-        triggers["time"] < times[-1] - pad[1]
-    )
-    triggers = triggers[mask]
     # query data for each trigger
     for trigger in triggers:
         time = trigger["time"]
@@ -127,7 +116,9 @@ def collect_glitches(
         with h5py.File(outfile, "w") as f:
             f.create_dataset("glitches", data=glitches)
             f.create_dataset("snrs", data=snrs)
-            f.create_dataset("times", data=times)
+            f.create_dataset("times", data=gpstimes)
+
+    return outfile
 
 
 def deploy_collect_glitches(
@@ -144,12 +135,46 @@ def deploy_collect_glitches(
     minimum_per_file: int,
     request_memory: float = 32678,
 ):
+    """
+    Deploys a fleet of condor jobs to collect strain data
+    from multiple trigger files in parallel
 
+    Args:
+        trigger_paths:
+            List of trigger files. A condor job will be launched for each
+            trigger file
+        pad:
+            Tuple where the first element is amount of data, in seconds,
+            to query before trigger time, and second element
+            is amount of data to query after trigger time
+        snr_thresh:
+            snr threshold above which strain data should be queried
+        sample_rate:
+            rate at which to sample strain data
+        channel:
+            Channel of the form `{channel_name}`
+        ifo:
+            IFO to query data for
+        outdir:
+            Directory where glitch strain data files will be stored
+        condordir:
+            Location where condor related files will be stored
+        minimum_per_file:
+            Minimum number of triggers for a file to be saved
+        accounting_group:
+            Accounting group for the condor jobs
+        accounting_group_user:
+            Username of the person running the condor jobs
+        minimum_per_file:
+            Minimum number of glitches required to save a segment to disk.
+        request_memory:
+            Amount of initial memory to request for each condor job
+    """
     condordir = condordir / ifo
     condordir.mkdir(exist_ok=True, parents=True)
     # create text file from which the condor job will read
     # the trigger_path, and outfile for each job
-    parameters = "start,stop,trigger_path,outfile\n"
+    parameters = "trigger_path,outfile\n"
 
     for f in trigger_paths:
         match = re_trigger_fname.search(f.name)
@@ -157,18 +182,16 @@ def deploy_collect_glitches(
             t0, length = float(match.group("t0")), float(match.group("length"))
             t0, length = intify(t0), intify(length)
             logging.info(f"Generating glitch dataset for {ifo} and file {f}")
-            start, stop = t0, t0 + length
             out = outdir / f"{ifo}-glitches-{t0}-{length}.hdf5"
             if out.exists():
                 logging.info(f"Found existing glitch file {out}. Skipping")
                 continue
-            parameters += f"{start},{stop},{f},{out}\n"
+            parameters += f"{f},{out}\n"
         else:
             logging.warning(f"Could not parse trigger file name {f.name}")
             continue
 
     arguments = "--trigger-path $(trigger_path) --outfile $(outfile) "
-    arguments += "--start $(start) --stop $(stop) "
     arguments += f"--pad {pad[0]} {pad[1]} --snr-thresh {snr_thresh} "
     arguments += f"--channel {channel} --sample-rate {sample_rate} "
     arguments += f"--minimum-per-file {minimum_per_file}"
@@ -222,12 +245,12 @@ def omicron_main_wrapper(
 
     """
     Parses args into a format compatible for Pyomicron,
-    then launches omicron dag
+    then launches omicron dag. See main function below
+    for more information on arguments
     """
 
     # pyomicron expects some arguments passed via
-    # a config file. Create that config file
-
+    # a config file, create that config file
     config = configparser.ConfigParser()
     section = "GW"
     config.add_section(section)
