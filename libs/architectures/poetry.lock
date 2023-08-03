@@ -151,7 +151,7 @@ typeguard = ">=2.11.1"
 
 [[package]]
 name = "typeguard"
-version = "4.0.0"
+version = "4.1.0"
 description = "Run-time type checker for Python"
 category = "main"
 optional = false
@@ -159,10 +159,10 @@ python-versions = ">=3.7.4"
 
 [package.dependencies]
 importlib-metadata = {version = ">=3.6", markers = "python_version < \"3.10\""}
-typing-extensions = {version = ">=4.4.0", markers = "python_version < \"3.11\""}
+typing-extensions = {version = ">=4.7.0", markers = "python_version < \"3.12\""}
 
 [package.extras]
-doc = ["packaging", "sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
+doc = ["Sphinx (<7)", "packaging", "sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
 test = ["mypy (>=1.2.0)", "pytest (>=7)"]
 
 [[package]]
@@ -264,8 +264,8 @@ torchtyping = [
     {file = "torchtyping-0.1.4.tar.gz", hash = "sha256:4763375d17752641bd1bff0faaddade29be3c125fca6355e3cee7700e975fdb5"},
 ]
 typeguard = [
-    {file = "typeguard-4.0.0-py3-none-any.whl", hash = "sha256:c4a40af0ba8a41077221271b46d0a6d8d46045443e4d887887c69254ca861952"},
-    {file = "typeguard-4.0.0.tar.gz", hash = "sha256:194fb3dbcb06ea9caf7088f3befee014de57961689f9c859ac5239b1ef61d987"},
+    {file = "typeguard-4.1.0-py3-none-any.whl", hash = "sha256:94a8a8974eca6b980c0fd05a032f283914426ad9f2958b342075358e2744226a"},
+    {file = "typeguard-4.1.0.tar.gz", hash = "sha256:b05a54bb0276eefd28880df42e004a71e699c8081fcb9d0536b2ceb01019f60c"},
 ]
 typeo = []
 typing-extensions = [
