@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "data_gen"
+version = "0.1.0"
+description = "Generate data for evaluating  model sensitivity over time"
+authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
+license = "MIT"
+#readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+datagen = {path = "../../sandbox/datagen", develop = true}
+
+[tool.poetry.scripts]
+launch-datagen = "data_gen.scripts.main:main" 
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cpu"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
