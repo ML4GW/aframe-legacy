@@ -1,17 +1,17 @@
 [tool.poetry]
-name = "infer"
+name = "inference"
 version = "0.1.0"
 description = "Run inference over datasets over time"
 authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
 license = "MIT"
-readme = "README.md"
+#readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
 infer = {path = "../../sandbox/infer", develop = true}
 
 [tool.poetry.scripts]
-launch-infer = "infer:main" 
+launch-infererence = "inference.main:main" 
 
 [[tool.poetry.source]]
 name = "torch"

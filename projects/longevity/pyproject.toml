@@ -1,8 +1,16 @@
 [tool.pinto]
 steps = [
     "data_gen:launch-datagen",
-    #"infer:launch-infer",
+    "infererence:launch-infer",
 ]
+
+
+[tool.typeo.base]
+Tb = 5184000  # 60 days of background
+shifts = [0, 1]
+psd_length = 16
+sample_rate = 2048
+ifos = ["H1", "L1"]
 
 [tool.typeo.scripts.launch-datagen]
 datadir = "${DATA_DIR}"
@@ -10,15 +18,15 @@ datadir = "${DATA_DIR}"
 test_stop = 1244035783
 intervals = [1, 2] #4, 12, 24, 32, 48] # number of weeks
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
-sample_rate = 2048
-ifos = ["H1", "L1"]
+sample_rate = "${base.sample_rate}"
+ifos = "${base.ifos}"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 min_segment_length = 1024
 max_segment_length = 20000
 duration = 604800 # one week of data
 
-Tb = 5184000  # 60 days of background
-shifts = [0, 1]
+Tb = "${base.Tb}"  # 60 days of background
+shifts = "${base.shifts}"
 spacing = 48
 buffer = 16
 prior = "aframe.priors.priors.end_o3_ratesandpops"
@@ -28,9 +36,39 @@ minimum_frequency = 20
 waveform_approximant = "IMRPhenomPv2"
 highpass = 32
 snr_threshold = 4
-psd_length = 16
+psd_length = "${base.psd_length}"
 
 # condor args
 accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
+verbose = true
+
+[tool.typeo.scripts.launch-infer]
+datadir = "${DATA_DIR}"
+model_repo_dir = "/path/to/model/repo"
+
+model_name = "aframe-stream"
+model_version = -1
+image = "hermes/tritonserver:22.12"
+sequence_id = 1001
+
+# condor args
+accounting_group_user = "${base.accounting_group_user}"
+accounting_group = "${base.accounting_group}"
+
+Tb = "${base.Tb}"
+shifts= "${base.shifts}"
+sample_rate: = "${base.sample_rate]"
+inference_sampling_rate = 16
+ifos = "${base.ifos}"
+batch_size = 128
+integration_window_length = 1
+cluster_window_length = 8
+psd_length = "${base.psd_length}"
+
+fduration = 1
+throughput = 320
+chunk_size = 4096
+
+model_version =  -1,
 verbose = true

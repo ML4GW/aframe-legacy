@@ -9,8 +9,6 @@ from typeo import scriptify
 def main(
     datadir: Path,
     model_repo_dir: str,
-    log_dir: Path,
-    injection_set_file: Path,
     image: str,
     model_name: str,
     accounting_group: str,
@@ -33,9 +31,10 @@ def main(
 ):
     # loop over intervals
     for subdir in datadir.iterdir():
+        log_dir = subdir / "logs"
         output_dir = subdir / "infer"
         data_dir = subdir / "test" / "background"
-        injection_set_file = subdir / "timeslide_waveforms" / "injections.hdf5"
+        injection_set_file = subdir / "timeslide_waveforms" / "waveforms.h5"
         deploy_infer(
             model_repo_dir,
             output_dir,
