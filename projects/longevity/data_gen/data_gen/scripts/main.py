@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-from data_gen.scripts.background import deploy_background
+from datagen.scripts.background import deploy as deploy_background
 from datagen.scripts.timeslide_waveforms import deploy as deploy_timeslides
 from lal import gpstime
 from typeo import scriptify
@@ -62,20 +62,22 @@ def main(
         start, stop = test_stop + cadence, test_stop + cadence + duration
         out = make_outdir(datadir, start, stop)
         deploy_background(
+            start - ONE_WEEK / 7,
             start,
             stop,
-            state_flag,
-            channel,
-            sample_rate,
-            ifos,
             min_segment_length,
-            max_segment_length,
+            min_segment_length,
+            ifos,
+            sample_rate,
+            channel,
+            state_flag,
             out,
+            out / "log",
             accounting_group,
             accounting_group_user,
+            max_segment_length,
             request_memory,
             request_disk,
-            watch=False,
         )
 
         deploy_timeslides(
@@ -98,7 +100,7 @@ def main(
             snr_threshold,
             psd_length,
             out,
-            out / "timeslides",
+            out,
             out / "log",
             accounting_group_user,
             accounting_group,
