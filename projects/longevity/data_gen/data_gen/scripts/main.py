@@ -9,6 +9,8 @@ from datagen.scripts.timeslide_waveforms import deploy as deploy_timeslides
 from lal import gpstime
 from typeo import scriptify
 
+from aframe.logging import configure_logging
+
 ONE_WEEK = 60 * 60 * 24 * 7
 
 
@@ -99,6 +101,7 @@ def main(
     verbose: bool = False,
 ):
 
+    configure_logging(datadir / "deploy.log", verbose=verbose)
     # TODO: ensure not in between O3a and O3b
     intervals = np.array(intervals)
     intervals *= ONE_WEEK
@@ -108,6 +111,7 @@ def main(
     for cadence in intervals:
         start, stop = test_stop + cadence, test_stop + cadence + duration
         out = make_outdir(datadir, start, stop)
+        logging.info(f"Deploying background generation for {out}")
         args = [
             start - ONE_WEEK / 7,
             start,
@@ -129,12 +133,11 @@ def main(
         future = pool.submit(deploy_background_wrapper, *args)
         background_futures.append(future)
 
+    timeslide_futures = []
     for future in as_completed(background_futures):
         start, stop, out = future.result()
-        logging.info(
-            f"Deploying timeslides waveform gen for {start} to {stop}"
-        )
-        deploy_timeslides(
+        logging.info(f"Deploying timeslides waveform generation for {out}")
+        args = [
             start,
             stop,
             state_flag,
@@ -158,6 +161,11 @@ def main(
             out / "log",
             accounting_group_user,
             accounting_group,
-            request_memory=6000,
-            request_disk=1024,
-        )
+            6000,
+            1024,
+        ]
+        future = pool.submit(deploy_timeslides, *args)
+        timeslide_futures.append(future)
+
+    for future in as_completed(timeslide_futures):
+        logging.info("Timeslide future complete")

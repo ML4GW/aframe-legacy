@@ -1,7 +1,7 @@
 [tool.pinto]
 steps = [
-    "data_gen:launch-datagen",
-    #"infererence:launch-infer",
+    #"data_gen:launch-datagen",
+    "inference:launch-inference",
 ]
 
 
@@ -16,7 +16,7 @@ ifos = ["H1", "L1"]
 datadir = "${DATA_DIR}"
 
 test_stop = 1244035783
-intervals = [1, 2, 4, 12, 24, 32, 48] # number of weeks
+intervals = [1, 2, 4, 12, 24, 32] # number of weeks
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
@@ -43,31 +43,26 @@ accounting_group_user = "${LIGO_USERNAME}"
 accounting_group = "${LIGO_GROUP}"
 verbose = true
 
-[tool.typeo.scripts.launch-infer]
+[tool.typeo.scripts.launch-inference]
 datadir = "${DATA_DIR}"
-model_repo_dir = "/home/william.benoit/aframe/best_model_20230601/model_repo/"
-
-model_name = "aframe-stream"
-model_version = -1
+model_repo_dir = "/home/ethan.marx/aframe/paper/best_o3_model/iteration_1/model_repo/"
 image = "hermes/tritonserver:22.12"
-sequence_id = 1001
+model_name = "aframe-stream"
 
-# condor args
-accounting_group_user = "${base.accounting_group_user}"
-accounting_group = "${base.accounting_group}"
-
+accounting_group_user = "${LIGO_USERNAME}"
+accounting_group = "${LIGO_GROUP}"
 Tb = "${base.Tb}"
-shifts= "${base.shifts}"
+shifts = "${base.shifts}"
 sample_rate = "${base.sample_rate}"
 inference_sampling_rate = 16
 ifos = "${base.ifos}"
 batch_size = 128
 integration_window_length = 1
 cluster_window_length = 8
-psd_length = "${base.psd_length}"
-
+psd_length = 64
 fduration = 1
 throughput = 320
 chunk_size = 4096
+sequence_id = 1001
 
 verbose = true

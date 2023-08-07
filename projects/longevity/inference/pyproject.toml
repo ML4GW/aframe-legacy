@@ -11,7 +11,7 @@ python = ">=3.9,<3.11"
 infer = {path = "../../sandbox/infer", develop = true}
 
 [tool.poetry.scripts]
-launch-infererence = "inference.main:main" 
+launch-inference = "inference.main:main" 
 
 [[tool.poetry.source]]
 name = "torch"
