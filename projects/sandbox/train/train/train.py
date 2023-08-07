@@ -42,8 +42,9 @@ def main(
     psd_length: float,
     fduration: float,
     highpass: float,
+    fftlength: Optional[float] = None,
     # augmentation args
-    waveform_prob: float,
+    waveform_prob: float = 0.5,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
     trigger_distance: float = 0,
@@ -212,7 +213,7 @@ def main(
     # of the combined training + validation period
     background_fnames = train_utils.get_background_fnames(background_dir)
     sample_length = kernel_length + psd_length + fduration
-    fftlength = kernel_length + fduration
+    fftlength = fftlength or kernel_length + fduration
 
     psd_estimator = structures.PsdEstimator(
         psd_length, sample_rate, fftlength=fftlength, fast=highpass is not None
