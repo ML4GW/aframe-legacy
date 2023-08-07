@@ -9,7 +9,6 @@ from typeo import scriptify
 from aframe.deploy import condor
 from aframe.logging import configure_logging
 from mldatafind.authenticate import authenticate
-from mldatafind.io import fetch_timeseries
 from mldatafind.segments import query_segments
 
 
