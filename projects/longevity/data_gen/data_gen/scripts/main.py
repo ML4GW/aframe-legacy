@@ -1,3 +1,4 @@
+import logging
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
@@ -130,6 +131,9 @@ def main(
 
     for future in as_completed(background_futures):
         start, stop, out = future.result()
+        logging.info(
+            f"Deploying timeslides waveform gen for {start} to {stop}"
+        )
         deploy_timeslides(
             start,
             stop,
