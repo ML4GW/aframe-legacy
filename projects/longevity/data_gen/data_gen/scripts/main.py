@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
 
@@ -18,6 +19,49 @@ def make_outdir(outdir: Path, start: float, stop: float):
 
     (outdir / "log").mkdir(exist_ok=True, parents=True)
     return outdir
+
+
+def deploy_background_wrapper(
+    train_start: float,
+    train_stop: float,
+    test_stop: float,
+    minimum_train_length: float,
+    minimum_test_length: float,
+    ifos: List[str],
+    sample_rate: float,
+    channel: str,
+    state_flag: str,
+    datadir: Path,
+    logdir: Path,
+    accounting_group: str,
+    accounting_group_user: str,
+    max_segment_length: float = 20000,
+    request_memory: int = 32768,
+    request_disk: int = 1024,
+    force_generation: bool = False,
+    verbose: bool = False,
+):
+    deploy_background(
+        train_start,
+        train_stop,
+        test_stop,
+        minimum_train_length,
+        minimum_test_length,
+        ifos,
+        sample_rate,
+        channel,
+        state_flag,
+        datadir,
+        logdir,
+        accounting_group,
+        accounting_group_user,
+        max_segment_length,
+        request_memory,
+        request_disk,
+        force_generation,
+        verbose,
+    )
+    return train_stop, test_stop, datadir
 
 
 @scriptify
@@ -58,10 +102,12 @@ def main(
     intervals = np.array(intervals)
     intervals *= ONE_WEEK
 
+    pool = ProcessPoolExecutor(4)
+    background_futures = []
     for cadence in intervals:
         start, stop = test_stop + cadence, test_stop + cadence + duration
         out = make_outdir(datadir, start, stop)
-        deploy_background(
+        args = [
             start - ONE_WEEK / 7,
             start,
             stop,
@@ -78,8 +124,12 @@ def main(
             max_segment_length,
             request_memory,
             request_disk,
-        )
+        ]
+        future = pool.submit(deploy_background_wrapper, *args)
+        background_futures.append(future)
 
+    for future in as_completed(background_futures):
+        start, stop, out = future.result()
         deploy_timeslides(
             start,
             stop,

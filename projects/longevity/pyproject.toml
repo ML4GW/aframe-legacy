@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
     "data_gen:launch-datagen",
-    "infererence:launch-infer",
+    #"infererence:launch-infer",
 ]
 
 
 [tool.typeo.base]
-Tb = 160000 #5184000  # 60 days of background
+Tb = 5184000  # 60 days of background
 shifts = [0, 1]
 psd_length = 16
 sample_rate = 2048
@@ -16,14 +16,14 @@ ifos = ["H1", "L1"]
 datadir = "${DATA_DIR}"
 
 test_stop = 1244035783
-intervals = [1] #4, 12, 24, 32, 48] # number of weeks
+intervals = [1, 2, 4, 12, 24, 32, 48] # number of weeks
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 min_segment_length = 1024
 max_segment_length = 20000
-duration = 86400 #604800 # one week of data
+duration = 604800 # one week of data
 
 Tb = "${base.Tb}"  # 60 days of background
 shifts = "${base.shifts}"
