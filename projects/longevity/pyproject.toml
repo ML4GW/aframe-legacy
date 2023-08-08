@@ -8,7 +8,7 @@ steps = [
 [tool.typeo.base]
 Tb = 5184000  # 60 days of background
 shifts = [0, 1]
-psd_length = 16
+inference_psd_length = 64
 sample_rate = 2048
 ifos = ["H1", "L1"]
 
@@ -36,7 +36,7 @@ minimum_frequency = 20
 waveform_approximant = "IMRPhenomPv2"
 highpass = 32
 snr_threshold = 4
-psd_length = "${base.psd_length}"
+psd_length = "${base.inference_psd_length}"
 
 # condor args
 accounting_group_user = "${LIGO_USERNAME}"
@@ -59,7 +59,7 @@ ifos = "${base.ifos}"
 batch_size = 128
 integration_window_length = 1
 cluster_window_length = 8
-psd_length = 64
+psd_length = "${base.inference_psd_length}" 
 fduration = 1
 throughput = 320
 chunk_size = 4096

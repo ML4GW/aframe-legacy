@@ -41,7 +41,16 @@ def main(
         data_dir = subdir / "test" / "background"
         injection_set_file = subdir / "test" / "waveforms.h5"
 
-        if injection_set_file.exists():
+        complete = all(
+            [
+                f.exists()
+                for f in [
+                    output_dir / "foreground.h5",
+                    output_dir / "background.h5",
+                ]
+            ]
+        )
+        if injection_set_file.exists() and not complete:
             logging.info(f"Deploying inference for {subdir.name}")
             deploy_infer(
                 model_repo_dir,
