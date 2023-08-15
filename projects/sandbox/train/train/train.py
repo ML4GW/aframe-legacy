@@ -141,6 +141,11 @@ def main(
             Minimum frequency over which to compute SNR values
             for waveform injection, in Hz. If left as `None`, the
             SNR will be computed over all frequency bins.
+        fftlength:
+            The length in seconds to use for FFT calculation when
+            estimating the PSDs used to whiten the data. If left
+            as `None`, the FFT length will be the same as the
+            length of the unwhitened kernel.
         waveform_prob:
             The probability with which each sample in a batch
             will have a BBH waveform injected into its background.
