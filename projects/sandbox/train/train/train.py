@@ -3,15 +3,16 @@ from math import pi
 from pathlib import Path
 from typing import List, Optional
 
-from train import data_structures as structures
 from train import utils as train_utils
 from train import validation as valid_utils
-from train.augmentor import AframeBatchAugmentor
+from train.augmentations import SnrRescaler, SnrSampler
+from train.augmentor import AframeBatchAugmentor, AugmentedDataset
 
-from aframe.architectures import preprocessor
+from aframe.architectures.preprocessor import PsdEstimator
 from aframe.logging import configure_logging
 from aframe.trainer import trainify
 from ml4gw.distributions import Cosine, Uniform
+from ml4gw.transforms import Whiten
 
 
 # note that this function decorator acts both to
@@ -220,11 +221,9 @@ def main(
     fftlength = fftlength or kernel_length + fduration
 
     # create objects that we'll use for whitening the data
-    psd_estimator = structures.PsdEstimator(
-        psd_length, sample_rate, fftlength=fftlength, fast=highpass is not None
-    )
-    whitener = preprocessor.Whitener(fduration, sample_rate)
-    whitener = whitener.to(device)
+    fast = highpass is not None
+    psd_estimator = PsdEstimator(psd_length, sample_rate, fftlength, fast=fast)
+    whitener = Whiten(fduration, sample_rate, highpass).to(device)
 
     # load the waveforms
     waveforms, valid_waveforms = train_utils.get_waveforms(
@@ -275,9 +274,8 @@ def main(
 
     # build some objects for augmenting waveform snrs
     waveform_duration = waveforms.shape[-1] / sample_rate
-    rescaler = structures.SnrRescaler(sample_rate, waveform_duration, highpass)
-    rescaler = rescaler.to(device)
-    snr_sampler = structures.SnrSampler(
+    rescaler = SnrRescaler(sample_rate, waveform_duration, highpass).to(device)
+    snr_sampler = SnrSampler(
         max_min_snr=max_min_snr,
         min_min_snr=snr_thresh,
         max_snr=max_snr,
@@ -317,11 +315,12 @@ def main(
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
     batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
+
     # hard-coding this up here so nothing accidentally gets out of sync
     chunks_per_epoch = 8
-    train_dataset = structures.ChunkedDataloader(
+    train_dataset = AugmentedDataset(
         background_fnames,
-        ifos=ifos,
+        channels=ifos,
         kernel_length=sample_length,
         sample_rate=sample_rate,
         batch_size=batch_size,
@@ -331,7 +330,10 @@ def main(
         chunk_length=1024,
         batches_per_chunk=int(batches_per_epoch / chunks_per_epoch),
         chunks_per_epoch=chunks_per_epoch,
+        coincident=False,
         device=device,
-        preprocessor=augmentor,
+        pin_memory=True,
     )
+    train_dataset.map(augmentor)
+
     return train_dataset, validator, None
