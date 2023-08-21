@@ -1,3 +1,4 @@
+import math
 from unittest.mock import patch
 
 import numpy as np
@@ -158,13 +159,13 @@ def test_snr_sampler():
         alpha=3,
         decay_steps=2,
     )
-    tols = dict(atol=0, rtol=0.1)
+    tols = dict(abs_tol=0, rel_tol=0.1)
     vals = sampler(1000)
     assert vals.min().item() > 10
     assert vals.max().item() < 100
 
     expected_mean = powerlaw_mean(10, 100, 3)
-    torch.testing.assert_allclose(vals.mean(), expected_mean, **tols)
+    assert math.isclose(vals.mean().item(), expected_mean, **tols)
 
     sampler.step()
     vals = sampler(1000)
@@ -172,7 +173,7 @@ def test_snr_sampler():
     assert vals.max().item() < 100
 
     expected_mean = powerlaw_mean(5.5, 100, 3)
-    torch.testing.assert_allclose(vals.mean(), expected_mean, **tols)
+    assert math.isclose(vals.mean().item(), expected_mean, **tols)
 
     sampler.step()
     vals = sampler(1000)
@@ -180,7 +181,7 @@ def test_snr_sampler():
     assert vals.max().item() < 100
 
     expected_mean = powerlaw_mean(1, 100, 3)
-    torch.testing.assert_allclose(vals.mean(), expected_mean, **tols)
+    assert math.isclose(vals.mean().item(), expected_mean, **tols)
 
     # verify that an additional step does nothing
     sampler.step()
@@ -189,4 +190,4 @@ def test_snr_sampler():
     assert vals.max().item() < 100
 
     expected_mean = powerlaw_mean(1, 100, 3)
-    torch.testing.assert_allclose(vals.mean(), expected_mean, **tols)
+    assert math.isclose(vals.mean().item(), expected_mean, **tols)

@@ -5,8 +5,7 @@ import pytest
 import torch
 from train.augmentor import AframeBatchAugmentor
 
-from aframe.architecutres.preprocessor import PsdEstimator
-from ml4gw.transforms import Whiten
+from aframe.architectures.preprocessor import PsdEstimator
 
 
 @pytest.fixture
@@ -41,13 +40,16 @@ def sample(obj, N, kernel_size, _):
 
 # dummy psd estimator and whitener
 @pytest.fixture
-def psd_estimator(background_length, sample_rate):
-    return PsdEstimator(background_length, sample_rate, 2)
+def psd_estimator(kernel_length, fduration, sample_rate):
+    return PsdEstimator(kernel_length + fduration, sample_rate, 2)
 
 
 @pytest.fixture
-def whitener(sample_rate):
-    return Whiten(2, sample_rate, highpass=32)
+def whitener():
+    def skip(X, psds):
+        return X * 2
+
+    return skip
 
 
 rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
@@ -83,7 +85,7 @@ def test_bbhnet_batch_augmentor(
     y = torch.zeros((32, 1))
 
     X, y = augmentor(X, y)
-    assert (X[::2] == 1).all().item()
+    assert (X[::2] == 2).all().item()
     assert (X[1::2] == 0).all().item()
     assert (y[::2] == 1).all().item()
     assert (y[1::2] == 0).all().item()
@@ -91,7 +93,9 @@ def test_bbhnet_batch_augmentor(
     for _, tensor in augmentor.polarizations.items():
         assert len(tensor) == augmentor.num_waveforms
 
-    assert len(list(augmentor.buffers())) == 2
+    # 2 buffers for the ifo geometry
+    # 2 buffers belong to the whitener
+    assert len(list(augmentor.buffers())) == 4
 
     polarizations = {
         "plus": torch.randn(100, 4096),
@@ -153,14 +157,10 @@ def test_bbhnet_batch_augmentor_with_swapping_and_muting(
 
     X = torch.zeros((32, 2, size))
     y = torch.zeros((32, 1))
-    # glitch_sampler = Mock(return_value=(X, y))
-    # glitch_sampler.prob = 0.0
-
     augmentor = AframeBatchAugmentor(
         sample_rate=sample_rate,
         ifos=["H1", "L1"],
         signal_prob=0.5,
-        # glitch_sampler=glitch_sampler,
         trigger_distance=-0.25,
         dec=lambda N: torch.zeros((N,)),
         psi=lambda N: torch.zeros((N,)),
@@ -228,7 +228,6 @@ def test_sample_responses(
         ifos,
         sample_rate,
         signal_prob,
-        # glitch_sampler,
         dec=lambda N: torch.randn(N),
         psi=lambda N: torch.randn(N),
         phi=lambda N: torch.randn(N),

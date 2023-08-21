@@ -242,7 +242,7 @@ class AframeBatchAugmentor(torch.nn.Module):
 
 class AugmentedDataset(ChunkedDataset):
     def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.maps = []
 
     def map(self, fn):
