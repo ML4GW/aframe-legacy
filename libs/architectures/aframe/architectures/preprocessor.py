@@ -40,7 +40,7 @@ class PsdEstimator(torch.nn.Module):
 
     def __init__(
         self,
-        background_length: float,
+        length: float,
         sample_rate: float,
         fftlength: float,
         overlap: Optional[float] = None,
@@ -48,13 +48,13 @@ class PsdEstimator(torch.nn.Module):
         fast: bool = True,
     ) -> None:
         super().__init__()
-        self.background_size = int(background_length * sample_rate)
+        self.size = int(length * sample_rate)
         self.spectral_density = SpectralDensity(
             sample_rate, fftlength, overlap, average, fast=fast
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        splits = [self.background_size, X.shape[-1] - self.background_size]
+        splits = [X.size(-1) - self.size, self.size]
         background, X = torch.split(X, splits, dim=-1)
         psds = self.spectral_density(background.double())
         return X, psds
@@ -77,10 +77,14 @@ class BatchWhitener(torch.nn.Module):
         self.stride_size = int(sample_rate / inference_sampling_rate)
         self.kernel_size = int(kernel_length * sample_rate)
 
-        size = (batch_size - 1) * self.stride_size + self.kernel_size
-        size += int(fduration * sample_rate)
+        # do foreground length calculation in units of samples,
+        # then convert back to length to guard for intification
+        strides = (batch_size - 1) * self.stride_size
+        fsize = int(fduration * sample_rate)
+        size = strides + self.kernel_size + fsize
+        length = size / sample_rate
         self.psd_estimator = PsdEstimator(
-            size,
+            length,
             sample_rate,
             fftlength=fftlength,
             overlap=None,

@@ -217,12 +217,15 @@ def main(
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames = train_utils.get_background_fnames(background_dir)
-    sample_length = kernel_length + psd_length + fduration
-    fftlength = fftlength or kernel_length + fduration
+    window_length = kernel_length + fduration
+    sample_length = window_length + psd_length
+    fftlength = fftlength or window_length
 
     # create objects that we'll use for whitening the data
     fast = highpass is not None
-    psd_estimator = PsdEstimator(psd_length, sample_rate, fftlength, fast=fast)
+    psd_estimator = PsdEstimator(
+        window_length, sample_rate, fftlength, fast=fast
+    )
     whitener = Whiten(fduration, sample_rate, highpass).to(device)
 
     # load the waveforms
@@ -332,7 +335,7 @@ def main(
         chunks_per_epoch=chunks_per_epoch,
         coincident=False,
         device=device,
-        pin_memory=True,
+        pin_memory="cuda" in device,
     )
     train_dataset.map(augmentor)
 

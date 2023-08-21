@@ -5,6 +5,9 @@ import pytest
 import torch
 from train.augmentor import AframeBatchAugmentor
 
+from aframe.architecutres.preprocessor import PsdEstimator
+from ml4gw.transforms import Whiten
+
 
 @pytest.fixture
 def sample_rate():
@@ -37,24 +40,14 @@ def sample(obj, N, kernel_size, _):
 
 
 # dummy psd estimator and whitener
-# TODO: implement local whitener in ml4gw
 @pytest.fixture
 def psd_estimator(background_length, sample_rate):
-    def f(X):
-        size = background_length * sample_rate
-        splits = [size, X.shape[-1] - size]
-        background, X = torch.split(X, splits, dim=-1)
-        return X, background
-
-    return f
+    return PsdEstimator(background_length, sample_rate, 2)
 
 
 @pytest.fixture
-def whitener():
-    def f(x, y):
-        return x
-
-    return f
+def whitener(sample_rate):
+    return Whiten(2, sample_rate, highpass=32)
 
 
 rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)

@@ -3,9 +3,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 import torch
-from train.data_structures import (
+from train.augmentations import (
     ChannelSwapper,
-    GlitchSampler,
     SignalInverter,
     SignalReverser,
     SnrSampler,
@@ -17,90 +16,9 @@ def sample_rate():
     return 512
 
 
-@pytest.fixture(params=[1, 4])
-def kernel_length(request):
-    return request.param
-
-
-@pytest.fixture(params=[8, 32])
-def batch_size(request):
-    return request.param
-
-
-@pytest.fixture(params=[1, 10])
-def batches_per_epoch(request):
-    return request.param
-
-
-@pytest.fixture(params=[1, 2])
-def num_ifos(request):
-    return request.param
-
-
-@pytest.fixture
-def sequential_data(num_ifos, sample_rate):
-    x = np.arange(num_ifos * 128 * sample_rate)
-    x = x.reshape(num_ifos, 128 * sample_rate)
-    return x
-
-
-@pytest.fixture(params=[True, False])
-def coincident(request):
-    return request.param
-
-
 @pytest.fixture(params=[0, 0.25, 1])
 def prob(request):
     return request.param
-
-
-def get_rand_patch(size):
-    probs = torch.linspace(0, 0.99, size[1])
-    return torch.stack([probs] * size[0])
-
-
-def test_glitch_sampler(sample_rate, offset, device, prob):
-    glitches = torch.arange(512 * 2 * 10, dtype=torch.float32)
-    glitches = glitches.reshape(10, 512 * 2) + 1
-    sampler = GlitchSampler(
-        prob=prob,
-        max_offset=offset,
-        h1=glitches,
-        l1=-1 * glitches[:9],
-    )
-    sampler.to(device)
-    for glitch in sampler.buffers():
-        assert glitch.device.type == device
-
-    X = torch.zeros((8, 2, 512), dtype=torch.float32).to(device)
-    y = torch.zeros((8, 1))
-    probs = get_rand_patch((2, 8)).to(device)
-    with patch("torch.rand", return_value=probs):
-        inserted, y = sampler(X, y)
-
-        # TODO: the tests could be more extensive, but
-        # then are we functionally just testing sample_kernels?
-        if prob == 0:
-            assert (inserted == 0).all().item()
-            assert (y == 0).all().item()
-        elif prob == 1:
-            assert (inserted != 0).all().item()
-            assert (y == -6).all().item()
-        else:
-            # TODO: how do we edit the patch so that
-            # each ifo samples different indices?
-            assert (inserted[:2] != 0).all().item()
-            assert (y[:2] == -6).all().item()
-
-            assert (inserted[2:] == 0).all().item()
-            assert (y[2:] == 0).all().item()
-
-
-def sample(obj, N):
-    return torch.ones((N, 2, 128 * 2)), torch.ones((N, 3))
-
-
-rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
 
 
 @pytest.fixture(params=[0.0, 0.25, 0.5, 1])
