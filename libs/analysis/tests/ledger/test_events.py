@@ -42,7 +42,7 @@ class TestTimeSlideEventSet:
         set = events.TimeSlideEventSet(det_stats, times, 100)
         vetos = np.array([[0.5, 1.5], [3.5, 4.5]])
 
-        result = set.apply_vetoes(vetos)
+        result = set.apply_vetos(vetos)
         expected = events.TimeSlideEventSet(
             detection_statistic=np.array([1, 2]), time=np.array([0, 2])
         )
