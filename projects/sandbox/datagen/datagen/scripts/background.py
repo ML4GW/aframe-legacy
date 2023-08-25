@@ -1,8 +1,9 @@
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import h5py
+from datagen.utils import get_state_flags
 from typeo import scriptify
 
 from aframe.deploy import condor
@@ -235,11 +236,11 @@ def deploy(
     ifos: List[str],
     sample_rate: float,
     channel: str,
-    state_flag: str,
     datadir: Path,
     logdir: Path,
     accounting_group: str,
     accounting_group_user: str,
+    state_flag: Optional[str] = None,
     max_segment_length: float = 20000,
     request_memory: int = 32768,
     request_disk: int = 1024,
@@ -274,7 +275,9 @@ def deploy(
         state_flag:
             Identifier for which segments to use. Descriptions of flags
             and there usage can be found here:
-            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags
+            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. If None,
+            will use segments defined by the open data.
+            See gwosc.org for more information
         datadir:
             Directory to which data will be written
         logdir:
@@ -308,8 +311,10 @@ def deploy(
     # first query segments that meet minimum length
     # requirement during the requested training period
     # authenticate()
+
+    state_flags = get_state_flags(ifos, state_flag)
     train_segments = query_segments(
-        [f"{ifo}:{state_flag}" for ifo in ifos],
+        state_flags,
         train_start,
         train_stop,
         minimum_train_length,
@@ -320,7 +325,7 @@ def deploy(
         )
 
     test_segments = query_segments(
-        [f"{ifo}:{state_flag}" for ifo in ifos],
+        state_flags,
         train_stop,
         test_stop,
         minimum_test_length,

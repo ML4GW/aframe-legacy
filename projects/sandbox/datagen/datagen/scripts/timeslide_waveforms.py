@@ -7,6 +7,7 @@ from typing import Callable, Iterable, List, Optional
 import datagen.utils.timeslide_waveforms as utils
 import numpy as np
 import torch
+from datagen.utils import get_state_flags
 from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
@@ -248,7 +249,6 @@ def main(
 def deploy(
     start: float,
     stop: float,
-    state_flag: str,
     Tb: float,
     ifos: List[str],
     shifts: Iterable[float],
@@ -269,6 +269,7 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
+    state_flag: Optional[str] = None,
     request_memory: int = 6000,
     request_disk: int = 1024,
     force_generation: bool = False,
@@ -389,7 +390,7 @@ def deploy(
 
     # query segments and calculate shifts required
     # to accumulate desired background livetime
-    state_flags = [f"{ifo}:{state_flag}" for ifo in ifos]
+    state_flags = get_state_flags(ifos, state_flag)
     segments = query_segments(state_flags, start, stop, min_segment_length)
     shifts_required = utils.get_num_shifts(segments, Tb, max(shifts))
 
