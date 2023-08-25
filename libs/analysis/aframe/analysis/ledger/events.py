@@ -59,8 +59,7 @@ class TimeSlideEventSet(Ledger):
 
         # mark a background event as vetoed
         # if it falls into _any_ of the segments
-        veto_mask = False
-        veto_mask |= mask.any(axis=0)
+        veto_mask = mask.any(axis=0)
 
         # TODO: have an 'inplace=False' option that returns a new object?
         return self[~veto_mask]
@@ -92,8 +91,7 @@ class EventSet(TimeSlideEventSet):
 
         # mark a background event as vetoed
         # if it falls into _any_ of the segments
-        veto_mask = False
-        veto_mask |= mask.any(axis=0)
+        veto_mask = mask.any(axis=0)
 
         # TODO: have an 'inplace=False' option that returns a new object?
         return self[~veto_mask]
