@@ -9,6 +9,7 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
 train = {path = "../../sandbox/train", develop = true}
+typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 [tool.poetry.scripts]
 launch-train = "training.main:main" 

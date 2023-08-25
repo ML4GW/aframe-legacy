@@ -1,89 +1,84 @@
+import logging
+import shutil
+import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-from train.train import main
+import toml
 from typeo import scriptify
 
-from aframe.logging import configure_logging
+source_dir = Path(__file__).resolve().parent.parent
+
+
+def read_config(path):
+    with open(path, "r") as f:
+        return toml.load(f)
+
+
+@scriptify
+def train(
+    interval: Path,
+    gpu: int,
+    train_config_path: Path,
+    source_dir: Path,
+    verbose: bool = False,
+):
+
+    # construct relevant directories / dataset paths for this interval
+    retrain_dir = interval / "retrained"
+    retrain_dir.mkdir(exist_ok=True)
+
+    datadir = retrain_dir / "data"
+    background_dir = datadir / "train" / "background"
+    waveform_dataset = datadir / "train" / "signals.h5"
+
+    # read config that contains train arguments
+    # and update paths for this directory
+    config = read_config(train_config_path)
+    train_config = config["tool"]["typeo"]["scripts"]["train"]
+
+    train_config["background_dir"] = str(background_dir)
+    train_config["waveform_dataset"] = str(waveform_dataset)
+    train_config["logdir"] = str(retrain_dir / "log")
+    train_config["outdir"] = str(retrain_dir / "training")
+
+    # write the config to the run's directory
+    config_path = retrain_dir / "pyproject.toml"
+    with open(config_path, "w") as f:
+        toml.dump(config, f)
+
+    cmd = [
+        str(shutil.which("pinto")),
+        "-p",
+        str(source_dir / "train"),
+        "run",
+        "-e",
+        # str(dotenv_path),
+        "train",
+        "--typeo",
+        f"{config_path}:train:resnet",
+    ]
+    logging.info(" ".join(cmd))
+    env = {"CUDA_VISIBLE_DEVICES": str(gpu)}
+    subprocess.check_output(cmd, env=env)
 
 
 @scriptify
 def deploy_train(
     home: Path,
-    ifos: List[str],
-    # optimization args
-    batch_size: int,
-    snr_thresh: float,
-    max_min_snr: float,
-    max_snr: float,
-    snr_alpha: float,
-    snr_decay_steps: int,
-    # data args
-    sample_rate: float,
-    kernel_length: float,
-    psd_length: float,
-    fduration: float,
-    highpass: float,
-    fftlength: Optional[float] = None,
-    # augmentation args
-    waveform_prob: float = 0.5,
-    swap_frac: float = 0.0,
-    mute_frac: float = 0.0,
-    trigger_distance: float = 0,
-    # validation args
-    valid_frac: Optional[float] = None,
-    valid_stride: Optional[float] = None,
-    num_valid_views: int = 5,
-    max_fpr: float = 1e-3,
-    valid_livetime: float = (3600 * 12),
-    early_stop: Optional[int] = None,
-    checkpoint_every: Optional[int] = None,
-    # misc args
-    device: str = "cpu",
-    verbose: bool = False,
+    gpus: List[int],
+    train_config_path: Path,
 ):
-
-    configure_logging(home / "training.log", verbose=verbose)
-
     # for each interval, train a model
     intervals = [x for x in home.iterdir() if x.is_dir()]
 
-    for interval in intervals:
-        retrain_dir = interval / "retrained"
-        retrain_dir.mkdir(exist_ok=True)
+    futures = []
+    with ThreadPoolExecutor(len(gpus)) as ex:
+        for gpu, interval in zip(gpus, intervals):
+            future = ex.submit(train, interval, gpu, train_config_path)
+            futures.append(future)
 
-        datadir = retrain_dir / "data"
-        background_dir = datadir / "train" / "background"
-        waveform_dataset = datadir / "train" / "signals.h5"
-        main(
-            background_dir,
-            waveform_dataset,
-            retrain_dir / "training",
-            retrain_dir / "log",
-            ifos,
-            batch_size,
-            snr_thresh,
-            max_min_snr,
-            max_snr,
-            snr_alpha,
-            snr_decay_steps,
-            sample_rate,
-            kernel_length,
-            psd_length,
-            fduration,
-            highpass,
-            fftlength,
-            waveform_prob,
-            swap_frac,
-            mute_frac,
-            trigger_distance,
-            valid_frac,
-            valid_stride,
-            num_valid_views,
-            max_fpr,
-            valid_livetime,
-            early_stop,
-            checkpoint_every,
-            device,
-            verbose,
-        )
+    for f in as_completed(futures):
+        gpu = f.result()
+        logging.info(f"Finished training for interval {interval} on GPU {gpu}")
