@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 from datagen.scripts.background import deploy as deploy_background
 from datagen.scripts.timeslide_waveforms import deploy as deploy_timeslides
+from datagen.scripts.waveforms import main as generate_waveforms
 from lal import gpstime
 from typeo import scriptify
 
@@ -79,7 +80,7 @@ def main(
     min_segment_length: float,
     max_segment_length: float,
     duration: float,
-    datadir: Path,
+    home: Path,
     # timeslide waveform specific args
     Tb: float,
     shifts: List[int],
@@ -93,27 +94,36 @@ def main(
     highpass: float,
     snr_threshold: float,
     psd_length: float,
+    # waveform generation args
+    num_signals: int,
     # condor args
     accounting_group: str,
     accounting_group_user: str,
     request_memory: int = 32768,
     request_disk: int = 1024,
     verbose: bool = False,
+    force_generation: bool = False,
 ):
 
-    configure_logging(datadir / "deploy.log", verbose=verbose)
+    configure_logging(home / "datagen.log", verbose=verbose)
     # TODO: ensure not in between O3a and O3b
     intervals = np.array(intervals)
     intervals *= ONE_WEEK
 
     pool = ProcessPoolExecutor(4)
+
+    # next, launch background generation jobs that will
+    # query both:
+    # training data: (for training new models) and
+    # testing data: for testing both original and retrained models
     background_futures = []
     for cadence in intervals:
         start, stop = test_stop + cadence, test_stop + cadence + duration
-        out = make_outdir(datadir, start, stop)
+        out = make_outdir(home, start, stop)
+        datadir = out / "data"
         logging.info(f"Deploying background generation for {out}")
         args = [
-            start - ONE_WEEK / 7,
+            start - ONE_WEEK,  # re-train using one week
             start,
             stop,
             min_segment_length,
@@ -122,8 +132,8 @@ def main(
             sample_rate,
             channel,
             state_flag,
-            out,
-            out / "log",
+            datadir,
+            datadir / "log",
             accounting_group,
             accounting_group_user,
             max_segment_length,
@@ -133,9 +143,12 @@ def main(
         future = pool.submit(deploy_background_wrapper, *args)
         background_futures.append(future)
 
+    # next, launch timeslide waveform generation jobs
+    # that will be used to test original and retrained models
     timeslide_futures = []
     for future in as_completed(background_futures):
         start, stop, out = future.result()
+        datadir = out / "data"
         logging.info(f"Deploying timeslides waveform generation for {out}")
         args = [
             start,
@@ -156,9 +169,9 @@ def main(
             highpass,
             snr_threshold,
             psd_length,
-            out,
-            out,
-            out / "log",
+            datadir,
+            datadir,
+            datadir / "log",
             accounting_group_user,
             accounting_group,
             6000,
@@ -167,5 +180,25 @@ def main(
         future = pool.submit(deploy_timeslides, *args)
         timeslide_futures.append(future)
 
+    # finally, launch a waveform generation job that will be used
+    # to train the new model
+    for interval in home.iterdir():
+        if not interval.is_dir():
+            continue
+        datadir = interval / "data"
+        args = [
+            prior,
+            num_signals,
+            datadir,
+            interval / "log",
+            reference_frequency,
+            minimum_frequency,
+            sample_rate,
+            waveform_duration,
+            waveform_approximant,
+            force_generation,
+            verbose,
+        ]
+        future = pool.submit(generate_waveforms, *args)
     for future in as_completed(timeslide_futures):
         logging.info("Timeslide future complete")

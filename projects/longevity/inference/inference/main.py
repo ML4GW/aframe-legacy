@@ -10,8 +10,8 @@ from aframe.logging import configure_logging
 
 @scriptify
 def main(
-    datadir: Path,
-    model_repo_dir: str,
+    home: Path,
+    original_model_repo_dir: str,
     image: str,
     model_name: str,
     accounting_group: str,
@@ -32,31 +32,86 @@ def main(
     model_version: int = -1,
     verbose: bool = False,
 ):
-    configure_logging(datadir / "infer.log", verbose=verbose)
+    configure_logging(home / "infer.log", verbose=verbose)
     # loop over intervals
-    intervals = [x for x in datadir.iterdir() if x.is_dir()]
-    for subdir in intervals:
-        log_dir = subdir / "logs"
-        output_dir = subdir / "infer"
-        data_dir = subdir / "test" / "background"
-        injection_set_file = subdir / "test" / "waveforms.h5"
+    intervals = [x for x in home.iterdir() if x.is_dir()]
+
+    for interval in intervals:
+        datadir = interval / "data"
+        injection_set_file = datadir / "test" / "waveforms.h5"
+
+        # launch inference job for each interval
+        # analyzing data with the retrained models
+        retrained = interval / "retrained"
+        infer_dir = retrained / "infer"
+        infer_dir.mkdir(exist_ok=True, parents=True)
+        complete = all(
+            [
+                f.exists()
+                for f in [
+                    infer_dir / "foreground.h5",
+                    infer_dir / "background.h5",
+                ]
+            ]
+        )
+        if not complete:
+
+            logging.info(
+                "Deploying inference usiing "
+                f"retrained model for {interval.name}"
+            )
+            deploy_infer(
+                retrained / "model_repo",
+                infer_dir,
+                datadir / "test" / "background",
+                retrained / "log",
+                injection_set_file,
+                image,
+                model_name,
+                accounting_group,
+                accounting_group_user,
+                Tb,
+                shifts,
+                sample_rate,
+                inference_sampling_rate,
+                ifos,
+                batch_size,
+                integration_window_length,
+                cluster_window_length,
+                psd_length,
+                fduration,
+                throughput,
+                chunk_size,
+                sequence_id,
+                model_version,
+                verbose,
+            )
+
+        # launch inference job for each interval
+        # analyzing data with the original model
+        original = interval / "original"
+        infer_dir = original / "infer"
+        infer_dir.mkdir(exist_ok=True, parents=True)
 
         complete = all(
             [
                 f.exists()
                 for f in [
-                    output_dir / "foreground.h5",
-                    output_dir / "background.h5",
+                    infer_dir / "foreground.h5",
+                    infer_dir / "background.h5",
                 ]
             ]
         )
-        if injection_set_file.exists() and not complete:
-            logging.info(f"Deploying inference for {subdir.name}")
+        if not complete:
+            logging.info(
+                "Deploying inference using original "
+                f"model for {interval.name}"
+            )
             deploy_infer(
-                model_repo_dir,
-                output_dir,
-                data_dir,
-                log_dir,
+                original_model_repo_dir,
+                infer_dir,
+                datadir / "test" / "background",
+                original / "log",
                 injection_set_file,
                 image,
                 model_name,
