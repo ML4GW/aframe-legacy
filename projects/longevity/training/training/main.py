@@ -9,6 +9,7 @@ import toml
 from typeo import scriptify
 
 source_dir = Path(__file__).resolve().parent.parent
+train_config_path = Path(__file__).resolve().parent / "training.toml"
 
 
 def read_config(path):
@@ -20,12 +21,9 @@ def read_config(path):
 def train(
     interval: Path,
     gpu: int,
-    train_config_path: Path,
-    source_dir: Path,
-    verbose: bool = False,
 ):
 
-    # construct relevant directories / dataset paths for this interval
+    # construct directories / dataset paths for this interval
     retrain_dir = interval / "retrained"
     retrain_dir.mkdir(exist_ok=True)
 
@@ -48,13 +46,18 @@ def train(
     with open(config_path, "w") as f:
         toml.dump(config, f)
 
+    # write the env file to the run's directory
+    dotenv_path = retrain_dir / "train.env"
+    with open(dotenv_path, "w") as f:
+        f.write(f"CUDA_VISIBLE_DEVICES={gpu}\n")
+
     cmd = [
         str(shutil.which("pinto")),
         "-p",
         str(source_dir / "train"),
         "run",
         "-e",
-        # str(dotenv_path),
+        str(dotenv_path),
         "train",
         "--typeo",
         f"{config_path}:train:resnet",
@@ -68,7 +71,6 @@ def train(
 def deploy_train(
     home: Path,
     gpus: List[int],
-    train_config_path: Path,
 ):
     # for each interval, train a model
     intervals = [x for x in home.iterdir() if x.is_dir()]
@@ -76,7 +78,7 @@ def deploy_train(
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):
-            future = ex.submit(train, interval, gpu, train_config_path)
+            future = ex.submit(train, interval, gpu)
             futures.append(future)
 
     for f in as_completed(futures):

@@ -112,8 +112,7 @@ def main(
 
     pool = ProcessPoolExecutor(4)
 
-    # next, launch background generation jobs that will
-    # query both:
+    # launch background generation jobs that will query both:
     # training data: (for training new models) and
     # testing data: for testing both original and retrained models
     background_futures = []
@@ -123,7 +122,7 @@ def main(
         datadir = out / "data"
         logging.info(f"Deploying background generation for {out}")
         args = [
-            start - ONE_WEEK,  # re-train using one week
+            start - ONE_WEEK / 7,  # re-train using one week
             start,
             stop,
             min_segment_length,
@@ -147,8 +146,7 @@ def main(
     # that will be used to test original and retrained models
     timeslide_futures = []
     for future in as_completed(background_futures):
-        start, stop, out = future.result()
-        datadir = out / "data"
+        start, stop, datadir = future.result()
         logging.info(f"Deploying timeslides waveform generation for {out}")
         args = [
             start,
