@@ -25,7 +25,7 @@ train_start = 1240579783
 train_stop = 1241443783  # 10 day train window
 test_stop = 1244035783 # 30 day test window
 
-channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+channel = "OPEN"
 frame_type = "HOFT_C01"
 state_flag = "DATA" # open data segments
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}

@@ -7,3 +7,11 @@ def get_state_flags(ifos: List[str], state_flag: str):
     else:
         flags = [f"{ifo}:{state_flag}" for ifo in ifos]
     return flags
+
+
+def get_channels(ifos: List[str], channel: str):
+    if channel == "OPEN":
+        channels = ifos
+    else:
+        channels = [f"{ifo}:{channel}" for ifo in ifos]
+    return channels

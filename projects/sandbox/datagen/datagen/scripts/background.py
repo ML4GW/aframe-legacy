@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import h5py
-from datagen.utils import get_state_flags
+from datagen.utils import get_channels, get_state_flags
 from typeo import scriptify
 
 from aframe.deploy import condor
@@ -216,11 +216,12 @@ def main(
     Returns: The `Path` of the output file
     """
     authenticate()
-    channels = [f"{ifo}:{channel}" for ifo in ifos]
+    channels = get_channels(ifos, channel)
+
     data = fetch_timeseries(channels, start, stop)
     data = data.resample(sample_rate)
-    for ifo in ifos:
-        data[ifo] = data.pop(f"{ifo}:{channel}")
+    for ifo, channel in zip(ifos, channels):
+        data[ifo] = data.pop(channel)
 
     data.write(writepath)
     return writepath
