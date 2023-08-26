@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
     "datagen:deploy-background",
-    "datagen:generate-waveforms",
+    #"datagen:generate-waveforms",
     "datagen:deploy-timeslide-waveforms",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "infer:deploy-infer",
-    "vizapp:vizapp"
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"infer:deploy-infer",
+    #"vizapp:vizapp"
 ]
 
 [tool.typeo.base]
@@ -27,7 +27,7 @@ test_stop = 1244035783 # 30 day test window
 
 channel = "DCS-CALIB_STRAIN_CLEAN_C01"
 frame_type = "HOFT_C01"
-state_flag = "DCS-ANALYSIS_READY_C01:1"
+state_flag = "DATA" # open data segments
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
 repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
@@ -196,7 +196,7 @@ stop = "${base.test_stop}"
 psd_length = "${base.inference_psd_length}"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
-state_flag = "${base.state_flag}"
+#state_flag = "${base.state_flag}"
 min_segment_length = 1024
 
 # timeslide parameters
