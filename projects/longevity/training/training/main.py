@@ -8,8 +8,12 @@ from typing import List
 import toml
 from typeo import scriptify
 
+from aframe.logging import configure_logging
+
 source_dir = Path(__file__).resolve().parent.parent
-train_config_path = Path(__file__).resolve().parent.parent / "training.toml"
+train_config_path = (
+    Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
+)
 
 
 def read_config(path):
@@ -25,10 +29,9 @@ def launch_train(
 
     # construct directories / dataset paths for this interval
     retrain_dir = interval / "retrained"
-    print(retrain_dir)
     retrain_dir.mkdir(exist_ok=True, parents=True)
 
-    datadir = retrain_dir / "data"
+    datadir = interval / "data"
     background_dir = datadir / "train" / "background"
     waveform_dataset = datadir / "train" / "signals.h5"
 
@@ -63,26 +66,28 @@ def launch_train(
         "--typeo",
         f"{config_path}:train:resnet",
     ]
-    print(cmd)
-    logging.info(" ".join(cmd))
+
+    print(" ".join(cmd))
     env = {"CUDA_VISIBLE_DEVICES": str(gpu)}
-    try:
-        subprocess.check_output(cmd, env=env)
-    except subprocess.CalledProcessError as e:
-        print(e.stderr)
+    # was getting weird pinto errors, so just set the path manually
+    env[
+        "PATH"
+    ] = "/home/ethan.marx/.cache/pypoetry/virtualenvs/training-zaLaaJ_H-py3.9/bin"  # noqa
+    subprocess.check_output(cmd, env=env)
 
 
 @scriptify
 def main(basedir: Path, gpus: List[int]):
+    configure_logging(basedir / "train.log", verbose=True)
     # for each interval, train a model
     intervals = [x for x in basedir.iterdir() if x.is_dir()]
+    print(intervals)
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):
             logging.info(f"Training for interval {interval} on GPU {gpu}")
             future = ex.submit(launch_train, interval, gpu)
             futures.append(future)
-            break
 
     for f in as_completed(futures):
         gpu = f.result()

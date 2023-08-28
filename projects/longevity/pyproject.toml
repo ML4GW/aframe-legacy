@@ -1,18 +1,29 @@
 [tool.pinto]
 steps = [
     #"data_gen:launch-datagen",
-    "training:launch-training"
+    "training:launch-training",
+    "exporting:launch-export",
     #"inference:launch-inference",
 ]
 
 
 [tool.typeo.base]
+
 Tb = 86400 #5184000  # 60 days of background
 shifts = [0, 1]
+
 inference_psd_length = 64
+training_psd_length = 8
+
+inference_batch_size = 128
+hopeless_snr_thresh = 4
 sample_rate = 2048
 ifos = ["H1", "L1"]
 basedir = "${INTERVAL_DIR}"
+highpass = 32
+fduration = 1
+kernel_length = 1.5
+resnet = {layers = [3, 4, 6, 3], norm_groups = 16} 
 
 [tool.typeo.scripts.launch-datagen]
 basedir = "${base.basedir}"
@@ -36,7 +47,7 @@ waveform_duration = 4
 reference_frequency = 50
 minimum_frequency = 20
 waveform_approximant = "IMRPhenomPv2"
-highpass = 32
+highpass = "${base.highpass}"
 snr_threshold = 4
 psd_length = "${base.inference_psd_length}"
 
@@ -49,7 +60,80 @@ verbose = true
 
 [tool.typeo.scripts.launch-training]
 basedir = "${base.basedir}"
-gpus = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+gpus = [2, 3, 4, 5, 6, 7, 8]
+
+[tool.typeo.scripts.train]
+
+# optimization args
+batch_size = 384
+max_epochs = 2
+max_lr = 0.000585
+lr_ramp_epochs = 1
+weight_decay = 0.0
+
+
+snr_thresh = "${base.hopeless_snr_thresh}"
+max_min_snr = 12
+max_snr = 100
+snr_alpha = 3
+snr_decay_steps = 989
+
+
+# data args
+ifos = "${base.ifos}"
+sample_rate = "${base.sample_rate}"
+kernel_length = "${base.kernel_length}"
+fduration = "${base.fduration}"
+highpass = "${base.highpass}"
+psd_length = "${base.training_psd_length}"
+fftlength = 2
+
+# augmentation args
+trigger_distance = -0.75
+waveform_prob = 0.277
+swap_frac = 0.014
+mute_frac = 0.055
+
+# validation args
+valid_frac = 0.25
+valid_stride = 0.5
+max_fpr = 1e-3
+valid_livetime = 57600  # 16 hours of background
+early_stop = 200
+checkpoint_every = 3
+
+# misc args
+device = "cuda"
+verbose = true
+use_amp = true
+
+commands.resnet = "${base.resnet}"
+
+
+[tool.typeo.scripts.launch-export]
+basedir = "${base.basedir}"
+logdir = "${base.logdir}"
+weights = "${base.basedir}/training/weights.pt"
+
+# input-output mapping info
+num_ifos = 2 
+inference_sampling_rate = "${base.inference_sampling_rate}"
+sample_rate = "${base.sample_rate}"
+kernel_length = 1.5 
+batch_size = "${base.inference_batch_size}"
+fduration = "${base.fduration}"
+highpass = "${base.highpass}"
+psd_length = "${base.inference_psd_length}" 
+
+# repo/triton parameters
+aframe_instances = 6
+streams_per_gpu = 3 
+platform = "tensorrt_plan"
+verbose = false
+clean = true
+
+# arch parameters
+commands.resnet = "${base.resnet}"
 
 
 [tool.typeo.scripts.launch-inference]
@@ -65,7 +149,7 @@ shifts = "${base.shifts}"
 sample_rate = "${base.sample_rate}"
 inference_sampling_rate = 16
 ifos = "${base.ifos}"
-batch_size = 128
+batch_size = "${base.inference_batch_size}" 
 integration_window_length = 1
 cluster_window_length = 8
 psd_length = "${base.inference_psd_length}" 
