@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -31,7 +31,10 @@ def main(
 ):
     configure_logging(basedir / "export.log")
     intervals = [x for x in basedir.iterdir() if x.is_dir()]
-    with ThreadPoolExecutor(8) as executor:
+    futures = []
+    # was running into bug when using multiple threads
+    # but export doesn't take that long
+    with ThreadPoolExecutor(1) as executor:
         for interval in intervals:
             logging.info(f"Exporting for interval {interval}")
             repository_directory = interval / "retrained" / "model_repo"
@@ -57,4 +60,10 @@ def main(
                 clean,
                 verbose,
             ]
-            executor.submit(export, *args)
+
+            future = executor.submit(export, *args)
+
+        for future in as_completed(futures):
+            x = future.result()
+            print(x)
+            logging.info("Export completed")

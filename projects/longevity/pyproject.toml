@@ -2,8 +2,8 @@
 steps = [
     #"data_gen:launch-datagen",
     #"training:launch-training",
-    "exporting:launch-export:resnet",
-    #"inference:launch-inference",
+    #"exporting:launch-export:resnet",
+    "inference:launch-inference",
 ]
 
 
@@ -135,8 +135,8 @@ commands.resnet = "${base.resnet}"
 
 
 [tool.typeo.scripts.launch-inference]
-datadir = "${DATA_DIR}"
-model_repo_dir = "/home/ethan.marx/aframe/paper/best_o3_model/iteration_1/model_repo/"
+basedir = "${base.basedir}"
+original_model_repo_dir = "/home/ethan.marx/aframe/paper/best_o3_model/iteration_1/model_repo/"
 image = "hermes/tritonserver:22.12"
 model_name = "aframe-stream"
 

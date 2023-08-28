@@ -10,7 +10,7 @@ from aframe.logging import configure_logging
 
 @scriptify
 def main(
-    home: Path,
+    basedir: Path,
     original_model_repo_dir: str,
     image: str,
     model_name: str,
@@ -32,9 +32,9 @@ def main(
     model_version: int = -1,
     verbose: bool = False,
 ):
-    configure_logging(home / "infer.log", verbose=verbose)
+    configure_logging(basedir / "infer.log", verbose=verbose)
     # loop over intervals
-    intervals = [x for x in home.iterdir() if x.is_dir()]
+    intervals = [x for x in basedir.iterdir() if x.is_dir()]
 
     for interval in intervals:
         datadir = interval / "data"
