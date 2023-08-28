@@ -197,6 +197,7 @@ class AframeBatchAugmentor(torch.nn.Module):
 
     @torch.no_grad()
     def forward(self, X, y):
+        y = torch.zeros((len(X), 1), device=X.device)
         X, psds = self.psd_estimator(X)
 
         # apply inversion / flip augementations
