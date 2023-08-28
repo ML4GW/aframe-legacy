@@ -196,7 +196,7 @@ class AframeBatchAugmentor(torch.nn.Module):
         return kernels
 
     @torch.no_grad()
-    def forward(self, X, y):
+    def forward(self, X):
         y = torch.zeros((len(X), 1), device=X.device)
         X, psds = self.psd_estimator(X)
 
