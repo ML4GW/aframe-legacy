@@ -1,8 +1,8 @@
 [tool.pinto]
 steps = [
     #"data_gen:launch-datagen",
-    "training:launch-training",
-    "exporting:launch-export",
+    #"training:launch-training",
+    "exporting:launch-export:resnet",
     #"inference:launch-inference",
 ]
 
@@ -14,7 +14,7 @@ shifts = [0, 1]
 
 inference_psd_length = 64
 training_psd_length = 8
-
+inference_sampling_rate = 16
 inference_batch_size = 128
 hopeless_snr_thresh = 4
 sample_rate = 2048
@@ -112,8 +112,6 @@ commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.launch-export]
 basedir = "${base.basedir}"
-logdir = "${base.logdir}"
-weights = "${base.basedir}/training/weights.pt"
 
 # input-output mapping info
 num_ifos = 2 

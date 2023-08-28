@@ -11,7 +11,7 @@ export = {path = "../../sandbox/export", develop = true}
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 [tool.poetry.scripts]
-launch-export = "export.main:main" 
+launch-export = "exporting.main:main" 
 
 [[tool.poetry.source]]
 name = "torch"
