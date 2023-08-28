@@ -1,7 +1,8 @@
+import inspect
 import logging
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
 import numpy as np
 from datagen.scripts.background import deploy as deploy_background
@@ -86,7 +87,7 @@ def main(
     shifts: List[int],
     spacing: float,
     buffer: float,
-    prior: str,
+    prior: Callable,
     minimum_frequency: float,
     reference_frequency: float,
     waveform_duration: float,
@@ -110,93 +111,100 @@ def main(
     intervals = np.array(intervals)
     intervals *= ONE_WEEK
 
-    pool = ProcessPoolExecutor(4)
-
+    pool = ProcessPoolExecutor(8)
+    prior_str = inspect.getmodule(prior).__name__ + "." + prior.__name__
     # launch background generation jobs that will query both:
     # training data: (for training new models) and
     # testing data: for testing both original and retrained models
     background_futures = []
-    for cadence in intervals:
-        start, stop = test_stop + cadence, test_stop + cadence + duration
-        out = make_outdir(home, start, stop)
-        datadir = out / "data"
-        logging.info(f"Deploying background generation for {out}")
-        args = [
-            start - ONE_WEEK / 7,  # re-train using one week
-            start,
-            stop,
-            min_segment_length,
-            min_segment_length,
-            ifos,
-            sample_rate,
-            channel,
-            state_flag,
-            datadir,
-            datadir / "log",
-            accounting_group,
-            accounting_group_user,
-            max_segment_length,
-            request_memory,
-            request_disk,
-        ]
-        future = pool.submit(deploy_background_wrapper, *args)
-        background_futures.append(future)
+    with pool as executor:
+        for cadence in intervals:
+            start, stop = test_stop + cadence, test_stop + cadence + duration
+            out = make_outdir(home, start, stop)
+            datadir = out / "data"
+            logging.info(f"Deploying background generation for {out}")
+            args = [
+                start - ONE_WEEK / 7,  # re-train using one week
+                start,
+                stop,
+                min_segment_length,
+                min_segment_length,
+                ifos,
+                sample_rate,
+                channel,
+                state_flag,
+                datadir,
+                datadir / "log",
+                accounting_group,
+                accounting_group_user,
+                max_segment_length,
+                request_memory,
+                request_disk,
+            ]
+            future = executor.submit(deploy_background_wrapper, *args)
+            background_futures.append(future)
 
-    # next, launch timeslide waveform generation jobs
-    # that will be used to test original and retrained models
-    timeslide_futures = []
-    for future in as_completed(background_futures):
-        start, stop, datadir = future.result()
-        logging.info(f"Deploying timeslides waveform generation for {out}")
-        args = [
-            start,
-            stop,
-            state_flag,
-            Tb,
-            ifos,
-            shifts,
-            spacing,
-            buffer,
-            min_segment_length,
-            prior,
-            minimum_frequency,
-            reference_frequency,
-            sample_rate,
-            waveform_duration,
-            waveform_approximant,
-            highpass,
-            snr_threshold,
-            psd_length,
-            datadir,
-            datadir,
-            datadir / "log",
-            accounting_group_user,
-            accounting_group,
-            6000,
-            1024,
-        ]
-        future = pool.submit(deploy_timeslides, *args)
-        timeslide_futures.append(future)
+        # next, launch timeslide waveform generation jobs
+        # that will be used to test original and retrained models
+        futures = []
+        for future in as_completed(background_futures):
+            start, stop, datadir = future.result()
+            logging.info(f"Deploying timeslides waveform generation for {out}")
+            args = [
+                start,
+                stop,
+                state_flag,
+                Tb,
+                ifos,
+                shifts,
+                spacing,
+                buffer,
+                min_segment_length,
+                prior_str,
+                minimum_frequency,
+                reference_frequency,
+                sample_rate,
+                waveform_duration,
+                waveform_approximant,
+                highpass,
+                snr_threshold,
+                psd_length,
+                datadir,
+                datadir,
+                datadir / "log",
+                accounting_group_user,
+                accounting_group,
+                6000,
+                1024,
+            ]
+            future = executor.submit(deploy_timeslides, *args)
+            futures.append(future)
 
-    # finally, launch a waveform generation job that will be used
-    # to train the new model
-    for interval in home.iterdir():
-        if not interval.is_dir():
-            continue
-        datadir = interval / "data"
-        args = [
-            prior,
-            num_signals,
-            datadir,
-            interval / "log",
-            reference_frequency,
-            minimum_frequency,
-            sample_rate,
-            waveform_duration,
-            waveform_approximant,
-            force_generation,
-            verbose,
-        ]
-        future = pool.submit(generate_waveforms, *args)
-    for future in as_completed(timeslide_futures):
-        logging.info("Timeslide future complete")
+        for cadence in intervals:
+            start, stop = test_stop + cadence, test_stop + cadence + duration
+            interval = make_outdir(home, start, stop)
+
+            datadir = interval / "data"
+            logging.info(f"Deploying waveform generation for {interval}")
+            args = [
+                prior,
+                num_signals,
+                datadir / "train",
+                datadir / "log",
+                reference_frequency,
+                minimum_frequency,
+                sample_rate,
+                waveform_duration,
+                waveform_approximant,
+                True,
+                verbose,
+            ]
+            future = executor.submit(generate_waveforms, *args)
+            futures.append(future)
+
+    # wait for all the jobs to finish
+    for future in as_completed(futures):
+        if future.exception() is not None:
+            logging.info(future.exception())
+        print("future done")
+        continue

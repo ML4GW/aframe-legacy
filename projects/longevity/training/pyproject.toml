@@ -4,19 +4,24 @@ version = "0.1.0"
 description = "Retrain neural networks on interval datasets"
 authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
 license = "MIT"
-#readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.11"
-train = {path = "../../sandbox/train", develop = true}
+python = ">=3.8,<3.11"
+torchmetrics = "^0.11"
+ml4gw = {path = "../../../ml4gw", develop = false}
+"aframe.logging" = {path = "../../../libs/logging", develop = false}
+"aframe.trainer" = {path = "../../../libs/trainer", develop = false}
+train = {path = "../../sandbox/train", develop = false}
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 [tool.poetry.scripts]
-launch-train = "training.main:main" 
+launch-training = "training.main:main" 
 
 [[tool.poetry.source]]
 name = "torch"
-url = "https://download.pytorch.org/whl/cpu"
+url = "https://download.pytorch.org/whl/cu116"
+secondary = true
+default = false
 
 [build-system]
 requires = ["poetry-core"]

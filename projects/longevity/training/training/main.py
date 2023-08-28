@@ -9,7 +9,7 @@ import toml
 from typeo import scriptify
 
 source_dir = Path(__file__).resolve().parent.parent
-train_config_path = Path(__file__).resolve().parent / "training.toml"
+train_config_path = Path(__file__).resolve().parent.parent / "training.toml"
 
 
 def read_config(path):
@@ -18,7 +18,7 @@ def read_config(path):
 
 
 @scriptify
-def train(
+def launch_train(
     interval: Path,
     gpu: int,
 ):
@@ -49,12 +49,12 @@ def train(
     # write the env file to the run's directory
     dotenv_path = retrain_dir / "train.env"
     with open(dotenv_path, "w") as f:
-        f.write(f"CUDA_VISIBLE_DEVICES={gpu}\n")
+        f.write(f"export CUDA_VISIBLE_DEVICES={gpu}\n")
 
     cmd = [
         str(shutil.which("pinto")),
         "-p",
-        str(source_dir / "train"),
+        str(source_dir),
         "run",
         "-e",
         str(dotenv_path),
@@ -62,24 +62,27 @@ def train(
         "--typeo",
         f"{config_path}:train:resnet",
     ]
+    print(cmd)
     logging.info(" ".join(cmd))
     env = {"CUDA_VISIBLE_DEVICES": str(gpu)}
-    subprocess.check_output(cmd, env=env)
+    try:
+        subprocess.check_output(cmd, env=env)
+    except subprocess.CalledProcessError as e:
+        print(e.stderr)
 
 
 @scriptify
-def deploy_train(
-    home: Path,
-    gpus: List[int],
-):
+def main(home: Path, gpus: List[int]):
     # for each interval, train a model
     intervals = [x for x in home.iterdir() if x.is_dir()]
 
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):
-            future = ex.submit(train, interval, gpu)
+            logging.info(f"Training for interval {interval} on GPU {gpu}")
+            future = ex.submit(launch_train, interval, gpu)
             futures.append(future)
+            break
 
     for f in as_completed(futures):
         gpu = f.result()

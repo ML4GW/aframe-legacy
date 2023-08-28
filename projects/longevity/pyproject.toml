@@ -1,7 +1,7 @@
 [tool.pinto]
 steps = [
-    "data_gen:launch-datagen",
-    #"training:launch-training"
+    #"data_gen:launch-datagen",
+    "training:launch-training"
     #"inference:launch-inference",
 ]
 
@@ -12,7 +12,7 @@ shifts = [0, 1]
 inference_psd_length = 64
 sample_rate = 2048
 ifos = ["H1", "L1"]
-home = "${HOME}"
+home = "${INTERVAL_HOME}"
 
 [tool.typeo.scripts.launch-datagen]
 home = "${base.home}"
