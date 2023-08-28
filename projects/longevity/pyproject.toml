@@ -12,10 +12,10 @@ shifts = [0, 1]
 inference_psd_length = 64
 sample_rate = 2048
 ifos = ["H1", "L1"]
-home = "${INTERVAL_HOME}"
+basedir = "${INTERVAL_DIR}"
 
 [tool.typeo.scripts.launch-datagen]
-home = "${base.home}"
+basedir = "${base.basedir}"
 
 test_stop = 1244035783
 intervals = [1, 2, 4, 12, 24, 32] # number of weeks
@@ -48,7 +48,7 @@ accounting_group = "${LIGO_GROUP}"
 verbose = true
 
 [tool.typeo.scripts.launch-training]
-home = "${base.home}"
+basedir = "${base.basedir}"
 gpus = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 
 

@@ -81,7 +81,7 @@ def main(
     min_segment_length: float,
     max_segment_length: float,
     duration: float,
-    home: Path,
+    basedir: Path,
     # timeslide waveform specific args
     Tb: float,
     shifts: List[int],
@@ -106,7 +106,7 @@ def main(
     force_generation: bool = False,
 ):
 
-    configure_logging(home / "datagen.log", verbose=verbose)
+    configure_logging(basedir / "datagen.log", verbose=verbose)
     # TODO: ensure not in between O3a and O3b
     intervals = np.array(intervals)
     intervals *= ONE_WEEK
@@ -120,7 +120,7 @@ def main(
     with pool as executor:
         for cadence in intervals:
             start, stop = test_stop + cadence, test_stop + cadence + duration
-            out = make_outdir(home, start, stop)
+            out = make_outdir(basedir, start, stop)
             datadir = out / "data"
             logging.info(f"Deploying background generation for {out}")
             args = [
@@ -182,7 +182,7 @@ def main(
 
         for cadence in intervals:
             start, stop = test_stop + cadence, test_stop + cadence + duration
-            interval = make_outdir(home, start, stop)
+            interval = make_outdir(basedir, start, stop)
 
             datadir = interval / "data"
             logging.info(f"Deploying waveform generation for {interval}")

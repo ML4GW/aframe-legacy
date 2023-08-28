@@ -1,4 +1,6 @@
 [tool.typeo.scripts.train]
+commands.resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
+
 ifos = ["H1", "L1"]
 
 # optimization args

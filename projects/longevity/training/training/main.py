@@ -25,7 +25,8 @@ def launch_train(
 
     # construct directories / dataset paths for this interval
     retrain_dir = interval / "retrained"
-    retrain_dir.mkdir(exist_ok=True)
+    print(retrain_dir)
+    retrain_dir.mkdir(exist_ok=True, parents=True)
 
     datadir = retrain_dir / "data"
     background_dir = datadir / "train" / "background"
@@ -72,10 +73,9 @@ def launch_train(
 
 
 @scriptify
-def main(home: Path, gpus: List[int]):
+def main(basedir: Path, gpus: List[int]):
     # for each interval, train a model
-    intervals = [x for x in home.iterdir() if x.is_dir()]
-
+    intervals = [x for x in basedir.iterdir() if x.is_dir()]
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):

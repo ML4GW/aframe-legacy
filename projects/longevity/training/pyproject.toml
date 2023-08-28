@@ -7,11 +7,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-torchmetrics = "^0.11"
-ml4gw = {path = "../../../ml4gw", develop = false}
-"aframe.logging" = {path = "../../../libs/logging", develop = false}
-"aframe.trainer" = {path = "../../../libs/trainer", develop = false}
-train = {path = "../../sandbox/train", develop = false}
+train = {path = "../../sandbox/train", develop = true}
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
 [tool.poetry.scripts]
