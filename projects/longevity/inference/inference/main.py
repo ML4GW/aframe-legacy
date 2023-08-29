@@ -34,7 +34,11 @@ def main(
 ):
     configure_logging(basedir / "infer.log", verbose=verbose)
     # loop over intervals
-    intervals = [x for x in basedir.iterdir() if x.is_dir()]
+    intervals = [
+        x
+        for x in basedir.iterdir()
+        if x.is_dir() and not x.name.startswith(".")
+    ]
 
     for interval in intervals:
         datadir = interval / "data"
@@ -57,7 +61,7 @@ def main(
         if not complete:
 
             logging.info(
-                "Deploying inference usiing "
+                "Deploying inference using "
                 f"retrained model for {interval.name}"
             )
             deploy_infer(
@@ -87,7 +91,7 @@ def main(
                 verbose,
             )
 
-        logging.info(f"inference complete for {interval.name}")
+        logging.info(f"Inference complete for {interval.name}")
         # launch inference job for each interval
         # analyzing data with the original model
         original = interval / "original"
@@ -134,3 +138,4 @@ def main(
                 model_version,
                 verbose,
             )
+        logging.info(f"All inference runs complete for {interval.name}")
