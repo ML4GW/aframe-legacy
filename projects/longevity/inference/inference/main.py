@@ -87,6 +87,7 @@ def main(
                 verbose,
             )
 
+        logging.info(f"inference complete for {interval.name}")
         # launch inference job for each interval
         # analyzing data with the original model
         original = interval / "original"
