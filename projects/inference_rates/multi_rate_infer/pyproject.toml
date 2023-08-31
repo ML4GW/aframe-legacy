@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "multi_rate_infer"
+version = "0.1.0"
+description = "Run inference over different inference sample rates"
+authors = ["Will Benoit <benoi090@umn.edu>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+infer = {path = "../../sandbox/infer", develop = true}
+
+
+[tool.poetry.scripts]
+launch-inference = "multi_rate_infer.main:main"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cpu"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
