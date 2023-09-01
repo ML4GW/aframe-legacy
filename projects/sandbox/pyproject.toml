@@ -1,12 +1,12 @@
 [tool.pinto]
 steps = [
     "datagen:deploy-background",
-    #"datagen:generate-waveforms",
+    "datagen:generate-waveforms",
     "datagen:deploy-timeslide-waveforms",
-    #"train:train:resnet",
-    #"export:export-model:resnet",
-    #"infer:deploy-infer",
-    #"vizapp:vizapp"
+    "train:train:resnet",
+    "export:export-model:resnet",
+    "infer:deploy-infer",
+    "vizapp:vizapp"
 ]
 
 [tool.typeo.base]
