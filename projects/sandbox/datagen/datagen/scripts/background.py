@@ -223,9 +223,17 @@ def main(
     # has been merged, and we have updated gwpy to relevant version
     try:
         data = fetch_timeseries(channels, start, stop)
-    except ValueError:
-        logging.warning("Skipping segment due to ValueError")
-        return
+    except ValueError as e:
+        # only catch ValueError if it's due to above issue
+        # otherwise raise the error as normal and have
+        # condor retry mechanism resolve it
+        msg = str(e)
+        logging.info(msg)
+        if msg.startswith("["):
+            logging.warning(f"Skipping segment due to ValueError: {e}")
+            return
+        else:
+            raise e
     data = data.resample(sample_rate)
     for ifo, channel in zip(ifos, channels):
         data[ifo] = data.pop(channel)
