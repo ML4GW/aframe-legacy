@@ -218,7 +218,14 @@ def main(
     authenticate()
     channels = get_channels(ifos, channel)
 
-    data = fetch_timeseries(channels, start, stop)
+    # handles https://github.com/gwpy/gwpy/issues/1612.
+    # remove once https://github.com/gwpy/gwpy/pull/1665
+    # has been merged, and we have updated gwpy to relevant version
+    try:
+        data = fetch_timeseries(channels, start, stop)
+    except ValueError:
+        logging.warning("Skipping segment due to ValueError")
+        return
     data = data.resample(sample_rate)
     for ifo, channel in zip(ifos, channels):
         data[ifo] = data.pop(channel)
@@ -243,7 +250,7 @@ def deploy(
     accounting_group_user: str,
     state_flag: str = "DATA",
     max_segment_length: float = 20000,
-    request_memory: int = 8194,
+    request_memory: int = 8192,
     request_disk: int = 1024,
     force_generation: bool = False,
     verbose: bool = False,
@@ -383,9 +390,10 @@ def deploy(
         periodic_release="(HoldReasonCode =?= 26 || HoldReasonCode =?= 34) && (JobStatus == 5)",  # noqa
         periodic_remove="(JobStatus == 1) && MemoryUsage >= 7G",
         use_x509userproxy=True,
+        max_retries=5,
         **kwargs,
     )
     dag_id = condor.submit(subfile)
     logging.info(f"Launching background generation jobs with dag id {dag_id}")
-    condor.watch(dag_id, condordir, held=True)
+    condor.watch(dag_id, condordir, held=False)
     logging.info("Completed background generation jobs")
