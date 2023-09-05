@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import h5py
 from datagen.utils import get_channels, get_state_flags
@@ -241,7 +241,7 @@ def deploy(
     logdir: Path,
     accounting_group: str,
     accounting_group_user: str,
-    state_flag: Optional[str] = None,
+    state_flag: str = "DATA",
     max_segment_length: float = 20000,
     request_memory: int = 32768,
     request_disk: int = 1024,
@@ -276,8 +276,8 @@ def deploy(
         state_flag:
             Identifier for which segments to use. Descriptions of flags
             and there usage can be found here:
-            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. If None,
-            will use segments defined by the open data.
+            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. The default,
+            "DATA", specifes use of segments defined in the open data release.
             See gwosc.org for more information
         datadir:
             Directory to which data will be written
