@@ -243,7 +243,7 @@ def deploy(
     accounting_group_user: str,
     state_flag: str = "DATA",
     max_segment_length: float = 20000,
-    request_memory: int = 32768,
+    request_memory: int = 8194,
     request_disk: int = 1024,
     force_generation: bool = False,
     verbose: bool = False,
