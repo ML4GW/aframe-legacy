@@ -206,5 +206,5 @@ def main(
     for future in as_completed(futures):
         if future.exception() is not None:
             logging.info(future.exception())
-        print("future done")
+        logging.info("future done")
         continue
