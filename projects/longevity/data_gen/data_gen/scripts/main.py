@@ -124,7 +124,7 @@ def main(
             datadir = out / "data"
             logging.info(f"Deploying background generation for {out}")
             args = [
-                start - ONE_WEEK / 7,  # re-train using one week
+                start - ONE_WEEK,  # re-train using one week
                 start,
                 stop,
                 min_segment_length,
