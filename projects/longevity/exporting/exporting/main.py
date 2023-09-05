@@ -64,6 +64,4 @@ def main(
             future = executor.submit(export, *args)
 
         for future in as_completed(futures):
-            x = future.result()
-            print(x)
             logging.info("Export completed")
