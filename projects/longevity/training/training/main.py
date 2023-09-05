@@ -67,7 +67,6 @@ def launch_train(
         f"{config_path}:train:resnet",
     ]
 
-    print(" ".join(cmd))
     env = {"CUDA_VISIBLE_DEVICES": str(gpu)}
     # was getting weird pinto errors, so just set the path manually
     env[
@@ -81,7 +80,6 @@ def main(basedir: Path, gpus: List[int]):
     configure_logging(basedir / "train.log", verbose=True)
     # for each interval, train a model
     intervals = [x for x in basedir.iterdir() if x.is_dir()]
-    print(intervals)
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):
