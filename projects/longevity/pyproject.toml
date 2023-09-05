@@ -8,13 +8,12 @@ steps = [
 
 
 [tool.typeo.base]
-
-Tb = 86400 #5184000  # 60 days of background
+Tb = 5184000  # 60 days of background
 shifts = [0, 1]
 
 inference_psd_length = 64
 training_psd_length = 8
-inference_sampling_rate = 16
+inference_sampling_rate = 4
 inference_batch_size = 128
 hopeless_snr_thresh = 4
 sample_rate = 2048
@@ -36,14 +35,14 @@ ifos = "${base.ifos}"
 state_flag = "DCS-ANALYSIS_READY_C01:1"
 min_segment_length = 1024
 max_segment_length = 20000
-duration = 86400 #604800 # one week of data
+duration = 604800 # one week of data
 
 Tb = "${base.Tb}"  # 60 days of background
 shifts = "${base.shifts}"
 spacing = 48
 buffer = 16
 prior = "aframe.priors.priors.end_o3_ratesandpops"
-waveform_duration = 4
+waveform_duration = 8
 reference_frequency = 50
 minimum_frequency = 20
 waveform_approximant = "IMRPhenomPv2"
@@ -51,7 +50,7 @@ highpass = "${base.highpass}"
 snr_threshold = 4
 psd_length = "${base.inference_psd_length}"
 
-num_signals = 1000
+num_signals = 100000
 
 # condor args
 accounting_group_user = "${LIGO_USERNAME}"
@@ -86,7 +85,7 @@ kernel_length = "${base.kernel_length}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
 psd_length = "${base.training_psd_length}"
-fftlength = 2
+
 
 # augmentation args
 trigger_distance = -0.75
@@ -117,7 +116,7 @@ basedir = "${base.basedir}"
 num_ifos = 2 
 inference_sampling_rate = "${base.inference_sampling_rate}"
 sample_rate = "${base.sample_rate}"
-kernel_length = 1.5 
+kernel_length = "${base.kernel_length}"
 batch_size = "${base.inference_batch_size}"
 fduration = "${base.fduration}"
 highpass = "${base.highpass}"
@@ -145,7 +144,7 @@ accounting_group = "${LIGO_GROUP}"
 Tb = "${base.Tb}"
 shifts = "${base.shifts}"
 sample_rate = "${base.sample_rate}"
-inference_sampling_rate = 16
+inference_sampling_rate = "${base.inference_sampling_rate}"
 ifos = "${base.ifos}"
 batch_size = "${base.inference_batch_size}" 
 integration_window_length = 1
