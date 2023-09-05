@@ -269,7 +269,7 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
-    state_flag: Optional[str] = None,
+    state_flag: str = "DATA",
     request_memory: int = 6000,
     request_disk: int = 1024,
     force_generation: bool = False,
@@ -283,10 +283,6 @@ def deploy(
             GPS time of the beginning of the testing dataset
         stop:
             GPS time of the end of the testing dataset
-        state_flag:
-            Identifier for which segments to use. Descriptions of flags
-            and there usage can be found here:
-            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags
         Tb:
             The length of background time in seconds to be generated via
             time shifts
@@ -346,6 +342,12 @@ def deploy(
             Username of the person running the condor jobs
         accounting_group:
             Accounting group for the condor jobs
+         state_flag:
+            Identifier for which segments to use. Descriptions of flags
+            and there usage can be found here:
+            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. The default,
+            "DATA", specifes use of segments defined in the open data release.
+            See gwosc.org for more information
         request_memory:
             Amount of memory for condor jobs to request in Mb
         request_disk:

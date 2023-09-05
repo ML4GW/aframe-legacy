@@ -273,12 +273,6 @@ def deploy(
             in Hz
         channel:
             Channel from which to fetch the timeseries
-        state_flag:
-            Identifier for which segments to use. Descriptions of flags
-            and there usage can be found here:
-            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. The default,
-            "DATA", specifes use of segments defined in the open data release.
-            See gwosc.org for more information
         datadir:
             Directory to which data will be written
         logdir:
@@ -287,6 +281,12 @@ def deploy(
             Username of the person running the condor jobs
         accounting_group:
             Accounting group for the condor jobs
+        state_flag:
+            Identifier for which segments to use. Descriptions of flags
+            and there usage can be found here:
+            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. The default,
+            "DATA", specifes use of segments defined in the open data release.
+            See gwosc.org for more information
         max_segment_length:
             Maximum length of a segment in seconds. Note that doing
             consecutive runs while changing `max_segment_length` will
