@@ -238,7 +238,9 @@ def main(
     for ifo, channel in zip(ifos, channels):
         data[ifo] = data.pop(channel)
 
-    data.write(writepath)
+    # write using chunked storage for huge performance increases
+    # when loading data and training and inference times
+    data.write(writepath, chunks=(131072,), compression=None)
     return writepath
 
 
@@ -258,7 +260,7 @@ def deploy(
     accounting_group_user: str,
     state_flag: str = "DATA",
     max_segment_length: float = 20000,
-    request_memory: int = 16384,
+    request_memory: int = 32678,
     request_disk: int = 1024,
     force_generation: bool = False,
     verbose: bool = False,
