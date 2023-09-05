@@ -11,9 +11,7 @@ from typeo import scriptify
 from aframe.logging import configure_logging
 
 source_dir = Path(__file__).resolve().parent.parent
-train_config_path = (
-    Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
-)
+train_config_path = source_dir.parent / "pyproject.toml"
 
 
 def read_config(path):
