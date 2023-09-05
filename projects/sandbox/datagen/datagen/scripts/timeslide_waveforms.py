@@ -7,7 +7,6 @@ from typing import Callable, Iterable, List, Optional
 import datagen.utils.timeslide_waveforms as utils
 import numpy as np
 import torch
-from datagen.utils import get_state_flags
 from datagen.utils.injection import generate_gw
 from typeo import scriptify
 
@@ -22,7 +21,6 @@ from ml4gw.gw import (
     compute_observed_strain,
     get_ifo_geometry,
 )
-from mldatafind.segments import query_segments
 
 
 @scriptify
@@ -269,7 +267,6 @@ def deploy(
     logdir: Path,
     accounting_group_user: str,
     accounting_group: str,
-    state_flag: str = "DATA",
     request_memory: int = 6000,
     request_disk: int = 1024,
     force_generation: bool = False,
@@ -342,12 +339,6 @@ def deploy(
             Username of the person running the condor jobs
         accounting_group:
             Accounting group for the condor jobs
-         state_flag:
-            Identifier for which segments to use. Descriptions of flags
-            and there usage can be found here:
-            https://wiki.ligo.org/DetChar/DataQuality/AligoFlags. The default,
-            "DATA", specifes use of segments defined in the open data release.
-            See gwosc.org for more information
         request_memory:
             Amount of memory for condor jobs to request in Mb
         request_disk:
@@ -390,10 +381,8 @@ def deploy(
         )
         return
 
-    # query segments and calculate shifts required
-    # to accumulate desired background livetime
-    state_flags = get_state_flags(ifos, state_flag)
-    segments = query_segments(state_flags, start, stop, min_segment_length)
+    # parse relevant segments based on files in background directory
+    segments = utils.segments_from_directory(datadir / "test" / "background")
     shifts_required = utils.get_num_shifts(segments, Tb, max(shifts))
 
     # create text file from which the condor job will read
