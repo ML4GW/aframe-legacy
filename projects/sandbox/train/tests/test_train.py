@@ -1,4 +1,7 @@
 import logging
+import re
+import sys
+from io import StringIO
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -83,7 +86,12 @@ def h5py_mock(background, glitches, glitch_times, waveforms, ifos):
         elif "history" in fname or "batch" in fname and mode == "w":
             value = {}
         else:
-            raise ValueError(fname)
+            value = {}
+
+        def exit(_, *exc_args):
+            if "history" in fname:
+                print("train_loss: ", value["train_loss"][0])
+            return obj
 
         def exit(_, *exc_args):
             if "history" in fname and mode == "w":
