@@ -82,8 +82,6 @@ def h5py_mock(background, glitches, glitch_times, waveforms, ifos):
             value["signals"] = waveforms
         elif "history" in fname or "batch" in fname and mode == "w":
             value = {}
-        else:
-            raise ValueError(fname)
 
         def exit(_, *exc_args):
             if "history" in fname and mode == "w":
@@ -256,7 +254,7 @@ def test_train_for_seed(tmp_path, h5py_mock):
         )
         with open(outdir / "history.h5", "r") as f:
             return float(f.read())
-
+            
     train_loss = run_pipeline(42, 0)
     assert run_pipeline(42, 1) == train_loss
     assert run_pipeline(43, 0) != train_loss
