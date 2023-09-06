@@ -153,7 +153,6 @@ def main(
             args = [
                 start,
                 stop,
-                state_flag,
                 Tb,
                 ifos,
                 shifts,

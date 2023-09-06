@@ -29,10 +29,10 @@ basedir = "${base.basedir}"
 
 test_stop = 1244035783
 intervals = [1, 2, 4, 12, 24, 32] # number of weeks
-channel = "DCS-CALIB_STRAIN_CLEAN_C01"
+channel = "OPEN"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
-state_flag = "DCS-ANALYSIS_READY_C01:1"
+state_flag = "DATA"
 min_segment_length = 1024
 max_segment_length = 20000
 duration = 604800 # one week of data
