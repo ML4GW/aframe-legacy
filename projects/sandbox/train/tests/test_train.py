@@ -1,7 +1,4 @@
 import logging
-import re
-import sys
-from io import StringIO
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -87,11 +84,13 @@ def h5py_mock(background, glitches, glitch_times, waveforms, ifos):
             value = {}
         else:
             value = {}
+        else:
+            raise ValueError(fname)
 
         def exit(_, *exc_args):
-            if "history" in fname:
-                print("train_loss: ", value["train_loss"][0])
-            return obj
+            if "history" in fname and mode == "w":
+                with open(fname, "w") as f:
+                    f.write(str(value["train_loss"][0]))
 
         def exit(_, *exc_args):
             if "history" in fname and mode == "w":
