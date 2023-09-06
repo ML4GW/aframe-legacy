@@ -196,7 +196,6 @@ stop = "${base.test_stop}"
 psd_length = "${base.inference_psd_length}"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
-#state_flag = "${base.state_flag}"
 min_segment_length = 1024
 
 # timeslide parameters
