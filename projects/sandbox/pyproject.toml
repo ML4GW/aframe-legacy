@@ -31,7 +31,7 @@ state_flag = "DATA" # open data segments
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
 repository_directory = "${BASE_DIR}/model_repo/" 
 force_generation = false
-Tb = 31536000  # 1 year of background
+Tb = 5184000 #31536000  # 1 year of background
 inference_sampling_rate = 4
 inference_batch_size = 128
 inference_psd_length = 64

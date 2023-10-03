@@ -1,6 +1,6 @@
 [tool.pinto]
 steps = [
-    "infer:launch-infer"
+    "multi_rate_infer:launch-inference"
 ]
 
 [tool.typeo.base]
@@ -21,7 +21,7 @@ fduration = 1
 verbose = true
 
 
-[tool.typeo.scripts.launch-infer]
+[tool.typeo.scripts.launch-inference]
 
 # paths
 base_dir = "${base.basedir}"
@@ -49,7 +49,6 @@ throughput = 6400
 
 # data args
 sample_rate = "${base.sample_rate}"
-inference_sampling_rate = "${base.inference_sampling_rate}"
 batch_size = "${base.inference_batch_size}"
 ifos = "${base.ifos}"
 chunk_size = 4096

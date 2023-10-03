@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import List
 
+import numpy as np
 from infer.deploy import main as deploy_infer
 from typeo import scriptify
 
@@ -39,6 +40,7 @@ def main(
 
     # Assume that the given throughput is appropriate for the first rate,
     # and calculate other throughputs based on that
+    inference_sampling_rates = np.array(inference_sampling_rates)
     rate_ratios = inference_sampling_rates[0] / inference_sampling_rates
     throughputs = throughput * rate_ratios
 
