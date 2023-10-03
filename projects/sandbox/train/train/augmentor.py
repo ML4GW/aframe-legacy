@@ -212,7 +212,7 @@ class AframeBatchAugmentor(torch.nn.Module):
         # interferometer responses
         N = mask.sum().item()
 
-        if(N != 0):
+        if(N > 0):
             responses = self.sample_responses(N, X.shape[-1], psds[mask])
             responses.to(X.device)
 
