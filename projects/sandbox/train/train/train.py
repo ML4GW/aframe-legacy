@@ -229,12 +229,12 @@ def main(
     fftlength = fftlength or window_length
 
 
-    if psd_length < window_length :
+    if psd_length < window_length:
         raise ValueError(
-                "Can't have psd length {} longer than window length {}".format(
+       	    "Can't have psd length {} longer than window length {}".format(
                     psd_length, window_length
-                )
             )
+        )
 
     # create objects that we'll use for whitening the data
     fast = highpass is not None
