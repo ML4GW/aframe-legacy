@@ -1,6 +1,7 @@
 [tool.pinto]
 steps = [
-    "multi_rate_infer:launch-inference"
+    "multi_rate_export:export_models:resnet",
+    "multi_rate_infer:launch-inference",
 ]
 
 [tool.typeo.base]
@@ -16,9 +17,37 @@ repository_directory = "${BASE_DIR}/model_repo/"
 Tb = 5184000  # 60 days of background
 inference_batch_size = 128
 inference_psd_length = 64
-
+inference_sampling_rates = [1, 2, 4, 8, 16, 64]
 fduration = 1
+
+resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
+
 verbose = true
+
+
+[tool.typeo.scripts.export-models]
+logdir = "${base.logdir}"
+weights = "${base.basedir}/training/weights.pt"
+
+# input-output mapping info
+num_ifos = 2
+inference_sampling_rates = "${base.inference_sampling_rates}"
+sample_rate = "${base.sample_rate}"
+kernel_length = "${base.kernel_length}"
+batch_size = "${base.inference_batch_size}"
+fduration = "${base.fduration}"
+highpass = "${base.highpass}"
+psd_length = "${base.inference_psd_length}"
+
+# repo/triton parameters
+aframe_instances = 6
+streams_per_gpu = 3
+platform = "tensorrt_plan"
+verbose = "${base.verbose}"
+clean = true
+
+# arch parameters
+commands.resnet = "${base.resnet}"
 
 
 [tool.typeo.scripts.launch-inference]
@@ -30,7 +59,7 @@ data_dir = "${base.datadir}/test/background"
 injection_set_file = "${base.datadir}/test/waveforms.h5"
 log_dir = "${base.logdir}"
 
-inference_sampling_rates = [1, 2, 4, 8, 16, 64]
+inference_sampling_rates = "${base.inference_sampling_rates}"
 
 # condor args
 accounting_group_user = "${base.accounting_group_user}"
