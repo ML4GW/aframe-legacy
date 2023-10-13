@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "multi_rate_export"
+version = "0.1.0"
+description = "Export a trained model with different inference sample rates"
+authors = ["Will Benoit <benoi090@umn.edu>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+export = {path = "../../sandbox/export", develop = true}
+
+
+[tool.poetry.scripts]
+export-models = "multi_rate_export.main:main"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cpu"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

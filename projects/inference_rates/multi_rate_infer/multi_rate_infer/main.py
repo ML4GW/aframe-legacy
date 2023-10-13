@@ -36,7 +36,7 @@ def main(
     model_version: int = -1,
     verbose: bool = False,
 ):
-    configure_logging(log_dir / "inference_rates.log", verbose=verbose)
+    configure_logging(log_dir / "inference_rates_infer.log", verbose=verbose)
 
     # Assume that the given throughput is appropriate for the first rate,
     # and calculate other throughputs based on that
@@ -47,11 +47,12 @@ def main(
     for rate, throughput in zip(inference_sampling_rates, throughputs):
         output_dir = base_dir / f"{rate}Hz" / "infer"
         output_dir.mkdir(exist_ok=True, parents=True)
+        current_model_dir = model_repo_dir / f"{rate}Hz"
 
         logging.info(f"Starting inference at {rate} Hz")
 
         deploy_infer(
-            model_repo_dir,
+            current_model_dir,
             output_dir,
             data_dir,
             log_dir,
