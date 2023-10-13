@@ -291,11 +291,6 @@ category = "main"
 optional = false
 python-versions = ">=3.5"
 
-[package.source]
-type = "legacy"
-url = "https://download.pytorch.org/whl/cpu"
-reference = "torch"
-
 [[package]]
 name = "importlib-metadata"
 version = "6.8.0"
@@ -478,7 +473,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "torch"
-version = "1.13.1+cpu"
+version = "1.13.1+cu116"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
 category = "main"
 optional = false
@@ -492,7 +487,7 @@ opt-einsum = ["opt-einsum (>=3.3)"]
 
 [package.source]
 type = "legacy"
-url = "https://download.pytorch.org/whl/cpu"
+url = "https://download.pytorch.org/whl/cu116"
 reference = "torch"
 
 [[package]]
@@ -644,7 +639,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "e9ee0c3ba069a3a6c7ebce182824412a2311a18da60f5630e27ee7bad1dd4934"
+content-hash = "829f01eea07cd1b545572f3fc62362856f80eed23f1e89bbc2600be502e6d380"
 
 [metadata.files]
 aframe-architectures = []
@@ -1423,6 +1418,7 @@ h5py = [
 hermes-quiver = []
 idna = [
     {file = "idna-3.4-py3-none-any.whl", hash = "sha256:90b77e79eaa3eba6de819a0c442c0b4ceefc341a7a2ab77d7562bf49f425c5c2"},
+    {file = "idna-3.4.tar.gz", hash = "sha256:814f528e8dead7d329833b91c5faa87d60bf71824cd12a7530b5526063d02cb4"},
 ]
 importlib-metadata = [
     {file = "importlib_metadata-6.8.0-py3-none-any.whl", hash = "sha256:3ebb78df84a805d7698245025b975d9d67053cd94c79245ba4b3eb694abe68bb"},
@@ -1669,15 +1665,15 @@ toml = [
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 torch = [
-    {file = "torch-1.13.1+cpu-cp310-cp310-linux_x86_64.whl", hash = "sha256:11692523b87c45b79ddfb5148b12a713d85235d399915490d94e079521f7e014"},
-    {file = "torch-1.13.1+cpu-cp310-cp310-win_amd64.whl", hash = "sha256:207ab3700cd9c4349f4fd1892597eb3d385eb78221c0f2974ec54b8ea903aa00"},
-    {file = "torch-1.13.1+cpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:dc185f2fdbb1f84855929d3ba7b36c74f218789d26a0e0268cb0586d466c8c24"},
-    {file = "torch-1.13.1+cpu-cp37-cp37m-linux_x86_64.whl", hash = "sha256:2dd7e5f584c7ea5d8f038fd1fa40465785f797df0c7d06c432f5e72d9817115a"},
-    {file = "torch-1.13.1+cpu-cp37-cp37m-win_amd64.whl", hash = "sha256:02e387834a3489396f1871f83f7a795610d09ef3da01aa431493b08eac5c6666"},
-    {file = "torch-1.13.1+cpu-cp38-cp38-linux_x86_64.whl", hash = "sha256:4a8b84834eb12b3428c24e9f264c9bd6a2cf449fffc191374e7dbb2b950fc6d7"},
-    {file = "torch-1.13.1+cpu-cp38-cp38-win_amd64.whl", hash = "sha256:43394e66487543c112044194e9bdecc6f48c869d692a9d0c755b95d642b29535"},
-    {file = "torch-1.13.1+cpu-cp39-cp39-linux_x86_64.whl", hash = "sha256:71636a5c21927236f4974d2355fb3f66a0b707c28219b0135ff65ed0f0e61287"},
-    {file = "torch-1.13.1+cpu-cp39-cp39-win_amd64.whl", hash = "sha256:988ee77c0975b4c3f570dfc62277b1e300bbbe7cc000ce2720e2e8c730fb9ce5"},
+    {file = "torch-1.13.1+cu116-cp310-cp310-linux_x86_64.whl", hash = "sha256:51d5870cdf05b6208b1c739fe0ba511b977eca37f9507829675596acc11b6ca4"},
+    {file = "torch-1.13.1+cu116-cp310-cp310-win_amd64.whl", hash = "sha256:6d59b73bbd83eee53e7978925168fe068709e1344050fdabf4043695084b2ccc"},
+    {file = "torch-1.13.1+cu116-cp311-cp311-linux_x86_64.whl", hash = "sha256:8cbfbb27f44fcc246d298f3812f3f7963622b4c1f2823670ae549416199f5ef7"},
+    {file = "torch-1.13.1+cu116-cp37-cp37m-linux_x86_64.whl", hash = "sha256:20d7c6e00804b6bea6f69b77240c4fcdf244cce2f6b1ff73beff7c0df6553d9d"},
+    {file = "torch-1.13.1+cu116-cp37-cp37m-win_amd64.whl", hash = "sha256:c2493a30d0c5ff426fad3d60d9d535c24678b45cc4ce1cffca0f1044d408cb96"},
+    {file = "torch-1.13.1+cu116-cp38-cp38-linux_x86_64.whl", hash = "sha256:9338faa0a5a0eb625e17e39729f06fb0a574098d7ab88d856bbda4cb76a0b665"},
+    {file = "torch-1.13.1+cu116-cp38-cp38-win_amd64.whl", hash = "sha256:1c33942d411d4dee25e56755cfd09538f53a497a6f0453d54ce96a5ca341627b"},
+    {file = "torch-1.13.1+cu116-cp39-cp39-linux_x86_64.whl", hash = "sha256:db457a822d736013b6ffe509053001bc918bdd78fe68967b605f53984a9afac5"},
+    {file = "torch-1.13.1+cu116-cp39-cp39-win_amd64.whl", hash = "sha256:80a6b55915ac72c087ab85122289431fde5c5a4c85ca83a38c6d11a7ecbfdb35"},
 ]
 torchtyping = [
     {file = "torchtyping-0.1.4-py3-none-any.whl", hash = "sha256:485fb6ef3965c39b0de15f00d6f49373e0a3a6993e9733942a63c5e207d35390"},
