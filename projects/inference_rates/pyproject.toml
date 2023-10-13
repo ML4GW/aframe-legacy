@@ -18,8 +18,9 @@ Tb = 5184000  # 60 days of background
 inference_batch_size = 128
 inference_psd_length = 64
 inference_sampling_rates = [1, 2, 4, 8, 16, 64]
+highpass = 32
 fduration = 1
-
+kernel_length = 1.5
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
 
 verbose = true
@@ -30,6 +31,7 @@ logdir = "${base.logdir}"
 weights = "${base.basedir}/training/weights.pt"
 
 # input-output mapping info
+repository_directory = "${base.repository_directory}"
 num_ifos = 2
 inference_sampling_rates = "${base.inference_sampling_rates}"
 sample_rate = "${base.sample_rate}"

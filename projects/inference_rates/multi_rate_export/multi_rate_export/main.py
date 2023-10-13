@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 from export.main import main as export
-from typeo import scriptify
 
 import hermes.quiver as qv
+from aframe.architectures import architecturize
 from aframe.logging import configure_logging
 
 
-@scriptify
+@architecturize
 def main(
     architecture: Callable,
     repository_directory: Path,
