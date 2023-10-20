@@ -262,5 +262,5 @@ log_file = "${base.basedir}/log/sensitive_volume.log"
 max_far = 1000
 sigma = 0.1
 verbose = "${base.verbose}"
-gate_paths = {"H1" = "/home/ethan.marx/public_html/forks/BBHNet/projects/sandbox/vizapp/vizapp/vetoes/H1-O3_GATES_1238166018-31197600.txt", "L1" = "/home/ethan.marx/public_html/forks/BBHNet/projects/sandbox/vizapp/vizapp/vetoes/L1-O3_GATES_1238166018-31197600.txt"}
-veto_definer_file = "/home/ethan.marx/public_html/forks/BBHNet/projects/sandbox/vizapp/vizapp/vetoes/H1L1-HOFT_C01_O3_CBC.xml"
+gate_paths = {"H1" = "./vizapp/vizapp/vetoes/H1-O3_GATES_1238166018-31197600.txt", "L1" = "./vizapp/vizapp/vetoes/L1-O3_GATES_1238166018-31197600.txt"}
+veto_definer_file = "./vizapp/vizapp/vetoes/H1L1-HOFT_C01_O3_CBC.xml"
