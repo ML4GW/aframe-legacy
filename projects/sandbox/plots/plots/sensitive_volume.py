@@ -8,15 +8,15 @@ from bokeh.io import save
 from bokeh.layouts import gridplot
 from plots import compute, utils
 from plots.gwtc3 import catalog_results
+from plots.vetoes import VetoParser
 from typeo import scriptify
 
-from aframe.analysis.ledger.events import (
-    RecoveredInjectionSet,
-    TimeSlideEventSet,
-)
+from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
 from aframe.analysis.ledger.injections import InjectionParameterSet
 from aframe.logging import configure_logging
 from aframe.priors.priors import end_o3_ratesandpops, log_normal_masses
+
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def get_prob(prior, ledger):
@@ -29,6 +29,8 @@ def main(
     background_file: Path,
     foreground_file: Path,
     rejected_params: Path,
+    veto_definer_file: Path,
+    gate_paths: dict[str, Path],
     output_fname: Path,
     log_file: Optional[Path] = None,
     max_far: float = 1000,
@@ -38,7 +40,7 @@ def main(
     configure_logging(log_file, verbose)
 
     logging.info("Reading in inference outputs")
-    background = TimeSlideEventSet.read(background_file)
+    background = EventSet.read(background_file)
     foreground = RecoveredInjectionSet.read(foreground_file)
     rejected_params = InjectionParameterSet.read(rejected_params)
 
@@ -51,6 +53,31 @@ def main(
     logging.info(f"\t{len(background)} background events")
     logging.info(f"\t{len(foreground)} foreground events")
     logging.info(f"\t{len(rejected_params)} rejected events")
+
+    start, stop = background.time.min(), background.time.max()
+    logging.info(f"Loading in vetoes from {start} to {stop}")
+
+    ifos = ["H1", "L1"]
+    veto_parser = VetoParser(
+        veto_definer_file,
+        gate_paths,
+        start,
+        stop,
+        ifos,
+    )
+    categories = ["CAT1", "CAT2", "CAT3", "GATES"]
+    for cat in categories:
+        vetos = veto_parser.get_vetoes(cat)
+        for i, ifo in enumerate(ifos):
+            count = len(background)
+            if len(vetos[ifo]) > 0:
+                background = background.apply_vetos(vetos[ifo], i)
+            logging.info(
+                f"\t{count - len(background)} {cat}"
+                f"events removed for ifo {ifo}"
+            )
+
+    # TODO: Should probably also remove injections in vetoe segments
 
     logging.info("Computing data likelihood under source prior")
     source, _ = end_o3_ratesandpops(cosmology)
@@ -81,7 +108,6 @@ def main(
     for i, combo in enumerate(mass_combos):
         logging.info(f"Computing likelihoods under {combo} log normal")
         prior, _ = log_normal_masses(*combo, sigma=sigma, cosmology=cosmology)
-
         prob = get_prob(prior, foreground)
         rejected_prob = get_prob(prior, rejected_params)
 
