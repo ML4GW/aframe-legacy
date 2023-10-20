@@ -93,11 +93,11 @@ def main(
                 background = background.apply_vetos(vetos[ifo], i)
                 foreground = foreground.apply_vetos(vetos[ifo], i)
             logging.info(
-                f"\t{back_count - len(background)} {cat}"
+                f"\t{back_count - len(background)} {cat} "
                 f"background events removed for ifo {ifo}"
             )
             logging.info(
-                f"\t{fore_count - len(foreground)} {cat}"
+                f"\t{fore_count - len(foreground)} {cat} "
                 f"foreground events removed for ifo {ifo}"
             )
 
