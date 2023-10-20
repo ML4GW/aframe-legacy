@@ -24,13 +24,31 @@ def get_prob(prior, ledger):
     return prior.prob(sample, axis=0)
 
 
+def normalize_path(path):
+    path = Path(path)
+    if not path.is_absolute():
+        return Path(__file__).resolve().parent / path
+    return path
+
+
+VETO_DEFINER_FILE = normalize_path(
+    "../../vizapp/vizapp/vetoes/H1L1-HOFT_C01_O3_CBC.xml"
+)
+GATE_PATHS = {
+    "H1": normalize_path(
+        "../../vizapp/vizapp/vetoes/H1-O3_GATES_1238166018-31197600.txt"
+    ),
+    "L1": normalize_path(
+        "../../vizapp/vizapp/vetoes/L1-O3_GATES_1238166018-31197600.txt"
+    ),
+}
+
+
 @scriptify
 def main(
     background_file: Path,
     foreground_file: Path,
     rejected_params: Path,
-    veto_definer_file: Path,
-    gate_paths: dict[str, Path],
     output_fname: Path,
     log_file: Optional[Path] = None,
     max_far: float = 1000,
@@ -59,8 +77,8 @@ def main(
 
     ifos = ["H1", "L1"]
     veto_parser = VetoParser(
-        veto_definer_file,
-        gate_paths,
+        VETO_DEFINER_FILE,
+        GATE_PATHS,
         start,
         stop,
         ifos,
@@ -69,12 +87,18 @@ def main(
     for cat in categories:
         vetos = veto_parser.get_vetoes(cat)
         for i, ifo in enumerate(ifos):
-            count = len(background)
+            back_count = len(background)
+            fore_count = len(foreground)
             if len(vetos[ifo]) > 0:
                 background = background.apply_vetos(vetos[ifo], i)
+                foreground = foreground.apply_vetos(vetos[ifo], i)
             logging.info(
-                f"\t{count - len(background)} {cat}"
-                f"events removed for ifo {ifo}"
+                f"\t{back_count - len(background)} {cat}"
+                f"background events removed for ifo {ifo}"
+            )
+            logging.info(
+                f"\t{fore_count - len(foreground)} {cat}"
+                f"foreground events removed for ifo {ifo}"
             )
 
     # TODO: Should probably also remove injections in vetoe segments
