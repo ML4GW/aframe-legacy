@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "results"
+version = "0.1.0"
+description = "Analyze results from sv over time analysis"
+authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
+license = "MIT"
+#readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.11"
+plots = {path = "../../sandbox/plots", develop = true}
+"aframe.deploy" = {path = "../../../libs/deploy", develop = true}
+bokeh = "^3.3.0"
+
+[tool.poetry.scripts]
+sv-over-time = "results.main:main" 
+deploy-sv-over-time = "results.main:deploy"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

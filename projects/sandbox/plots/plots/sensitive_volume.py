@@ -56,6 +56,7 @@ def main(
     sigma: float = 0.1,
     verbose: bool = False,
 ):
+    output_dir.mkdir(exist_ok=True, parents=True)
     configure_logging(log_file, verbose)
 
     logging.info("Reading in inference outputs")

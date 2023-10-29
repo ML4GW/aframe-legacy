@@ -158,3 +158,8 @@ chunk_size = 4096
 sequence_id = 1001
 
 verbose = true
+
+[tool.typeo.scripts.deploy-sv-over-time]
+basedir = "${base.basedir}"
+accounting_group_user = "${LIGO_USERNAME}"
+accounting_group = "${LIGO_GROUP}"
