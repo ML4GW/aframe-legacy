@@ -107,6 +107,7 @@ def main(
     seed: Optional[int] = None,
 ):
 
+    basedir.mkdir(exist_ok=True, parents=True)
     configure_logging(basedir / "datagen.log", verbose=verbose)
     # TODO: ensure not in between O3a and O3b
     intervals = np.array(intervals)

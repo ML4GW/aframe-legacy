@@ -1,8 +1,8 @@
 [tool.pinto]
 steps = [
-    "data_gen:launch-datagen",
-    "training:launch-training",
-    "exporting:launch-export:resnet",
+    #"data_gen:launch-datagen",
+    #"training:launch-training",
+    #"exporting:launch-export:resnet",
     "inference:launch-inference",
 ]
 
@@ -137,7 +137,7 @@ commands.resnet = "${base.resnet}"
 
 [tool.typeo.scripts.launch-inference]
 basedir = "${base.basedir}"
-original_model_repo_dir = "/home/ethan.marx/aframe/paper/best_o3_model/iteration_1/model_repo/"
+original_model_repo_dir = "/home/ethan.marx/aframe/methods-paper-main-run/model_repo" 
 image = "hermes/tritonserver:22.12"
 model_name = "aframe-stream"
 

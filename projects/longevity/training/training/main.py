@@ -81,8 +81,6 @@ def main(basedir: Path, gpus: List[int], seed: int):
     futures = []
     with ThreadPoolExecutor(len(gpus)) as ex:
         for gpu, interval in zip(gpus, intervals):
-            if interval.name == "08-03-2019_08-10-2019":
-                continue
             logging.info(f"Training for interval {interval} on GPU {gpu}")
             future = ex.submit(launch_train, interval, gpu, seed)
             futures.append(future)

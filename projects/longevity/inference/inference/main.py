@@ -37,9 +37,9 @@ def main(
     intervals = [
         x
         for x in basedir.iterdir()
-        if x.is_dir() and not x.name.startswith(".")
+        if x.is_dir() and not x.name.startswith(".") and x.name != "condor"
     ]
-
+    logging.info(intervals)
     for interval in intervals:
         datadir = interval / "data"
         injection_set_file = datadir / "test" / "waveforms.h5"
