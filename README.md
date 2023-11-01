@@ -28,26 +28,33 @@ with `albert.einstein` replaced with your LIGO username. Move this keytab file t
 mkdir ~/.kerberos
 mv ligo.org.keytab ~/.kerberos
 ```
-and, set the `KRB5_KTNAME` environment variable to the keytab location in
-your `~/.bash_profile` so that is set every time you login:
 
-```console
-echo export KRB5_KTNAME=~/.kerberos/ligo.org.keytab >> ~/.bash_profile
-```
-
-You'll also want to create directories for storing X509 credentials, input data, and aframe outputs.
+Then, create directories for storing X509 credentials, input data, and aframe outputs.
 
 ```console
 mkdir -p ~/cilogon_cert ~/aframe/data ~/aframe/results
 ```
 
-and add the following environment variables to your `~/.bash_profile` that will be used 
-for submitting jobs to condor:
+You'll also want to set the `KRB5_KTNAME` and `X509_USER_PROXY` environment variables (for data authenticaion) 
+and the `LIGO_USER` and `LIGO_GROUP` environment variables (for submitting jobs to condor) in 
+your `~/.bash_profile` so that they are set every time you login:
 
 ```console
-echo export LIGO_USER=$USER
-echo export LIGO_USER=ligo.dev.o4.cbc.explore.test
+echo export KRB5_KTNAME=~/.kerberos/ligo.org.keytab >> ~/.bash_profile
+echo export X509_USER_PROXY=~/cilogon_cert/CERT_KEY.pem >> ~/.bash_profile
+echo export LIGO_USER=$USER >> ~/.bash_profile
+echo export LIGO_USER=ligo.dev.o4.cbc.explore.test >> ~/.bash_profile
 ```
+
+Finally, running
+
+```
+ligo-proxy-init --kerberos $KRB5_KTNAME
+```
+
+should generate your X509 credentials which will be automatically stored at the location 
+of the `X509_USER_PROXY` environment variable set above. If you ever find issues discovering data due to 
+authentication problems, it is likely you will need to re run the above `ligo-proxy-init` command to renew your credentials
 
 ### 2. Install `pinto`
 aframe leverages both Conda and Poetry to manage the environments of its projects. For this reason, end-to-end execution of the aframe pipeline relies on the [`pinto`](https://ml4gw.gitub.io) command line utility. Please see the [Conda-based installation instructions](https://ml4gw.github.io/pinto/#conda) for `pinto` in its documentation and continue once you have it installed. You can confirm your installation by running
