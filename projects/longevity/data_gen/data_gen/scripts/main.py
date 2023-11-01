@@ -6,6 +6,7 @@ from typing import Callable, List, Optional
 
 import numpy as np
 from datagen.scripts.background import deploy as deploy_background
+from datagen.scripts.glitches import main as generate_glitches
 from datagen.scripts.timeslide_waveforms import deploy as deploy_timeslides
 from datagen.scripts.waveforms import main as generate_waveforms
 from lal import gpstime
@@ -121,13 +122,19 @@ def main(
     background_futures = []
     with pool as executor:
         for cadence in intervals:
+
+            # get train and test intervals from cadence
             start, stop = test_stop + cadence, test_stop + cadence + duration
+            train_start = start - ONE_WEEK
+            train_stop = start
+
             out = make_outdir(basedir, start, stop)
             datadir = out / "data"
+
             logging.info(f"Deploying background generation for {out}")
             args = [
-                start - ONE_WEEK,  # re-train using one week
-                start,
+                train_start,  # re-train using one week
+                train_stop,
                 stop,
                 min_segment_length,
                 min_segment_length,
@@ -145,6 +152,38 @@ def main(
             ]
             future = executor.submit(deploy_background_wrapper, *args)
             background_futures.append(future)
+
+            # deploy glitch generation jobs that will
+            # be used for investigating glitch rates of intervals
+            logging.info(f"Deploying glitch generation for {out}")
+            args = [
+                5,  # snr thresh
+                train_start,
+                train_stop,
+                stop,
+                3.3166,  # qmin
+                108,  # qmax
+                highpass,
+                0.5,
+                124,  # segment duration
+                64,  # chunk duration
+                4,  # overlap
+                0.2,  # mismatch max
+                2,  # window
+                datadir,
+                datadir / "log",
+                "DCS-CALIB_STRAIN_CLEAN_SUB60HZ_C01",  # same as open data
+                "HOFT_CLEAN_SUB60HZ_C01",  # frame type for above channel
+                sample_rate,
+                # omicron doesn't support open data
+                "DCS-ANALYSIS_READY_C01:1",
+                ifos,
+                4096,
+                True,
+                False,
+                True,
+            ]
+            future = executor.submit(generate_glitches, *args)
 
         # next, launch timeslide waveform generation jobs
         # that will be used to test original and retrained models

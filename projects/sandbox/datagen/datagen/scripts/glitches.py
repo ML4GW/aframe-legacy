@@ -195,6 +195,9 @@ def omicron_main_wrapper(
         str(run_dir),
         "--skip-gzip",
         "--skip-rm",
+        # see https://git.ligo.org/computing/helpdesk/-/issues/4512
+        # wait for https://github.com/gwpy/pyomicron/pull/164
+        "-d" "include_env=X509_USER_PROXY,PATH",
     ]
     if verbose:
         omicron_args += ["--verbose"]

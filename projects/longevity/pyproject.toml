@@ -1,9 +1,9 @@
 [tool.pinto]
 steps = [
-    #"data_gen:launch-datagen",
+    "data_gen:launch-datagen",
     #"training:launch-training",
     #"exporting:launch-export:resnet",
-    "inference:launch-inference",
+    #"inference:launch-inference",
 ]
 
 
@@ -34,6 +34,7 @@ channel = "OPEN"
 sample_rate = "${base.sample_rate}"
 ifos = "${base.ifos}"
 state_flag = "DATA"
+
 min_segment_length = 1024
 max_segment_length = 20000
 duration = 604800 # one week of data
@@ -126,7 +127,7 @@ psd_length = "${base.inference_psd_length}"
 
 # repo/triton parameters
 aframe_instances = 6
-streams_per_gpu = 3 
+streams_per_gpu = 3
 platform = "tensorrt_plan"
 verbose = false
 clean = true

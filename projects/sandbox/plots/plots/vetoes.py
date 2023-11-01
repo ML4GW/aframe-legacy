@@ -6,6 +6,8 @@ import numpy as np
 from gwosc import datasets
 from gwpy.segments import DataQualityDict
 
+# TODO: gating should really be applied directly to the strain
+
 CATEGORIES = ["CAT1", "CAT2", "CAT3", "GATES"]
 
 
