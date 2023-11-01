@@ -56,6 +56,7 @@ should generate your X509 credentials which will be automatically stored at the 
 of the `X509_USER_PROXY` environment variable set above. If you ever find issues discovering data due to 
 authentication problems, it is likely you will need to re run the above `ligo-proxy-init` command to renew your credentials.
 
+
 ### 2. Install `pinto`
 aframe leverages both Conda and Poetry to manage the environments of its projects. For this reason, end-to-end execution of the aframe pipeline relies on the [`pinto`](https://ml4gw.gitub.io) command line utility. Please see the [Conda-based installation instructions](https://ml4gw.github.io/pinto/#conda) for `pinto` in its documentation and continue once you have it installed. You can confirm your installation by running
 
