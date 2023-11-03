@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-from datagen.scripts.glitches import generate_glitch_dataset
+from datagen.scripts.glitches import query_glitches
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
 
 
@@ -49,7 +49,8 @@ def test_generate_glitch_dataset(
     start = 1263588390
     stop = 1263592390
 
-    glitch_len = 2 * window * sample_rate
+    pad = (1, 1)
+    glitch_len = 2 * sample_rate
 
     # create mock gwpy timeseries, gwdatafind
     times = np.arange(start, stop, 1 / sample_rate)
@@ -59,16 +60,10 @@ def test_generate_glitch_dataset(
     mock_ts = patch("gwpy.timeseries.TimeSeriesDict.get", return_value=ts)
 
     with mock_ts:
-        glitches, snrs, gpstimes = generate_glitch_dataset(
-            snr_thresh,
-            start,
-            stop,
-            window,
-            sample_rate,
-            f"{ifo}:{channel}",
-            trigger_files,
+        glitches, snrs, gpstimes = query_glitches(
+            trigger_files[0], pad, snr_thresh, sample_rate, f"{ifo}:{channel}"
         )
-
+    glitches = np.stack(glitches)
     assert glitches.shape[-1] == glitch_len
     assert len(glitches) == len(snrs) == len(gpstimes)
     gpstimes = np.array(gpstimes)

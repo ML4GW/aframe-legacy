@@ -11,12 +11,12 @@ from typing import List, Optional, Tuple
 
 import h5py
 import numpy as np
-from gwpy.timeseries import TimeSeries
 from omicron.cli.process import main as omicron_main
 from typeo import scriptify
 
 from aframe.deploy import condor
 from aframe.logging import configure_logging
+from mldatafind.io import fetch_timeseries
 
 # re for omicron trigger files
 re_trigger_fname = re.compile(
@@ -50,10 +50,25 @@ def handle_future(future):
     return x
 
 
-@scriptify
-def collect_glitches(
+def fetch(channel: str, start: float, stop: float):
+    try:
+        data = fetch_timeseries([channel], start, stop)
+    except ValueError as e:
+        # only catch ValueError if it's due to above issue
+        # otherwise raise the error as normal and have
+        # condor retry mechanism resolve it
+        msg = str(e)
+        logging.info(msg)
+        if msg.startswith("["):
+            logging.warning(f"Skipping segment due to ValueError: {e}")
+            return
+        else:
+            raise e
+    return data[channel]
+
+
+def query_glitches(
     trigger_path: Path,
-    outfile: Path,
     pad: Tuple[float, float],
     snr_thresh: float,
     sample_rate: float,
@@ -104,11 +119,7 @@ def collect_glitches(
         f" over {stop - start} seconds of data "
     )
 
-    data = TimeSeries.get(
-        channel,
-        start=start,
-        end=stop,
-    )
+    data = fetch(channel, start, stop)
     data = data.resample(sample_rate)
 
     # reset start / stop based on what was actually found
@@ -136,12 +147,28 @@ def collect_glitches(
             snrs.append(trigger["snr"])
             gpstimes.append(time)
 
+    return glitches, snrs, gpstimes
+
+
+@scriptify
+def collect_glitches(
+    trigger_path: Path,
+    outfile: Path,
+    pad: Tuple[float, float],
+    snr_thresh: float,
+    sample_rate: float,
+    channel: str,
+):
+    glitches, snrs, times = query_glitches(
+        trigger_path, pad, snr_thresh, sample_rate, channel
+    )
+
     if glitches:
         glitches = np.stack(glitches)
         with h5py.File(outfile, "w") as f:
             f.create_dataset("glitches", data=glitches)
             f.create_dataset("snrs", data=snrs)
-            f.create_dataset("times", data=gpstimes)
+            f.create_dataset("times", data=times)
 
     return outfile
 
@@ -227,6 +254,7 @@ def deploy_collect_glitches(
         request_memory=f"ifthenelse(isUndefined(MemoryUsage), {request_memory}, int(3*MemoryUsage))",  # noqa
         periodic_release="(HoldReasonCode =?= 26 || HoldReasonCode =?= 34) && (JobStatus == 5)",  # noqa
         periodic_remove="(JobStatus == 1) && MemoryUsage >= 7G",
+        max_retries=5,
     )
 
     dag_id = condor.submit(subfile)
