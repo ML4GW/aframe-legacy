@@ -4,121 +4,218 @@ Script that generates a dataset of glitches from omicron triggers.
 
 import configparser
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Iterable, List
+from typing import List, Optional, Tuple
 
 import h5py
 import numpy as np
+from gwpy.timeseries import TimeSeries
 from omicron.cli.process import main as omicron_main
 from typeo import scriptify
 
+from aframe.deploy import condor
 from aframe.logging import configure_logging
+
+# re for omicron trigger files
+re_trigger_fname = re.compile(
+    r"(?P<ifo>[A-Za-z]1)-(?P<name>.+)-(?P<t0>\d{10}\.*\d*)-(?P<length>\d+\.*\d*).h5$"  # noqa
+)
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-def generate_glitch_dataset(
+def intify(x: float):
+    return int(x) if int(x) == x else x
+
+
+@scriptify
+def collect_glitches(
+    trigger_path: Path,
+    outfile: Path,
+    pad: Tuple[float, float],
     snr_thresh: float,
-    start: float,
-    stop: float,
-    window: float,
     sample_rate: float,
     channel: str,
-    trigger_files: Iterable[Path],
-    chunk_size: float = 4096,
+    minimum_per_file: Path,
 ):
     """
-    Generate a list of omicron trigger times that satisfy snr threshold
+    Collect strain data for a list of glitches
 
     Args:
+        trigger_path:
+            Path to file produced by omicron that contains trigger information
+        outfile:
+            Path to file to store queried strain data
+        pad:
+            Tuple where the first element is amount of data, in seconds,
+            to query before trigger time, and second element is
+            amount of data to query after trigger time
         snr_thresh:
-            SNR threshold above which glitches will be kept
-        start:
-            GPS time at which to begin looking for glitches
-        stop:
-            GPS time at which to stop looking for glitches
-        window:
-            Amount of time in seconds on either side of a glitch
-            to query data for
+            snr threshold above which strain data should be queried
         sample_rate:
-            Sample rate of queried data, specified in Hz
+            rate at which to sample strain data
         channel:
-            Channel name used to read data. Should include the
-            interferometer prefix
-        trigger_files:
-            List of h5 files containing omicron triggers
-        chunk_size:
-            Length in seconds of data to query at one time
+            Channel of the form `{ifo}:{channel_name}`
+        minimum_per_file:
+            Minimum number of triggers for a file to be saved
 
-    Returns:
-        A list of glitch timeseries, a list of SNRs, and a list timestamps
+    Returns Path to outfile
+
     """
-    # importing here due to issues with ciecplib
-    # setting logging. See
-    # https://github.com/ML4GW/mldatafind/issues/30
-    # TODO: move back to top once this is fixed
-    from mldatafind import find_data
 
     glitches = []
     snrs = []
     gpstimes = []
 
-    for trig_file in trigger_files:
-        # load in triggers
-        with h5py.File(trig_file) as f:
-            # restrict triggers to within gps start and stop times
-            # and apply snr threshold
-            triggers = f["triggers"][:]
-            times = triggers["time"][()]
-            mask = (times > start) & (times < stop)
-            mask &= triggers["snr"][()] > snr_thresh
-            triggers = triggers[mask]
+    with h5py.File(trigger_path) as f:
+        # apply snr thresh
+        triggers = f["triggers"][:]
+        mask = triggers["snr"][:] > snr_thresh
+        triggers = triggers[mask]
 
-        # re-set 'start' and 'stop' so we aren't querying unnecessary data
-        file_start = np.min(triggers["time"]) - window
-        file_stop = np.max(triggers["time"]) + window
+    # this is to ensure that we have at least glitches_per_read
+    # triggers per file.
+    # TODO: merge files with low number of triggers
+    # into neighbors?
+    if len(triggers) < minimum_per_file or len(triggers) == 0:
+        return
 
-        logging.debug(
-            f"Querying {file_stop - file_start} seconds of data "
-            f"for {len(triggers)} triggers from {trig_file}"
-        )
+    # set 'start' and 'stop' so we aren't querying unnecessary data
+    start = np.min(triggers["time"]) - pad[0]
+    stop = np.max(triggers["time"]) + pad[1]
 
-        # TODO: triggers on the edge of chunks will not have enough data.
-        # should only impact 2 * n_chunks triggers, so not a huge deal.
-        generator_list = find_data(
-            [(file_start, file_stop)],
-            [channel],
-            chunk_size=chunk_size,
-        )
-        data_generator = next(generator_list)
+    logging.info(
+        f"Querying {len(triggers)} triggers from {trigger_path}"
+        f" over {stop - start} seconds of data "
+    )
 
-        for data in data_generator:
-            # restrict to triggers within current data chunk
-            data = data.resample(sample_rate)
-            data = data[channel]
-            times = data.times.value
-            mask = (triggers["time"] > times[0] + window) & (
-                triggers["time"] < times[-1] - window
-            )
-            chunk_triggers = triggers[mask]
-            # query data for each trigger
-            for trigger in chunk_triggers:
-                time = trigger["time"]
-                try:
-                    glitch_ts = data.crop(time - window, time + window)
-                except ValueError:
-                    logging.warning(
-                        f"Data not available for trigger at time: {time}"
-                    )
-                    continue
-                else:
-                    glitches.append(list(glitch_ts.value))
-                    snrs.append(trigger["snr"])
-                    gpstimes.append(time)
+    data = TimeSeries.get(
+        channel,
+        start=start,
+        end=stop,
+    )
+    data = data.resample(sample_rate)
+    # query data for each trigger
+    for trigger in triggers:
+        time = trigger["time"]
+        try:
+            glitch_ts = data.crop(time - pad[0], time + pad[1])
+        except ValueError:
+            logging.warning(f"Data not available for trigger at time: {time}")
+            continue
+        else:
+            glitches.append(list(glitch_ts.value))
+            snrs.append(trigger["snr"])
+            gpstimes.append(time)
 
-    glitches = np.stack(glitches)
-    return glitches, snrs, gpstimes
+    if glitches:
+        glitches = np.stack(glitches)
+        with h5py.File(outfile, "w") as f:
+            f.create_dataset("glitches", data=glitches)
+            f.create_dataset("snrs", data=snrs)
+            f.create_dataset("times", data=gpstimes)
+
+    return outfile
+
+
+def deploy_collect_glitches(
+    trigger_paths: List[Path],
+    pad: Tuple[float, float],
+    snr_thresh: float,
+    sample_rate: float,
+    channel: str,
+    ifo: str,
+    outdir: Path,
+    condordir: Path,
+    accounting_group: str,
+    accounting_group_user: str,
+    minimum_per_file: int,
+    request_memory: float = 32678,
+):
+    """
+    Deploys a fleet of condor jobs to collect strain data
+    from multiple trigger files in parallel
+    Args:
+        trigger_paths:
+            List of trigger files. A condor job will be launched for each
+            trigger file
+        pad:
+            Tuple where the first element is amount of data, in seconds,
+            to query before trigger time, and second element
+            is amount of data to query after trigger time
+        snr_thresh:
+            snr threshold above which strain data should be queried
+        sample_rate:
+            rate at which to sample strain data
+        channel:
+            Channel of the form `{channel_name}`
+        ifo:
+            IFO to query data for
+        outdir:
+            Directory where glitch strain data files will be stored
+        condordir:
+            Location where condor related files will be stored
+        minimum_per_file:
+            Minimum number of triggers for a file to be saved
+        accounting_group:
+            Accounting group for the condor jobs
+        accounting_group_user:
+            Username of the person running the condor jobs
+        minimum_per_file:
+            Minimum number of glitches required to save a segment to disk.
+        request_memory:
+            Amount of initial memory to request for each condor job
+    """
+    condordir = condordir / ifo
+    condordir.mkdir(exist_ok=True, parents=True)
+    # create text file from which the condor job will read
+    # the trigger_path, and outfile for each job
+    parameters = "trigger_path,outfile\n"
+
+    for f in trigger_paths:
+        match = re_trigger_fname.search(f.name)
+        if match is not None:
+            t0, length = float(match.group("t0")), float(match.group("length"))
+            t0, length = intify(t0), intify(length)
+            logging.info(f"Generating glitch dataset for {ifo} and file {f}")
+            out = outdir / f"{ifo}-glitches-{t0}-{length}.hdf5"
+            if out.exists():
+                logging.info(f"Found existing glitch file {out}. Skipping")
+                continue
+            parameters += f"{f},{out}\n"
+        else:
+            logging.warning(f"Could not parse trigger file name {f.name}")
+            continue
+
+    arguments = "--trigger-path $(trigger_path) --outfile $(outfile) "
+    arguments += f"--pad {pad[0]} {pad[1]} --snr-thresh {snr_thresh} "
+    arguments += f"--channel {channel} --sample-rate {sample_rate} "
+    arguments += f"--minimum-per-file {minimum_per_file}"
+
+    subfile = condor.make_submit_file(
+        executable="collect-glitches",
+        name="collect_glitches",
+        parameters=parameters,
+        arguments=arguments,
+        submit_dir=condordir,
+        accounting_group=accounting_group,
+        accounting_group_user=accounting_group_user,
+        clear=True,
+        request_memory=f"ifthenelse(isUndefined(MemoryUsage), {request_memory}, int(3*MemoryUsage))",  # noqa
+        periodic_release="(HoldReasonCode =?= 26 || HoldReasonCode =?= 34) && (JobStatus == 5)",  # noqa
+        periodic_remove="(JobStatus == 1) && MemoryUsage >= 7G",
+    )
+
+    dag_id = condor.submit(subfile)
+    logging.info(
+        f"Launching collection of glitches for {ifo} with dag id {dag_id}"
+    )
+    condor.watch(dag_id, condordir, held=False)
+    logging.info(f"Completed collection of glitches for {ifo} ")
+
+    return outdir
 
 
 def omicron_main_wrapper(
@@ -220,7 +317,6 @@ def main(
     segment_duration: int,
     overlap: int,
     mismatch_max: float,
-    window: float,
     datadir: Path,
     logdir: Path,
     channel: str,
@@ -228,7 +324,13 @@ def main(
     sample_rate: float,
     state_flag: str,
     ifos: List[str],
-    chunk_size: float = 4096,
+    fduration: float,
+    psd_length: float,
+    kernel_length: float,
+    accounting_group: str,
+    accounting_group_user: str,
+    minimum_per_file: int = 0,
+    pad: Optional[Tuple[float, float]] = None,
     analyze_testing_set: bool = False,
     force_generation: bool = False,
     verbose: bool = False,
@@ -238,16 +340,16 @@ def main(
     Generate a set of glitches for both
     H1 and L1 that can be added to background.
 
-    First, an omicron job is launched via pyomicron
+    First, omicron jobs are launched via pyomicron
     (https://github.com/gwpy/pyomicron/). Next, triggers (i.e. glitches)
-    above a given SNR threshold are selected, and data is queried
-    for these triggers and saved in an h5 file. This file contains
-    a group for each interferometer in `ifos`. Within each group,
-    the `times` dataset contains the GPS time of each glitch, the
-    `snrs` dataset contains the SNR of each glitch, and the
-    `glitches` dataset contains a timeseries of the strain data
-    of length `2 * window * sample_rate`, with the time of the glitch
-    centered within it.
+    above a given SNR threshold are selected from the omicron output,
+    and data is queried for these triggers and saved in hdf5 files.
+
+    These files contains a group for each interferometer in `ifos`.
+    Within each group, the `times` dataset contains the GPS time
+    of each glitch, the `snrs` dataset contains the SNR of each glitch,
+    and the `glitches` dataset contains the actual strain data
+
 
     Args:
         snr_thresh:
@@ -277,9 +379,6 @@ def main(
             Overlap in seconds between neighbouring segments and chunks
         mismatch_max:
             Maximum distance between (Q, f) tiles
-        window:
-            Amount of time in seconds on either side of a glitch to
-            query data for
         datadir:
             Directory to which the glitch dataset will be written
         logdir:
@@ -298,8 +397,26 @@ def main(
         ifos:
             List of interferometers to query data from. Expected to be given
             by prefix; e.g. "H1" for Hanford
-        chunk_size:
-            Length in seconds of data to query at one time
+        fduration:
+            Duration of the time domain filter used
+            to whiten the data as a preprocessing step.
+            Used here to determine quantity of data around glitch
+            to query
+        psd_length:
+            The length, in seconds, of data used to whiten during
+            training. Used here to determine quantity of data around glitch
+            to query
+        kernel_length:
+            The length, in seconds, of each window of data
+            (after cropping from whitening) that the
+            neural network will analyze. Used here to determine
+            quantity of data around glitch to query
+        accounting_group:
+            Accounting group for the condor jobs
+        accounting_group_user:
+            Username of the person running the condor jobs
+        minimum_per_file:
+            Minimum number of glitches required to save a segment to disk.
         analyze_testing_set:
             If True, get glitches for the testing dataset
         force_generation:
@@ -330,15 +447,25 @@ def main(
     # nyquist
     f_max = sample_rate / 2
 
-    glitches = {}
-    snrs = {}
-    times = {}
-    train_futures = []
-
-    run_dir = datadir / "omicron"
-    train_run_dir = run_dir / "training"
-    test_run_dir = run_dir / "testing"
+    run_dir = datadir / "condor" / "omicron"
+    train_run_dir = run_dir / "train"
+    test_run_dir = run_dir / "test"
     omicron_log_file = run_dir / "pyomicron.log"
+
+    # seconds before and after trigger time such that we
+    # we have exactly enough data to calculate psd for whitening, and sample
+    # the trigger time at the first or last sample of the kernel
+    if pad is None:
+        pad = (
+            psd_length + kernel_length + (fduration / 2),
+            kernel_length + (fduration / 2),
+        )
+
+    # spin up pool to parallelize launching
+    # of (condor based) pyomicron jobs for
+    # both testing and training segments
+    pool = ThreadPoolExecutor(4)
+    omicron_futures = []
 
     for ifo in ifos:
         train_ifo_dir = train_run_dir / ifo
@@ -348,7 +475,6 @@ def main(
         # launch pyomicron futures for training set and testing sets.
         # as train futures complete, launch glitch generation processes.
         # let test set jobs run in background as glitch data is queried
-        pool = ThreadPoolExecutor(4)
         args = [
             q_min,
             q_max,
@@ -369,43 +495,48 @@ def main(
             verbose,
         ]
 
-        train_future = pool.submit(
+        future = pool.submit(
             omicron_main_wrapper, start, stop, train_ifo_dir, *args
         )
-        train_futures.append(train_future)
+        omicron_futures.append(future)
 
+        # might be interested in glitch times for testing set
         if analyze_testing_set:
             test_ifo_dir.mkdir(exist_ok=True, parents=True)
             pool.submit(
                 omicron_main_wrapper, stop, test_stop, test_ifo_dir, *args
             )
 
-    for future in as_completed(train_futures):
+    # as omicron futures complete, deploy glitch collection
+    # condor jobs that will query the actual strain data.
+    collect_futures = []
+    for future in as_completed(omicron_futures):
         ifo = future.result()
+        outdir = datadir / "train" / "glitches" / ifo
+        condordir = datadir / "condor" / "glitches"
         trigger_dir = train_run_dir / ifo / "merge" / f"{ifo}:{channel}"
-        trigger_files = sorted(list(trigger_dir.glob("*.h5")))
+        trigger_paths = sorted(list(trigger_dir.glob("*.h5")))
 
-        logging.info(f"Generating glitch dataset for {ifo}")
-        glitches[ifo], snrs[ifo], times[ifo] = generate_glitch_dataset(
+        args = [
+            trigger_paths,
+            pad,
             snr_thresh,
-            start,
-            stop,
-            window,
             sample_rate,
             f"{ifo}:{channel}",
-            trigger_files,
-            chunk_size,
-        )
+            ifo,
+            outdir,
+            condordir,
+            accounting_group,
+            accounting_group_user,
+            minimum_per_file,
+        ]
+        future = pool.submit(deploy_collect_glitches, *args)
+        collect_futures.append(future)
 
-    # store glitches from training set
-    with h5py.File(glitch_file, "w") as f:
-        for ifo in ifos:
-            g = f.create_group(f"{ifo}")
-            g.create_dataset("glitches", data=glitches[ifo])
-            g.create_dataset("snrs", data=snrs[ifo])
-            g.create_dataset("times", data=times[ifo])
+    for future in as_completed(collect_futures):
+        continue
 
-    return glitch_file
+    return datadir
 
 
 if __name__ == "__main__":
