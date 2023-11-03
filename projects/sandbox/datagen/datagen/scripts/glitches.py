@@ -132,7 +132,6 @@ def collect_glitches(
             logging.warning(f"Data not available for trigger at time: {time}")
             continue
         else:
-            print(len(glitch_ts.value))
             glitches.append(list(glitch_ts.value))
             snrs.append(trigger["snr"])
             gpstimes.append(time)
@@ -158,7 +157,7 @@ def deploy_collect_glitches(
     condordir: Path,
     accounting_group: str,
     accounting_group_user: str,
-    request_memory: float = 32678,
+    request_memory: float = 32768,
 ):
     """
     Deploys a fleet of condor jobs to collect strain data
