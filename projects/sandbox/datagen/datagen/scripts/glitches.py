@@ -25,11 +25,6 @@ re_trigger_fname = re.compile(
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-# AFAIK pyomicron has no mechanism for querying
-# open data. So, if user specifies use of open data,
-# manually choose correct frame type, state flag, and
-# channel
-
 
 def get_state_flag(state_flag: str):
     if state_flag == "DATA":
