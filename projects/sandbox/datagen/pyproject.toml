@@ -16,7 +16,7 @@ deploy-background = "datagen.scripts.background:deploy"
 
 # glitches
 generate-glitches = "datagen.scripts.glitches:main"
-collect-glitches = "datagen.scripts.glitches.collect_glitches"
+collect-glitches = "datagen.scripts.glitches:collect_glitches"
 
 # timeslide waveforms
 generate-waveforms = "datagen.scripts.waveforms:main"

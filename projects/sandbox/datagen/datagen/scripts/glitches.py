@@ -25,9 +25,34 @@ re_trigger_fname = re.compile(
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+# AFAIK pyomicron has no mechanism for querying
+# open data. So, if user specifies use of open data,
+# manually choose correct frame type, state flag, and
+# channel
+
+
+def get_state_flag(state_flag: str):
+    if state_flag == "DATA":
+        return "DCS-ANALYSIS_READY_C01:1"
+    return state_flag
+
+
+def get_channel(channel: str):
+    if channel == "OPEN":
+        return "DCS-CALIB_STRAIN_CLEAN_SUB60HZ_C01"
+    return channel
+
 
 def intify(x: float):
     return int(x) if int(x) == x else x
+
+
+def handle_future(future):
+    try:
+        x = future.result()
+    except Exception as e:
+        raise e
+    return x
 
 
 @scriptify
@@ -38,7 +63,6 @@ def collect_glitches(
     snr_thresh: float,
     sample_rate: float,
     channel: str,
-    minimum_per_file: Path,
 ):
     """
     Collect strain data for a list of glitches
@@ -58,8 +82,6 @@ def collect_glitches(
             rate at which to sample strain data
         channel:
             Channel of the form `{ifo}:{channel_name}`
-        minimum_per_file:
-            Minimum number of triggers for a file to be saved
 
     Returns Path to outfile
 
@@ -75,16 +97,12 @@ def collect_glitches(
         mask = triggers["snr"][:] > snr_thresh
         triggers = triggers[mask]
 
-    # this is to ensure that we have at least glitches_per_read
-    # triggers per file.
-    # TODO: merge files with low number of triggers
-    # into neighbors?
-    if len(triggers) < minimum_per_file or len(triggers) == 0:
+    if len(triggers) == 0:
         return
 
     # set 'start' and 'stop' so we aren't querying unnecessary data
-    start = np.min(triggers["time"]) - pad[0]
-    stop = np.max(triggers["time"]) + pad[1]
+    start = np.min(triggers["time"]) - pad[0] - 1
+    stop = np.max(triggers["time"]) + pad[1] - 1
 
     logging.info(
         f"Querying {len(triggers)} triggers from {trigger_path}"
@@ -97,15 +115,29 @@ def collect_glitches(
         end=stop,
     )
     data = data.resample(sample_rate)
+
+    # reset start / stop based on what was actually found
+    start, stop = data.times[0].value, data.times[-1].value
+
     # query data for each trigger
     for trigger in triggers:
         time = trigger["time"]
+        beg, end = time - pad[0], time + pad[1]
+
+        if end > stop or beg < start:
+            logging.warning(
+                f"Trigger at time {time} is too close to end of segment."
+                f" Skipping"
+            )
+            continue
+
         try:
-            glitch_ts = data.crop(time - pad[0], time + pad[1])
+            glitch_ts = data.crop(beg, end)
         except ValueError:
             logging.warning(f"Data not available for trigger at time: {time}")
             continue
         else:
+            print(len(glitch_ts.value))
             glitches.append(list(glitch_ts.value))
             snrs.append(trigger["snr"])
             gpstimes.append(time)
@@ -131,7 +163,6 @@ def deploy_collect_glitches(
     condordir: Path,
     accounting_group: str,
     accounting_group_user: str,
-    minimum_per_file: int,
     request_memory: float = 32678,
 ):
     """
@@ -157,19 +188,16 @@ def deploy_collect_glitches(
             Directory where glitch strain data files will be stored
         condordir:
             Location where condor related files will be stored
-        minimum_per_file:
-            Minimum number of triggers for a file to be saved
         accounting_group:
             Accounting group for the condor jobs
         accounting_group_user:
             Username of the person running the condor jobs
-        minimum_per_file:
-            Minimum number of glitches required to save a segment to disk.
         request_memory:
             Amount of initial memory to request for each condor job
     """
     condordir = condordir / ifo
     condordir.mkdir(exist_ok=True, parents=True)
+    outdir.mkdir(exist_ok=True, parents=True)
     # create text file from which the condor job will read
     # the trigger_path, and outfile for each job
     parameters = "trigger_path,outfile\n"
@@ -179,7 +207,7 @@ def deploy_collect_glitches(
         if match is not None:
             t0, length = float(match.group("t0")), float(match.group("length"))
             t0, length = intify(t0), intify(length)
-            logging.info(f"Generating glitch dataset for {ifo} and file {f}")
+            logging.debug(f"Generating glitch dataset for {ifo} and file {f}")
             out = outdir / f"{ifo}-glitches-{t0}-{length}.hdf5"
             if out.exists():
                 logging.info(f"Found existing glitch file {out}. Skipping")
@@ -192,7 +220,6 @@ def deploy_collect_glitches(
     arguments = "--trigger-path $(trigger_path) --outfile $(outfile) "
     arguments += f"--pad {pad[0]} {pad[1]} --snr-thresh {snr_thresh} "
     arguments += f"--channel {channel} --sample-rate {sample_rate} "
-    arguments += f"--minimum-per-file {minimum_per_file}"
 
     subfile = condor.make_submit_file(
         executable="collect-glitches",
@@ -292,6 +319,10 @@ def omicron_main_wrapper(
         str(run_dir),
         "--skip-gzip",
         "--skip-rm",
+        # see https://git.ligo.org/computing/helpdesk/-/issues/4512
+        # wait for https://github.com/gwpy/pyomicron/pull/164
+        "-d",
+        "include_env=X509_USER_PROXY,PATH",
     ]
     if verbose:
         omicron_args += ["--verbose"]
@@ -329,7 +360,6 @@ def main(
     kernel_length: float,
     accounting_group: str,
     accounting_group_user: str,
-    minimum_per_file: int = 0,
     pad: Optional[Tuple[float, float]] = None,
     analyze_testing_set: bool = False,
     force_generation: bool = False,
@@ -415,8 +445,6 @@ def main(
             Accounting group for the condor jobs
         accounting_group_user:
             Username of the person running the condor jobs
-        minimum_per_file:
-            Minimum number of glitches required to save a segment to disk.
         analyze_testing_set:
             If True, get glitches for the testing dataset
         force_generation:
@@ -434,15 +462,13 @@ def main(
     log_file = logdir / "glitches.log"
     configure_logging(log_file, verbose)
 
-    # output file
-    glitch_file = datadir / "glitches.h5"
+    # AFAIK pyomicron has no mechanism for querying
+    # open data. So, if user specifies use of open data,
+    # manually choose correct frame type, state flag, and channel
+    channel = get_channel(channel)
+    state_flag = get_state_flag(state_flag)
 
-    if glitch_file.exists() and not force_generation:
-        logging.info(
-            "Glitch data already exists and forced generation is off. "
-            "Not generating glitches"
-        )
-        return
+    # TODO: implement some sort of caching mechanism
 
     # nyquist
     f_max = sample_rate / 2
@@ -511,7 +537,7 @@ def main(
     # condor jobs that will query the actual strain data.
     collect_futures = []
     for future in as_completed(omicron_futures):
-        ifo = future.result()
+        ifo = handle_future(future)
         outdir = datadir / "train" / "glitches" / ifo
         condordir = datadir / "condor" / "glitches"
         trigger_dir = train_run_dir / ifo / "merge" / f"{ifo}:{channel}"
@@ -528,13 +554,13 @@ def main(
             condordir,
             accounting_group,
             accounting_group_user,
-            minimum_per_file,
         ]
         future = pool.submit(deploy_collect_glitches, *args)
         collect_futures.append(future)
 
     for future in as_completed(collect_futures):
-        continue
+        result = handle_future(future)
+        logging.info(f"Completed collection of glitches for {result} ")
 
     return datadir
 

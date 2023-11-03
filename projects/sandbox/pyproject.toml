@@ -1,14 +1,15 @@
 [tool.pinto]
 steps = [
-    "datagen:deploy-background",
-    "datagen:generate-waveforms",
-    "datagen:deploy-timeslide-waveforms",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "infer:deploy-infer",
-    "plots:sensitive-volume",
-    "plots:1D-param-hist",
-    "plots:2D-param-hist"
+    #"datagen:deploy-background",
+    "datagen:generate-glitches"
+    #"datagen:generate-waveforms",
+    #"datagen:deploy-timeslide-waveforms",
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"infer:deploy-infer",
+    #"plots:sensitive-volume",
+    #"plots:1D-param-hist",
+    #"plots:2D-param-hist"
 ]
 
 [tool.typeo.base]
@@ -28,7 +29,7 @@ train_stop = 1241443783  # 10 day train window
 test_stop = 1244035783 # 30 day test window
 
 channel = "OPEN"
-frame_type = "HOFT_C01"
+frame_type = "HOFT_CLEAN_SUB60HZ_C01" # corresponds to open data channel
 state_flag = "DATA" # open data segments
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
 repository_directory = "${BASE_DIR}/model_repo/" 
@@ -104,7 +105,7 @@ accounting_group = "${base.accounting_group}"
 accounting_group_user = "${base.accounting_group_user}"
 
 # misc
-analyze_testing_set = false
+analyze_testing_set = true
 verbose = true
 force_generation = "${base.force_generation}"
 
