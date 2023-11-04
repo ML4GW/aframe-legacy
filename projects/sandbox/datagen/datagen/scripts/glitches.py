@@ -4,55 +4,27 @@ Script that generates a dataset of glitches from omicron triggers.
 
 import configparser
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import datagen.utils.glitches as utils
 import h5py
 import numpy as np
+from gwpy.timeseries import TimeSeries
 from omicron.cli.process import main as omicron_main
 from typeo import scriptify
 
 from aframe.deploy import condor
 from aframe.logging import configure_logging
-from mldatafind.io import fetch_timeseries
-
-# re for omicron trigger files
-re_trigger_fname = re.compile(
-    r"(?P<ifo>[A-Za-z]1)-(?P<name>.+)-(?P<t0>\d{10}\.*\d*)-(?P<length>\d+\.*\d*).h5$"  # noqa
-)
 
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-def get_state_flag(state_flag: str):
-    if state_flag == "DATA":
-        return "DCS-ANALYSIS_READY_C01:1"
-    return state_flag
-
-
-def get_channel(channel: str):
-    if channel == "OPEN":
-        return "DCS-CALIB_STRAIN_CLEAN_SUB60HZ_C01"
-    return channel
-
-
-def intify(x: float):
-    return int(x) if int(x) == x else x
-
-
-def handle_future(future):
+def fetch(channel: str, start: float, stop: float, verbose: bool = True):
+    logging.debug(f"Fetching {channel} from {start} to {stop}")
     try:
-        x = future.result()
-    except Exception as e:
-        raise e
-    return x
-
-
-def fetch(channel: str, start: float, stop: float):
-    try:
-        data = fetch_timeseries([channel], start, stop)
+        data = TimeSeries.get(channel, start, stop, verbose=verbose)
     except ValueError as e:
         # only catch ValueError if it's due to above issue
         # otherwise raise the error as normal and have
@@ -64,7 +36,7 @@ def fetch(channel: str, start: float, stop: float):
             return
         else:
             raise e
-    return data[channel]
+    return data
 
 
 def query_glitches(
@@ -108,11 +80,16 @@ def query_glitches(
         triggers = triggers[mask]
 
     if len(triggers) == 0:
-        return
+        return [], None, None
 
-    # set 'start' and 'stop' so we aren't querying unnecessary data
-    start = np.min(triggers["time"]) - pad[0] - 1
-    stop = np.max(triggers["time"]) + pad[1] - 1
+    # parse trigger file name to extract start and stop times
+    t0, length = utils.parse_omicron_fname(trigger_path)
+
+    # set 'start' and 'stop' so we that we both:
+    # 1. aren't querying unnecessary data
+    # 2. aren't querying data outside of the segment
+    start = max(np.min(triggers["time"]) - pad[0] - 1, t0)
+    stop = min(np.max(triggers["time"]) + pad[1] + 1, t0 + length)
 
     logging.info(
         f"Querying {len(triggers)} triggers from {trigger_path}"
@@ -224,19 +201,13 @@ def deploy_collect_glitches(
     parameters = "trigger_path,outfile\n"
 
     for f in trigger_paths:
-        match = re_trigger_fname.search(f.name)
-        if match is not None:
-            t0, length = float(match.group("t0")), float(match.group("length"))
-            t0, length = intify(t0), intify(length)
-            logging.debug(f"Generating glitch dataset for {ifo} and file {f}")
-            out = outdir / f"{ifo}-glitches-{t0}-{length}.hdf5"
-            if out.exists():
-                logging.info(f"Found existing glitch file {out}. Skipping")
-                continue
-            parameters += f"{f},{out}\n"
-        else:
-            logging.warning(f"Could not parse trigger file name {f.name}")
+        t0, length = utils.parse_omicron_fname(f)
+        logging.debug(f"Generating glitch dataset for {ifo} and file {f}")
+        out = outdir / f"{ifo}-glitches-{t0}-{length}.hdf5"
+        if out.exists():
+            logging.info(f"Found existing glitch file {out}. Skipping")
             continue
+        parameters += f"{f},{out}\n"
 
     arguments = "--trigger-path $(trigger_path) --outfile $(outfile) "
     arguments += f"--pad {pad[0]} {pad[1]} --snr-thresh {snr_thresh} "
@@ -487,8 +458,8 @@ def main(
     # AFAIK pyomicron has no mechanism for querying
     # open data. So, if user specifies use of open data,
     # manually choose correct frame type, state flag, and channel
-    channel = get_channel(channel)
-    state_flag = get_state_flag(state_flag)
+    channel = utils.get_channel(channel)
+    state_flag = utils.get_state_flag(state_flag)
 
     # TODO: implement some sort of caching mechanism
 
@@ -559,7 +530,7 @@ def main(
     # condor jobs that will query the actual strain data.
     collect_futures = []
     for future in as_completed(omicron_futures):
-        ifo = handle_future(future)
+        ifo = utils.handle_future(future)
         outdir = datadir / "train" / "glitches" / ifo
         condordir = datadir / "condor" / "glitches"
         trigger_dir = train_run_dir / ifo / "merge" / f"{ifo}:{channel}"
@@ -581,7 +552,7 @@ def main(
         collect_futures.append(future)
 
     for future in as_completed(collect_futures):
-        result = handle_future(future)
+        result = utils.handle_future(future)
         logging.info(f"Completed collection of glitches for {result} ")
 
     return datadir
