@@ -222,7 +222,7 @@ def deploy_collect_glitches(
         accounting_group=accounting_group,
         accounting_group_user=accounting_group_user,
         clear=True,
-        request_memory=f"ifthenelse(isUndefined(MemoryUsage), {request_memory}, int(3*MemoryUsage))",  # noqa
+        request_memory=request_memory,  # noqa
         periodic_release="(HoldReasonCode =?= 26 || HoldReasonCode =?= 34) && (JobStatus == 5)",  # noqa
         periodic_remove="(JobStatus == 1) && MemoryUsage >= 7G",
         max_retries=5,
