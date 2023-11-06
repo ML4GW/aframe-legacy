@@ -101,6 +101,9 @@ def make_grid(combos):
         if plots:
             kwargs["x_range"] = plots[0].x_range
 
+        # enable svg saving
+        kwargs["output_backend"] = "svg"
+
         p = get_figure(**kwargs)
         p.outline_line_color = "#ffffff"
 

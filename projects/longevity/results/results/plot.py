@@ -75,6 +75,7 @@ def main(
         x_axis_label="Weeks After Original Test Period",
         y_axis_label="Sensitive Distance (Mpc)",
         tools="save",
+        output_backend="svg",
     )
 
     o3b_start = 1256655618

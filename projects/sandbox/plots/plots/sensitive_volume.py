@@ -213,8 +213,8 @@ def main(
                 p.legend.title_text_font_style = "bold"
 
     grid = gridplot(plots, toolbar_location="right", ncols=2)
-    save(grid, filename=output_dir / "sensitive_volume.html")
-    export_svg(grid, filename=output_dir / "sensitive_volume.svg")
+    save(grid, filename=output_dir / "sensitive-volume.html")
+    export_svg(grid, filename=output_dir / "sensitive-volume.svg")
 
 
 if __name__ == "__main__":
