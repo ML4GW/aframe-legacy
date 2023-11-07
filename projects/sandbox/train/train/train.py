@@ -7,7 +7,8 @@ import torch
 from train import utils as train_utils
 from train import validation as valid_utils
 from train.augmentations import SnrRescaler, SnrSampler
-from train.augmentor import AframeBatchAugmentor, AugmentedDataset
+from train.augmentor import AframeAugmentedDataset, AframeBatchAugmentor
+from train.glitch_loader import ChunkedGlitchSampler, Hdf5GlitchDataset
 
 from aframe.architectures.preprocessor import PsdEstimator
 from aframe.logging import configure_logging
@@ -28,6 +29,7 @@ from ml4gw.transforms import Whiten
 def main(
     # paths and environment args
     background_dir: Path,
+    glitch_dir: Path,
     waveform_dataset: Path,
     outdir: Path,
     logdir: Path,
@@ -47,6 +49,7 @@ def main(
     highpass: float,
     fftlength: Optional[float] = None,
     # augmentation args
+    glitch_frac: float = 0.0,
     waveform_prob: float = 0.5,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
@@ -352,11 +355,46 @@ def main(
     if "cuda" in device:
         kwargs["pin_memory"] = True
         kwargs["pin_memory_device"] = device
+
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         num_workers=4,
         **kwargs,
     )
-    train_it = AugmentedDataset(train_dataloader, augmentor, device)
+    # create glitch loader, and sampler
+    # find glitch paths and initiate glitch loader
+    if glitch_frac:
+        glitch_paths = {}
+        for ifo in ifos:
+            ifo_dir = glitch_dir / ifo
+            glitch_paths[ifo] = list(ifo_dir.iterdir())
+
+        glitches_per_chunk = 2000
+        batches_per_chunk = int(batches_per_epoch // 10)
+        chunks_per_epoch = int(batches_per_epoch // batches_per_chunk) + 1
+
+        glitch_dataset = Hdf5GlitchDataset(
+            batch_size=glitches_per_chunk,
+            batches_per_epoch=chunks_per_epoch,
+            files=glitch_paths,
+        )
+
+        glitch_loader = torch.utils.data.DataLoader(
+            glitch_dataset,
+            num_workers=2,
+            # disable auto batching which would add another uneeded dimension
+            batch_size=None,
+            **kwargs,
+        )
+
+        glitch_sampler = ChunkedGlitchSampler(
+            glitch_loader,
+            batch_size=int(glitch_frac * batch_size),
+            batches_per_chunk=batches_per_chunk,
+        )
+
+    train_it = AframeAugmentedDataset(
+        train_dataloader, augmentor, glitch_sampler, device
+    )
 
     return train_it, validator, None

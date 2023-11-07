@@ -14,6 +14,7 @@ from ml4gw.utils.slicing import sample_kernels
 
 if TYPE_CHECKING:
     from train.augmentations import SnrRescaler
+    from train.glitch_loader import ChunkedGlitchSampler
 
 
 class AframeBatchAugmentor(torch.nn.Module):
@@ -194,17 +195,65 @@ class AframeBatchAugmentor(torch.nn.Module):
         )
         return kernels
 
+    def insert_glitches(self, X, glitches, y):
+        glitches = glitches.transpose(0, 1)
+        # loop over channels and insert glitches
+        for i, tensor in enumerate(glitches):
+
+            # randomly sample batch indices which
+            # will be replaced with a glitch
+            idx = torch.randperm(len(X))[: glitches.shape[1]]
+
+            # sample kernels from the selected glitches.
+            # Add a dummy dimension so that sample_kernels
+            # doesn't think this is a single multi-channel
+            # timeseries, but rather a batch of single
+            # channel timeseries.
+
+            # Note: this assumes the time dimension of the glitches
+            # is such that sampling windows of size `X.shape[-1]`
+            # uniformly will always contain the glitch trigger.
+            # This criterion is enforced in the glitch generation script.
+            tensor = tensor[None]
+            tensor = sample_kernels(
+                tensor,
+                kernel_size=X.shape[-1],
+            )
+
+            # replace the appropriate channel in our
+            # strain data with the sampled glitches
+            X[idx, i] = tensor[:, 0]
+
+            # use bash file permissions style
+            # numbers to indicate which channels
+            # go inserted on
+
+            y[idx] -= 2 ** (i + 1)
+
+        return X, y
+
     @torch.no_grad()
-    def forward(self, X):
-        y = torch.zeros((len(X), 1), device=X.device)
+    def forward(self, X, glitches, y):
+        # first insert glitches into the batch
+        if glitches is not None:
+            X, y = self.insert_glitches(X, glitches, y)
+
+        # estimate PSDs, which will split up windows
+        # into the psd portion, and the portion used
+        # to actually train the network
         X, psds = self.psd_estimator(X)
 
-        # apply inversion / flip augementations
+        # apply inversion / flip augmentations
         X = self.inverter(X)
         X = self.reverser(X)
 
         # calculate number of waveforms to generate
+        # based on waveform prob, mute prob, swap prob.
+        # downweight likelihood of injecting a signal on top of a glitch.
+        # y == -2 means glitch in one ifo, y == -6 means in both
         probs = torch.ones_like(y) * self.signal_prob
+        probs[y < 0] *= self.glitch_downweight
+        probs[y < -4] *= self.glitch_downweight
         rvs = torch.rand(size=X.shape[:1], device=probs.device)
         mask = rvs < probs[:, 0]
 
@@ -220,7 +269,8 @@ class AframeBatchAugmentor(torch.nn.Module):
         responses, mute_indices = self.muter(responses)
         X[mask] += responses
 
-        # now that injections have been made,
+        # now that glitches have been inserted
+        # and injections have been made,
         # whiten _all_ the strain using the
         # background psds computed up top
         X = self.whitener(X, psds)
@@ -240,15 +290,33 @@ class AframeBatchAugmentor(torch.nn.Module):
         return X, y
 
 
-class AugmentedDataset:
-    def __init__(self, dataloader, fn, device):
-        self.dataloader = dataloader
-        self.fn = fn
+class AframeAugmentedDataset:
+    def __init__(
+        self,
+        background_loader: "torch.utils.data.DataLoader",
+        augmentor: torch.nn.Module,
+        glitch_loader: Optional["ChunkedGlitchSampler"] = None,
+        device: str = "cpu",
+    ):
+        self.background_loader = background_loader
+        self.glitch_loader = glitch_loader
+        self.augmentor = augmentor
         self.device = device
 
     def __len__(self):
-        return len(self.dataloader)
+        return len(self.background_loader)
 
     def __iter__(self):
-        for X in self.dataloader:
-            yield self.fn(X[0].to(self.device))
+        self.background_iter = iter(self.background_loader)
+        self.glitch_iter = iter(self.glitch_loader)
+        return self
+
+    def __next__(self):
+        X = next(self.background_iter)
+        y = torch.zeros((len(X), 1), device=self.device)
+        glitches = None
+        if self.glitch_loader is not None:
+            glitches = next(self.glitch_iter)
+
+        X, y = self.augmentor(X, glitches, y)
+        return X.to(self.device), y.to(self.device)
