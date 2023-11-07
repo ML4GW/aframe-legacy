@@ -60,12 +60,6 @@ rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
 def test_bbhnet_batch_augmentor(
     rand_mock, psd_estimator, whitener, size, sample_rate
 ):
-    """
-    glitch_sampler = Mock(
-        return_value=(torch.zeros((32, 2, 128 * 1)), torch.zeros((32, 1)))
-    )
-    glitch_sampler.prob = 0.0
-    """
 
     augmentor = AframeBatchAugmentor(
         ifos=["H1", "L1"],

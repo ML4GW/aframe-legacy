@@ -1,10 +1,10 @@
 [tool.pinto]
 steps = [
     #"datagen:deploy-background",
-    "datagen:generate-glitches"
+    #"datagen:generate-glitches"
     #"datagen:generate-waveforms",
     #"datagen:deploy-timeslide-waveforms",
-    #"train:train:resnet",
+    "train:train:resnet",
     #"export:export-model:resnet",
     #"infer:deploy-infer",
     #"plots:sensitive-volume",
@@ -125,6 +125,7 @@ waveform_approximant = "${base.waveform_approximant}"
 # input and output paths
 background_dir = "${base.datadir}/train/background"
 waveform_dataset = "${base.datadir}/train/signals.h5"
+glitch_dir = "${base.datadir}/train/glitches" 
 
 logdir = "${base.logdir}"
 outdir = "${base.basedir}/training"
@@ -151,6 +152,8 @@ highpass = "${base.highpass}"
 psd_length = "${base.training_psd_length}"
 
 # augmentation args
+glitch_frac = 0.2
+glitch_downweight = 0.0833
 trigger_distance = -0.75
 waveform_prob = 0.277
 swap_frac = 0.014

@@ -50,6 +50,7 @@ def main(
     fftlength: Optional[float] = None,
     # augmentation args
     glitch_frac: float = 0.0,
+    glitch_downweight: float = 0.0,
     waveform_prob: float = 0.5,
     swap_frac: float = 0.0,
     mute_frac: float = 0.0,
@@ -228,6 +229,13 @@ def main(
         logging.info(f"Setting global seed to {seed}")
         train_utils.seed_everything(seed)
 
+    if glitch_frac == 0.0 and glitch_downweight > 0.0:
+        logging.warning(
+            f"Specified glitch_downeight of {glitch_downweight} "
+            "but glitch_frac is 0.0. No glitches will be inserted "
+            "so glitch_downweight will have no effect."
+        )
+
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames, valid_fnames = train_utils.get_background_fnames(
@@ -322,6 +330,8 @@ def main(
         mute_frac=mute_frac,
         swap_frac=swap_frac,
         snr=snr_sampler,
+        glitch_frac=glitch_frac,
+        glitch_downweight=glitch_downweight,
         rescaler=rescaler,
         invert_prob=0.5,
         reverse_prob=0.5,
@@ -359,6 +369,7 @@ def main(
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         num_workers=4,
+        batch_size=None,
         **kwargs,
     )
     # create glitch loader, and sampler
@@ -369,6 +380,7 @@ def main(
             ifo_dir = glitch_dir / ifo
             glitch_paths[ifo] = list(ifo_dir.iterdir())
 
+        # how to intelligently define these parameters?
         glitches_per_chunk = 2000
         batches_per_chunk = int(batches_per_epoch // 10)
         chunks_per_epoch = int(batches_per_epoch // batches_per_chunk) + 1
@@ -391,6 +403,7 @@ def main(
             glitch_loader,
             batch_size=int(glitch_frac * batch_size),
             batches_per_chunk=batches_per_chunk,
+            device=device,
         )
 
     train_it = AframeAugmentedDataset(

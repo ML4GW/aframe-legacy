@@ -95,6 +95,8 @@ class AframeBatchAugmentor(torch.nn.Module):
         trigger_distance: float,
         mute_frac: float = 0.0,
         swap_frac: float = 0.0,
+        glitch_frac: float = 0.0,
+        glitch_downweight: float = 0.0,
         snr: Optional[Callable] = None,
         rescaler: Optional["SnrRescaler"] = None,
         invert_prob: float = 0.5,
@@ -102,9 +104,17 @@ class AframeBatchAugmentor(torch.nn.Module):
         **polarizations: np.ndarray,
     ):
         super().__init__()
+        # update signal prob to account for lost injections
+        # to swapping and muting augmentations
         signal_prob = signal_prob / (
             1 - (swap_frac + mute_frac - (swap_frac * mute_frac))
         )
+        # update signal prob to account for lost probability
+        # due to downweighting signals on top of glitches
+        signal_prob = (
+            signal_prob / (1 - glitch_frac * (1 - glitch_downweight)) ** 2
+        )
+        self.glitch_downweight = glitch_downweight
 
         if not 0 < signal_prob <= 1.0:
             raise ValueError(
@@ -318,5 +328,5 @@ class AframeAugmentedDataset:
         if self.glitch_loader is not None:
             glitches = next(self.glitch_iter)
 
-        X, y = self.augmentor(X, glitches, y)
-        return X.to(self.device), y.to(self.device)
+        X, y = self.augmentor(X.to(self.device), glitches, y)
+        return X, y
