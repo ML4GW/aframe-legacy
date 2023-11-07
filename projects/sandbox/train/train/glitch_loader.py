@@ -78,7 +78,7 @@ class Hdf5GlitchDataset(torch.utils.data.IterableDataset):
         # for each channel, sample files for each batch element
         fnames = self.sample_fnames()
 
-        for i, (channel, files) in enumerate(fnames.items()):
+        for i, files in enumerate(fnames.values()):
             unique_files, inv = np.unique(files, return_inverse=True)
 
             for j, file in enumerate(unique_files):
@@ -86,10 +86,9 @@ class Hdf5GlitchDataset(torch.utils.data.IterableDataset):
 
                 with h5py.File(file, "r") as f:
                     num = len(f["glitches"])
-                    indices = np.sort(
-                        np.random.permutation(num)[: len(batch_indices)]
-                    )
-                    x[batch_indices, i] = f["glitches"][indices]
+                    indices = np.random.randint(num, size=len(batch_indices))
+                    for b, idx in zip(batch_indices, indices):
+                        x[b, i] = f["glitches"][idx]
         return torch.Tensor(x)
 
     def __iter__(self):
