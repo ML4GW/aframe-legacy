@@ -313,6 +313,8 @@ def test_train_for_seed(tmp_path, h5py_mock, ifos):
                 valid_frac=valid_frac,
                 valid_stride=1,
                 seed=seed,
+                background_workers=4,
+                glitch_workers=0,
             )
 
         train(

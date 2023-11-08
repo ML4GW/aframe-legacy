@@ -68,6 +68,8 @@ def main(
     device: str = "cpu",
     verbose: bool = False,
     seed: Optional[int] = None,
+    background_workers: int = 4,
+    glitch_workers: int = 2,
     **kwargs,
 ):
     """
@@ -368,7 +370,7 @@ def main(
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        num_workers=4,
+        num_workers=background_workers,
         batch_size=None,
         **kwargs,
     )
@@ -391,7 +393,7 @@ def main(
 
         glitch_loader = torch.utils.data.DataLoader(
             glitch_dataset,
-            num_workers=2,
+            num_workers=glitch_workers,
             # disable auto batching which would add another uneeded dimension
             batch_size=None,
             **kwargs,
