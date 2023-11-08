@@ -71,6 +71,14 @@ def get_background_fnames(data_dir: Path, min_valid_duration: float):
     return list(fnames), valid_fnames
 
 
+def get_glitch_fnames(glitch_dir: Path, ifos: List[str]):
+    glitch_paths = {}
+    for ifo in ifos:
+        ifo_dir = glitch_dir / ifo
+        glitch_paths[ifo] = list(ifo_dir.iterdir())
+    return glitch_paths
+
+
 def get_background(fnames: Iterable[Path]):
     """
     Load the background from the given HDF5 files

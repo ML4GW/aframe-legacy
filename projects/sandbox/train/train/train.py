@@ -374,11 +374,9 @@ def main(
     )
     # create glitch loader, and sampler
     # find glitch paths and initiate glitch loader
+    glitch_sampler = None
     if glitch_frac:
-        glitch_paths = {}
-        for ifo in ifos:
-            ifo_dir = glitch_dir / ifo
-            glitch_paths[ifo] = list(ifo_dir.iterdir())
+        glitch_paths = train_utils.get_glitch_fnames(glitch_dir, ifos)
 
         # how to intelligently define these parameters?
         glitches_per_chunk = 2000

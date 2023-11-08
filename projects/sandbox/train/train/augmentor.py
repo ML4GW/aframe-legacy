@@ -318,7 +318,8 @@ class AframeAugmentedDataset:
 
     def __iter__(self):
         self.background_iter = iter(self.background_loader)
-        self.glitch_iter = iter(self.glitch_loader)
+        if self.glitch_loader is not None:
+            self.glitch_iter = iter(self.glitch_loader)
         return self
 
     def __next__(self):

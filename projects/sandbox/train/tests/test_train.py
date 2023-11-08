@@ -45,7 +45,7 @@ def background(duration, sample_rate):
 
 @pytest.fixture
 def glitches(sample_rate, num_non_background, non_background_length):
-    size = sample_rate * non_background_length
+    size = sample_rate * 5 * non_background_length
     glitches = np.arange(size * num_non_background)
     glitches = glitches.reshape(num_non_background, size)
     return glitches
@@ -83,6 +83,9 @@ def h5py_mock(background, glitches, glitch_times, waveforms, ifos):
             value["signals"] = waveforms
         elif "history" in fname or "batch" in fname and mode == "w":
             value = {}
+        elif "glitches" in fname:
+            value = {}
+            value["glitches"] = glitches
         else:
             raise ValueError(fname)
 
@@ -127,12 +130,14 @@ def test_train(
     valid_frac,
     num_non_background,
     non_background_length,
+    ifos,
 ):
 
     kernel_length = 2
     fduration = 1
 
     background_dir = MagicMock()
+    glitch_dir = MagicMock()
     background_fnames = [
         "background-10000-1024.h5",
         "background-20024-1024.h5",
@@ -155,14 +160,28 @@ def test_train(
         return_value=np.random.randn(1, 2, 1024 * sample_rate),
     )
 
-    with background_fnames_mock, waveforms_mock, background_mock as _, _, _:
-        train_dataset, validator, preprocessor = main(
+    glitch_mock = patch(
+        "train.utils.get_glitch_fnames",
+        return_value={
+            ifo: [
+                f"{ifo}-glitches-10000-1024.h5",
+                f"{ifo}-glitches-20024-1024",
+            ]
+            for ifo in ifos
+        },
+    )
+
+    with background_fnames_mock, waveforms_mock, background_mock, glitch_mock:
+        # test train with glitch_frac > 0
+        dataset, validator, preprocessor = main(
             background_dir,
+            glitch_dir,
             "signals.h5",
             outdir,
             outdir,
-            ifos=["H1", "L1"],
+            ifos=ifos,
             psd_length=6,
+            glitch_frac=0.2,
             waveform_prob=0.5,
             snr_thresh=6,
             kernel_length=kernel_length,
@@ -183,12 +202,43 @@ def test_train(
             seed=42,
         )
 
-    assert preprocessor is None
+        # test train with glitch_frac = 0
+        dataset, validator, preprocessor = main(
+            background_dir,
+            glitch_dir,
+            "signals.h5",
+            outdir,
+            outdir,
+            ifos=ifos,
+            psd_length=6,
+            glitch_frac=0.0,
+            waveform_prob=0.5,
+            snr_thresh=6,
+            kernel_length=kernel_length,
+            sample_rate=sample_rate,
+            batch_size=512,
+            max_min_snr=12,
+            max_snr=100,
+            snr_alpha=3,
+            snr_decay_steps=5000,
+            highpass=32,
+            # preproc args
+            fduration=fduration,
+            trigger_distance=-0.5,
+            # validation args
+            valid_livetime=1000,
+            valid_frac=valid_frac,
+            valid_stride=1,
+            seed=42,
+        )
+
+        assert preprocessor is None
+        assert dataset.glitch_loader is None
 
     # TODO: implement basic asserts
 
 
-def test_train_for_seed(tmp_path, h5py_mock):
+def test_train_for_seed(tmp_path, h5py_mock, ifos):
     tmp_path.mkdir(parents=True, exist_ok=True)
     sample_rate = 1024
     kernel_length = 1.5
@@ -196,6 +246,7 @@ def test_train_for_seed(tmp_path, h5py_mock):
     valid_frac = 0.25
 
     background_dir = MagicMock()
+    glitch_dir = MagicMock()
     background_fnames = [
         "background-10000-1024.h5",
         "background-20024-1024.h5",
@@ -209,22 +260,35 @@ def test_train_for_seed(tmp_path, h5py_mock):
         ),
     )
 
-    background_mock = patch(
+    back_mock = patch(
         "train.utils.get_background",
         return_value=np.random.randn(1, 2, 1024 * sample_rate),
     )
 
-    def run_pipeline(seed, i):
+    glitch_mock = patch(
+        "train.utils.get_glitch_fnames",
+        return_value={
+            ifo: [
+                f"{ifo}-glitches-10000-1024.h5",
+                f"{ifo}-glitches-20024-1024",
+            ]
+            for ifo in ifos
+        },
+    )
+
+    def run_pipeline(seed, i, glitch_frac):
         background_fnames_mock = patch(
             "train.utils.get_background_fnames",
             return_value=(background_fnames.copy(), valid_fnames.copy()),
         )
+
         outdir = tmp_path / f"seed-{i}"
         outdir.mkdir(exist_ok=True)
 
-        with background_fnames_mock, waveforms_mock, background_mock:
+        with background_fnames_mock, waveforms_mock, back_mock, glitch_mock:
             train_dataset, validator, preprocessor = main(
                 background_dir,
+                glitch_dir,
                 "signals.h5",
                 outdir,
                 outdir,
@@ -235,6 +299,7 @@ def test_train_for_seed(tmp_path, h5py_mock):
                 kernel_length=kernel_length,
                 sample_rate=sample_rate,
                 batch_size=32,
+                glitch_frac=glitch_frac,
                 max_min_snr=12,
                 max_snr=100,
                 snr_alpha=3,
@@ -261,6 +326,12 @@ def test_train_for_seed(tmp_path, h5py_mock):
         with open(outdir / "history.h5", "r") as f:
             return float(f.read())
 
-    train_loss = run_pipeline(42, 0)
-    assert run_pipeline(42, 1) == train_loss
-    assert run_pipeline(43, 0) != train_loss
+    # test w/o glitch insertion
+    train_loss = run_pipeline(42, 0, 0.0)
+    assert run_pipeline(42, 1, 0.0) == train_loss
+    assert run_pipeline(43, 0, 0.0) != train_loss
+
+    # test with glitch insertion
+    train_loss = run_pipeline(42, 0, 0.2)
+    assert run_pipeline(42, 1, 0.2) == train_loss
+    assert run_pipeline(43, 0, 0.2) != train_loss
