@@ -57,7 +57,7 @@ rand_value = 0.1 + 0.5 * (torch.arange(32) % 2)
 
 @patch("train.augmentor.AframeBatchAugmentor.sample_responses", new=sample)
 @patch("torch.rand", return_value=rand_value)
-def test_bbhnet_batch_augmentor(
+def test_aframe_batch_augmentor(
     rand_mock, psd_estimator, whitener, size, sample_rate
 ):
 
@@ -76,8 +76,8 @@ def test_bbhnet_batch_augmentor(
     )
 
     X = torch.zeros((32, 2, size))
-
-    X, y = augmentor(X)
+    y = torch.zeros((32, 1))
+    X, y = augmentor(X, None, y)
     assert (X[::2] == 2).all().item()
     assert (X[1::2] == 0).all().item()
     assert (y[::2] == 1).all().item()
@@ -114,7 +114,7 @@ def test_bbhnet_batch_augmentor(
 @patch("train.augmentor.AframeBatchAugmentor.sample_responses", new=sample)
 @pytest.mark.parametrize("swap_frac", [0, 0.1])
 @pytest.mark.parametrize("mute_frac", [0, 0.1])
-def test_bbhnet_batch_augmentor_with_swapping_and_muting(
+def test_aframe_batch_augmentor_with_swapping_and_muting(
     size,
     swap_frac,
     mute_frac,
@@ -149,6 +149,7 @@ def test_bbhnet_batch_augmentor_with_swapping_and_muting(
         assert str(exc.value).startswith("Probability must be")
 
     X = torch.zeros((32, 2, size))
+    y = torch.zeros((32, 1))
     augmentor = AframeBatchAugmentor(
         sample_rate=sample_rate,
         ifos=["H1", "L1"],
@@ -188,7 +189,7 @@ def test_bbhnet_batch_augmentor_with_swapping_and_muting(
     augmentor.swapper.forward = mock_channel_swapper
 
     with patch("torch.rand", return_value=value):
-        X, y = augmentor(X)
+        X, y = augmentor(X, None, y)
 
         if swap_frac + mute_frac == 0:
             assert (y > 0).all().item()
@@ -202,6 +203,65 @@ def test_bbhnet_batch_augmentor_with_swapping_and_muting(
         else:
             assert (y[:8] == 0).all().item()
             assert (y[8:] == 1).all().item()
+
+
+def test_insert_glitches(
+    size,
+    psd_estimator,
+    whitener,
+    sample_rate,
+    background_length,
+    kernel_length,
+):
+    augmentor = AframeBatchAugmentor(
+        sample_rate=sample_rate,
+        ifos=["H1", "L1"],
+        signal_prob=0.5,
+        trigger_distance=-0.25,
+        dec=lambda N: torch.zeros((N,)),
+        psi=lambda N: torch.zeros((N,)),
+        phi=lambda N: torch.zeros((N,)),
+        plus=np.zeros((100, 128 * 2)),
+        cross=np.zeros((100, 128 * 2)),
+        psd_estimator=psd_estimator,
+        whitener=whitener,
+    )
+    X = torch.zeros((8, 2, size))
+    y = torch.zeros((8, 1))
+    size = (background_length + 4 * kernel_length) * sample_rate
+    glitches = []
+    for i in range(2):
+        x = (
+            torch.arange(1, 3)
+            .repeat_interleave(size)
+            .reshape(-1, size)
+            .float()
+        )
+        glitches.append(x)
+    glitches = torch.stack(glitches)
+
+    indices = [torch.arange(0, 2), torch.arange(1, 3)]
+    with patch("torch.randperm", side_effect=indices):
+        X, y = augmentor.insert_glitches(X, glitches, y)
+
+    # first index has one glitch in first channel
+    assert (y[0] == -2).all().item()
+    assert (X[0, 0] == 1).all().item()
+    assert (X[0, 1] == 0).all().item()
+
+    # second index has glitch in each channel
+    assert (y[1] == -6).all().item()
+    assert (X[1, 0] == 1).all().item()
+    assert (X[1, 1] == 2).all().item()
+
+    # third index has glitch in second channel
+    assert (y[2] == -4).all().item()
+    assert (X[2, 0] == 0).all().item()
+    assert (X[2, 1] == 2).all().item()
+
+    # everything else is background
+    assert (y[3:] == 0).all().item()
+    assert (X[3:] == 0).all().item()
 
 
 def test_sample_responses(

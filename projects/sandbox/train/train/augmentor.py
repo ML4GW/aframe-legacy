@@ -213,7 +213,6 @@ class AframeBatchAugmentor(torch.nn.Module):
             # randomly sample batch indices which
             # will be replaced with a glitch
             idx = torch.randperm(len(X))[: glitches.shape[1]]
-
             # sample kernels from the selected glitches.
             # Add a dummy dimension so that sample_kernels
             # doesn't think this is a single multi-channel
@@ -229,7 +228,6 @@ class AframeBatchAugmentor(torch.nn.Module):
                 tensor,
                 kernel_size=X.shape[-1],
             )
-
             # replace the appropriate channel in our
             # strain data with the sampled glitches
             X[idx, i] = tensor[:, 0]
