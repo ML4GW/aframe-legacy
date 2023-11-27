@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 import h5py
 import numpy as np
-from datagen.utils.injection import generate_gw
+from datagen.utils.injection import generate_gw, generate_gw_bns
 from typeo import scriptify
 
 from aframe.logging import configure_logging
@@ -17,6 +17,7 @@ def main(
     num_signals: int,
     datadir: Path,
     logdir: Path,
+    signal_type: str,
     reference_frequency: float,
     minimum_frequency: float,
     sample_rate: float,
@@ -93,17 +94,30 @@ def main(
     prior, detector_frame_prior = prior()
     params = prior.sample(num_signals)
 
-    signals = generate_gw(
-        params,
-        minimum_frequency,
-        reference_frequency,
-        sample_rate,
-        waveform_duration,
-        waveform_approximant,
-        detector_frame_prior,
-    )
+    if(signal_type == 'bns'):
+        with ProcessPoolExecutor(140) as exe:
+            future = exe.submit(generate_gwi_bns, params,
+                        minimum_frequency,
+                        reference_frequency,
+                        sample_rate,
+                        waveform_duration,
+                        waveform_approximant,
+                        detector_frame_prior)
+            signals = future.result()
+
+    else:
+        signals = generate_gw(
+            params,
+            minimum_frequency,
+            reference_frequency,
+            sample_rate,
+            waveform_duration,
+            waveform_approximant,
+            detector_frame_prior,
+        )
 
     # Write params and similar to output file
+    logging.info("Writing waveforms to file....")
     if np.isnan(signals).any():
         raise ValueError("The signals contain NaN values")
 
@@ -125,7 +139,7 @@ def main(
                 "minimum_frequency": minimum_frequency,
             }
         )
-
+    logging.info("Writing waveforms to file finished!")
     return signal_file
 
 
