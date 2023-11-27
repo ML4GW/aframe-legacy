@@ -12,7 +12,15 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
+
+from bilby.gw.prior import (
+    UniformComovingVolume,
+    UniformSourceFrame,
+    UniformInComponentsChirpMass,
+    UniformInComponentsMassRatio,
+    AlignedSpin
+
+)
 
 from aframe.priors.utils import (
     mass_condition_powerlaw,
