@@ -49,6 +49,7 @@ cosmology = "aframe.priors.cosmologies.planck"
 streams_per_gpu = 3
 waveform_approximant = "IMRPhenomPv2"
 verbose = true
+signal_type = 'bbh'
 
 
 [tool.typeo.scripts.deploy-background]
