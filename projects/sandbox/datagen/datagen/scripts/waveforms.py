@@ -6,6 +6,7 @@ from typing import Callable, Optional
 import h5py
 import numpy as np
 from datagen.utils.injection import generate_gw, generate_gw_bns
+from concurrent.futures import ProcessPoolExecutor
 from typeo import scriptify
 
 from aframe.logging import configure_logging
