@@ -2,9 +2,6 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 
 import numpy as np
 import torch
-import torch.nn.functional as F
-import torchaudio.transforms as T
-import logging
 from train.augmentations import (
     ChannelMuter,
     ChannelSwapper,
@@ -101,7 +98,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         rescaler: Optional["SnrRescaler"] = None,
         invert_prob: float = 0.5,
         reverse_prob: float = 0.5,
-        signal_type: str = "bbh",
         **polarizations: np.ndarray,
     ):
         super().__init__()
@@ -119,7 +115,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         self.signal_prob = signal_prob
         self.trigger_offset = int(trigger_distance * sample_rate)
         self.sample_rate = sample_rate
-        self.signal_type = signal_type
 
         self.muter = ChannelMuter(frac=mute_frac)
         self.swapper = ChannelSwapper(frac=swap_frac)
@@ -138,13 +133,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         tensors, vertices = gw.get_ifo_geometry(*ifos)
         self.register_buffer("tensors", tensors)
         self.register_buffer("vertices", vertices)
-
-        if self.signal_type == "bns":
-            # Instantiate a spectrogram transform object
-            self.spectrogram = BNSSpectrogram(n_fft=512)
-        
-            # set trigger_offset to None
-            self.trigger_offset = None
 
         # make sure we have the same number of waveforms
         # for all the different polarizations
@@ -197,31 +185,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         if self.rescaler is not None:
             target_snrs = self.snr(N).to(responses.device)
             responses, _ = self.rescaler(responses, psds**0.5, target_snrs)
-
-        if self.signal_type == "bns":
-            # chop the waveform from the left
-            waveform_duration = responses.shape[-1] / self.sample_rate
-
-            # on the left side, chop enough so the leftmost kernel still has
-            # coalscence in it
-            chop_length = ( waveform_duration * self.sample_rate) - kernel_size
-            
-            # on the right side pad enough zeroes so the rightmost kernel still
-            # has atleast 2 sec of waveform in it that includes the coalescence
-            pad_length =  kernel_size - (2 * self.sample_rate)
-
-
-            logging.info(f"chop lenght: {chop_length}")
-            logging.info(f"pad length: {pad_length}")
-            logging.info(f"kernel size: {kernel_size}")
-            
-            # a 16 sec waveform with kernel length  of 9 sec 
-            # is padded with 7 secs of zeros  to the right
-            # and chopped off by 7 sec on the left
-            responses  = F.pad(responses, (0,int(pad_length)), "constant", 0)
-            responses = responses[:,:, int(chop_length): ]
-
-            logging.info(f"responses dimentions: {responses.shape}")
 
         kernels = sample_kernels(
             responses,
@@ -276,12 +239,6 @@ class AframeBatchAugmentor(torch.nn.Module):
         if self.snr is not None:
             self.snr.step()
 
-        if self.signal_type == "bns":
-            # contruct Spectrogram for BNS
-            # Move the computation graph to CUDA
-            self.spectrogram.to(device=X.device, dtype=torch.float32)
-            X = self.spectrogram(X)
-        
         return X, y
 
 
@@ -297,15 +254,3 @@ class AugmentedDataset:
     def __iter__(self):
         for X in self.dataloader:
             yield self.fn(X[0].to(self.device))
-
-
-class BNSSpectrogram(torch.nn.Module):
-    def __init__(self,n_fft=102,):
-        super().__init__()
-        self.spec = T.Spectrogram(n_fft=n_fft)
-
-    def forward(self, waveform: torch.Tensor) -> torch.Tensor:
-        # Convert to power spectrogram
-        spec = self.spec(waveform)
-        return spec
-
