@@ -98,7 +98,7 @@ def main(
     if signal_type == "bns":
         with ProcessPoolExecutor(140) as exe:
             future = exe.submit(
-                generate_gw_bns, 
+                generate_gw_bns,
                 params,
                 minimum_frequency,
                 reference_frequency,
