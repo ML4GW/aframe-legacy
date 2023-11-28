@@ -230,8 +230,8 @@ def main(
 
     if psd_length < window_length:
         raise ValueError(
-	     "Can't have psd length shorter than "
-	     "window length, {} < {}".format(psd_length, window_length)
+	    "Can't have psd length shorter than "
+            "window length, {} < {}".format(psd_length, window_length)
         )
 
     # create objects that we'll use for whitening the data

@@ -95,17 +95,18 @@ def main(
     prior, detector_frame_prior = prior()
     params = prior.sample(num_signals)
 
-    if(signal_type == 'bns'):
+    if signal_type == "bns":
         with ProcessPoolExecutor(140) as exe:
-            future = exe.submit(generate_gwi_bns, params,
-                        minimum_frequency,
-                        reference_frequency,
-                        sample_rate,
-                        waveform_duration,
-                        waveform_approximant,
-                        detector_frame_prior)
+            future = exe.submit(
+                generate_gw_bns, 
+                params,
+                minimum_frequency,
+                reference_frequency,
+                sample_rate,
+                waveform_duration,
+                waveform_approximant,
+                detector_frame_prior)
             signals = future.result()
-
     else:
         signals = generate_gw(
             params,
