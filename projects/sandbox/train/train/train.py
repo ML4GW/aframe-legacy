@@ -230,7 +230,7 @@ def main(
 
     if psd_length < window_length:
         raise ValueError(
-	    "Can't have psd length shorter than "
+            "Can't have psd length shorter than "
             "window length, {} < {}".format(psd_length, window_length)
         )
 

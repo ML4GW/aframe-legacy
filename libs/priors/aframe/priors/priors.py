@@ -12,7 +12,6 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-
 from bilby.gw.prior import (
     AlignedSpin,
     UniformComovingVolume,
@@ -20,7 +19,6 @@ from bilby.gw.prior import (
     UniformInComponentsMassRatio,
     UniformSourceFrame,
 )
-
 from aframe.priors.utils import (
     mass_condition_powerlaw,
     mass_constraints,
@@ -164,7 +162,7 @@ def nonspin_bns(cosmology: cosmo.Cosmology = COSMOLOGY) -> PriorDict:
         name="mass_ratio", minimum=0.125, maximum=1
     )
 
-    #tidal deformability parameter
+    # tidal deformability parameter
     prior["lambda_tilde"] = Uniform(0, 5000, name="lambda_tilde")
     prior["delta_lambda"] = Uniform(-5000, 5000, name="delta_lambda")
 
@@ -179,19 +177,20 @@ def nonspin_bns(cosmology: cosmo.Cosmology = COSMOLOGY) -> PriorDict:
     )
     prior["dec"] = Cosine(name="dec")
     prior["ra"] = Uniform(
-            name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
+        name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
     prior["theta_jn"] = Sine(name="theta_jn")
     prior["phase"] = Uniform(
-            name="phase", minimum=0, maximum=2 * np.pi, boundary="periodic"
+        name="phase", minimum=0, maximum=2 * np.pi, boundary="periodic"
     )
     prior["psi"] = Uniform(
-            name="psi", minimum=0, maximum=np.pi, boundary="periodic"
+        name="psi", minimum=0, maximum=np.pi, boundary="periodic"
     )
     prior["chi_1"] = AlignedSpin(
-            name="chi_1", a_prior=Uniform(minimum=0, maximum=0.99)
+        name="chi_1", a_prior=Uniform(minimum=0, maximum=0.99)
     )
-    prior["chi_2"] = AlignedSpin(name="chi_2", a_prior=Uniform(minimum=0, maximum=0.99)
+    prior["chi_2"] = AlignedSpin(
+        name="chi_2", a_prior=Uniform(minimum=0, maximum=0.99)
     )
 
     prior["phi_jl"] = 0
