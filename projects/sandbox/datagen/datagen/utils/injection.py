@@ -9,8 +9,6 @@ from bilby.gw.conversion import (
 from bilby.gw.source import lal_binary_black_hole, lal_binary_neutron_star
 from bilby.gw.waveform_generator import WaveformGenerator
 
-from aframe.logging import configure_logging
-
 
 def convert_to_detector_frame(samples):
     """Converts mass parameters from source to detector frame"""
@@ -141,7 +139,8 @@ def generate_gw_bns(
             [polarizations[p] for p in polarization_names]
         )
 
-        # just shift the coalescence to the left by 200 datapoints to cancel wraparound in the beginning
+        # just shift the coalescence to the left by 200 datapoints
+        #to cancel wraparound in the beginning
         dt = -200
         polarizations = np.roll(polarizations, dt, axis=-1)
 
