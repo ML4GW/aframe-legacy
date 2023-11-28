@@ -221,7 +221,7 @@ class AframeBatchAugmentor(torch.nn.Module):
             responses, swap_indices = self.swapper(responses)
             responses, mute_indices = self.muter(responses)
             X[mask] += responses
-            
+
             # set response augmentation labels to noise
             idx = torch.where(mask)[0]
             mask[idx[mute_indices]] = 0

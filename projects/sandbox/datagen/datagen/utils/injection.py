@@ -140,7 +140,7 @@ def generate_gw_bns(
         )
 
         # just shift the coalescence to the left by 200 datapoints
-        #to cancel wraparound in the beginning
+        # to cancel wraparound in the beginning
         dt = -200
         polarizations = np.roll(polarizations, dt, axis=-1)
 
