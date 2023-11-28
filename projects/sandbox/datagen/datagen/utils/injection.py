@@ -151,8 +151,8 @@ def generate_gw_bns(
         padding_length = padding * sample_rate
         signals[i] = polarizations[:, int(padding_length) :]
 
-        # every 10th waveform
-        if not i % 10:
+        # log every 1000th waveform
+        if not i % 1000:
             # note the logging.debug so that it's only called if verbose=True.
             logging.debug(f"{i + 1} polarizations generated") 
     logging.info("Finished generating polarizations")
