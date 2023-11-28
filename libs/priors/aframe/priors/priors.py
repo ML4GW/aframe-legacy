@@ -19,6 +19,7 @@ from bilby.gw.prior import (
     UniformInComponentsMassRatio,
     UniformSourceFrame,
 )
+
 from aframe.priors.utils import (
     mass_condition_powerlaw,
     mass_constraints,

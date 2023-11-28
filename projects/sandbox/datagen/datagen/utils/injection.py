@@ -106,7 +106,7 @@ def generate_gw_bns(
     waveform_approximant: str,
     detector_frame_prior: bool = False,
 ):
-    padding = 1 
+    padding = 1
     if not detector_frame_prior:
         sample_params = convert_to_detector_frame(sample_params)
 
