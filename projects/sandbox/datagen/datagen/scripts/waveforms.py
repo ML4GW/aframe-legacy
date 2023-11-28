@@ -23,7 +23,7 @@ def main(
     sample_rate: float,
     waveform_duration: float,
     waveform_approximant: str = "IMRPhenomPv2",
-    signal_type: str,
+    signal_type: str = "bbh",
     force_generation: bool = False,
     verbose: bool = False,
     seed: Optional[int] = None,
