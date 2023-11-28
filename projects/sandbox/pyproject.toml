@@ -104,6 +104,7 @@ sample_rate = "${base.sample_rate}"
 waveform_duration = "${base.waveform_duration}"
 force_generation = "${base.force_generation}"
 waveform_approximant = "${base.waveform_approximant}"
+signal_type = "${base.signal_type}"
 
 [tool.typeo.scripts.train]
 # input and output paths
