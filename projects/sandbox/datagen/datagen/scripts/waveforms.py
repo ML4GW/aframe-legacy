@@ -1,12 +1,12 @@
 import logging
 import random
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Callable, Optional
 
 import h5py
 import numpy as np
 from datagen.utils.injection import generate_gw, generate_gw_bns
-from concurrent.futures import ProcessPoolExecutor
 from typeo import scriptify
 
 from aframe.logging import configure_logging
@@ -98,14 +98,15 @@ def main(
     if signal_type == "bns":
         with ProcessPoolExecutor(140) as exe:
             future = exe.submit(
-                generate_gw_bns, 
+                generate_gw_bns,
                 params,
                 minimum_frequency,
                 reference_frequency,
                 sample_rate,
                 waveform_duration,
                 waveform_approximant,
-                detector_frame_prior)
+                detector_frame_prior,
+            )
             signals = future.result()
     else:
         signals = generate_gw(
