@@ -104,6 +104,9 @@ def generate_gw_bns(
     waveform_approximant: str,
     detector_frame_prior: bool = False,
 ):
+    # padding is used to take care of the wrap-around issue with the waveform
+    # initally waveform is elongated by padding number of seconds
+    # afterwads the padding length is chopped off to get the intended waveform
     padding = 1
     if not detector_frame_prior:
         sample_params = convert_to_detector_frame(sample_params)
@@ -145,14 +148,14 @@ def generate_gw_bns(
         polarizations = np.roll(polarizations, dt, axis=-1)
 
         # cut off the first sec of the waveform where the wraparound occurs
-        padding_datapoints = padding * sample_rate
-        signals[i] = polarizations[:, int(padding_datapoints) :]
-        if i == (n_samples / 4):
-            logging.info("Generated polarizations     : {}".format(i))
-        elif i == (n_samples / 2):
-            logging.info("Generated polarizations     : {}".format(i))
-
-    logging.info("Finished Generated polarizations")
+        padding_length = padding * sample_rate
+        signals[i] = polarizations[:, int(padding_length) :]
+        
+        # every 1000th waveform
+        if not i % 1000:
+            # note the logging.debug so that it's only called if verbose=True.
+            logging.debug(f"{i + 1} polarizations generated") 
+    logging.info("Finished generating polarizations")
     return signals
 
 

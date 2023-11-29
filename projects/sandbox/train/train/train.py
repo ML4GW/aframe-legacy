@@ -220,7 +220,39 @@ def main(
     if seed is not None:
         logging.info(f"Setting global seed to {seed}")
         train_utils.seed_everything(seed)
+    
+    # grab the names of the background files and determine the
+    # length of data that will be handed to the preprocessor
+    background_fnames = train_utils.get_background_fnames(background_dir)
+    window_length = kernel_length + fduration
+    sample_length = window_length + psd_length
+    fftlength = fftlength or window_length
 
+    if psd_length < window_length:
+        raise ValueError(
+            "Can't have psd length shorter than "
+            "window length, {} < {}".format(psd_length, window_length)
+        )
+
+    # create objects that we'll use for whitening the data
+    fast = highpass is not None
+    psd_estimator = PsdEstimator(
+        window_length, sample_rate, fftlength, fast=fast, average="median"
+    )
+    whitener = Whiten(fduration, sample_rate, highpass).to(device)
+
+    # load the waveforms
+    waveforms, valid_waveforms = train_utils.get_waveforms(
+        waveform_dataset, ifos, sample_rate, valid_frac
+    )
+
+    if valid_waveforms is not None:
+        valid_fname = background_fnames.pop(-1)
+        logging.info(f"Loading validation segment {valid_fname}")
+        valid_background = train_utils.get_background(valid_fname)
+
+        # set up a tracker which will perform evaluation,
+        # model selection, and checkpointing.
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames = train_utils.get_background_fnames(background_dir)
