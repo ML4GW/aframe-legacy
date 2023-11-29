@@ -46,7 +46,6 @@ def main(
     fduration: float,
     highpass: float,
     fftlength: Optional[float] = None,
-    signal_type: str = "bbh",
     # augmentation args
     waveform_prob: float = 0.5,
     swap_frac: float = 0.0,
@@ -152,9 +151,6 @@ def main(
             estimating the PSDs used to whiten the data. If left
             as `None`, the FFT length will be the same as the
             length of the unwhitened kernel.
-        signal_type:
-            A flag that serves to inform if the signal is BBH, NSBH or BNS
-            default value is set to BBH
         waveform_prob:
             The probability with which each sample in a batch
             will have a BBH waveform injected into its background.
@@ -224,40 +220,7 @@ def main(
     if seed is not None:
         logging.info(f"Setting global seed to {seed}")
         train_utils.seed_everything(seed)
-
-    logging.info(f"Printing all inputs here...")
-    logging.info(f"background_dir: {background_dir}")
-    logging.info(f"waveform_dataset: {waveform_dataset}")
-    logging.info(f"outdir: {outdir}")
-    logging.info(f"logdir: {logdir}")
-    logging.info(f"ifos: {ifos}")
-    logging.info(f"batch_size: {batch_size}")
-    logging.info(f"snr_thresh: {snr_thresh}")
-    logging.info(f"max_min_snr: {max_min_snr}")
-    logging.info(f"max_snr: {max_snr}")
-    logging.info(f"snr_alpha: {snr_alpha}")
-    logging.info(f"snr_decay_steps: {snr_decay_steps}")
-    logging.info(f"sample_rate: {sample_rate}")
-    logging.info(f"Signal Type: {signal_type}")
-    logging.info(f"kernel_length: {kernel_length}")
-    logging.info(f"psd_length: {psd_length}")
-    logging.info(f"fduration: {fduration}")
-    logging.info(f"highpass: {highpass}")
-    logging.info(f"fftlength: {fftlength}")
-    logging.info(f"waveform_prob: {waveform_prob}")
-    logging.info(f"swap_frac: {swap_frac}")
-    logging.info(f"mute_frac: {mute_frac}")
-    logging.info(f"trigger_distance: {trigger_distance}")
-    logging.info(f"valid_frac: {valid_frac}")
-    logging.info(f"valid_stride: {valid_stride}")
-    logging.info(f"num_valid_views: {num_valid_views}")
-    logging.info(f"max_fpr: {max_fpr}")
-    logging.info(f"valid_livetime: {valid_livetime}")
-    logging.info(f"early_stop: {early_stop}")
-    logging.info(f"checkpoint_every: {checkpoint_every}")
-    logging.info(f"device: {device}")
-    logging.info(f"verbose: {verbose}")
-
+    
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames = train_utils.get_background_fnames(background_dir)
@@ -356,7 +319,6 @@ def main(
         rescaler=rescaler,
         invert_prob=0.5,
         reverse_prob=0.5,
-        signal_type = signal_type,
         cross=cross,
         plus=plus,
     )
@@ -370,8 +332,6 @@ def main(
     waveforms_per_batch = batch_size * waveform_prob
     batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
 
-    logging.info(f"Number of waveforms:{len(waveforms)}")
-    logging.info(f"Batches per epoch:  {batches_per_epoch} ")
     train_dataset = Hdf5TimeSeriesDataset(
         fnames=background_fnames,
         channels=ifos,
