@@ -150,11 +150,12 @@ def generate_gw_bns(
         # cut off the first sec of the waveform where the wraparound occurs
         padding_length = padding * sample_rate
         signals[i] = polarizations[:, int(padding_length) :]
-        
+
         # every 1000th waveform
         if not i % 1000:
-            # note the logging.debug so that it's only called if verbose=True.
-            logging.debug(f"{i + 1} polarizations generated") 
+            # note the following is  only called if verbose=True
+            logging.debug(f"{i + 1} polarizations generated")
+    
     logging.info("Finished generating polarizations")
     return signals
 
