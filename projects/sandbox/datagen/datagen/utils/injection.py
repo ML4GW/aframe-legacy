@@ -104,7 +104,7 @@ def generate_gw_bns(
     waveform_approximant: str,
     detector_frame_prior: bool = False,
 ):
-    # Generate a longer waveform by no of sec equal to padding. 
+    # Generate a longer waveform by no of sec equal to padding
     # After wrap-around effect is fixed the padded length would
     # be chopped off leaving the waveform of intended length
     padding = 1
@@ -153,7 +153,7 @@ def generate_gw_bns(
 
         # every 1000th waveform
         if not i % 1000:
-            # note the logging.debug so that it's only called if verbose=True.
+            # note the following is  only called if verbose=True
             logging.debug(f"{i + 1} polarizations generated") 
     logging.info("Finished generating polarizations")
     return signals

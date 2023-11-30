@@ -187,6 +187,7 @@ class AframeBatchAugmentor(torch.nn.Module):
             responses, _ = self.rescaler(responses, psds**0.5, target_snrs)
 
         kernels = sample_kernels(
+            responses,
             kernel_size=kernel_size,
             max_center_offset=self.trigger_offset,
             coincident=True,
