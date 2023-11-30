@@ -154,7 +154,8 @@ def generate_gw_bns(
         # every 1000th waveform
         if not i % 1000:
             # note the following is  only called if verbose=True
-            logging.debug(f"{i + 1} polarizations generated") 
+            logging.debug(f"{i + 1} polarizations generated")
+    
     logging.info("Finished generating polarizations")
     return signals
 
