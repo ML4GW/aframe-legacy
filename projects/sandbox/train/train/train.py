@@ -217,10 +217,11 @@ def main(
     outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
     configure_logging(logdir / "train.log", verbose)
+    
     if seed is not None:
         logging.info(f"Setting global seed to {seed}")
         train_utils.seed_everything(seed)
-    
+
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames = train_utils.get_background_fnames(background_dir)
