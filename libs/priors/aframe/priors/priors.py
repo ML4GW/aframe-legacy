@@ -12,7 +12,13 @@ from bilby.core.prior import (
     Sine,
     Uniform,
 )
-from bilby.gw.prior import UniformComovingVolume, UniformSourceFrame
+from bilby.gw.prior import (
+    AlignedSpin,
+    UniformComovingVolume,
+    UniformInComponentsChirpMass,
+    UniformInComponentsMassRatio,
+    UniformSourceFrame,
+)
 
 from aframe.priors.utils import (
     mass_condition_powerlaw,
@@ -130,6 +136,68 @@ def spin_bbh(cosmology: cosmo.Cosmology = COSMOLOGY) -> PriorDict:
     prior["phi_jl"] = 0
 
     detector_frame_prior = True
+    return prior, detector_frame_prior
+
+
+def nonspin_bns(cosmology: cosmo.Cosmology = COSMOLOGY) -> PriorDict:
+    """
+    Define a Bilby `PriorDict` that describes a reasonable population
+    of non-spinning binary black holes
+
+    Masses are defined in the detector frame.
+
+    Args:
+        cosmology:
+            An `astropy` cosmology, used to determine redshift sampling
+
+    Returns:
+        prior:
+            `PriorDict` describing the binary black hole population
+        detector_frame_prior:
+            Boolean indicating which frame masses are defined in
+    """
+    prior = PriorDict()
+    prior["mass1"] = Uniform(0.5, 5, unit=msun)
+    prior["mass2"] = Uniform(0.5, 5, unit=msun)
+    prior["mass_ratio"] = UniformInComponentsMassRatio(
+        name="mass_ratio", minimum=0.125, maximum=1
+    )
+
+    # tidal deformability parameter
+    prior["lambda_tilde"] = Uniform(0, 5000, name="lambda_tilde")
+    prior["delta_lambda"] = Uniform(-5000, 5000, name="delta_lambda")
+
+    prior["redshift"] = UniformSourceFrame(
+        0, 0.5, name="redshift", cosmology=cosmology
+    )
+    prior["chirp_mass"] = UniformInComponentsChirpMass(
+        name="chirp_mass", minimum=0.4, maximum=4.4
+    )
+    prior["distance"] = UniformSourceFrame(
+        name="luminosity_distance", minimum=1e2, maximum=5e3
+    )
+    prior["dec"] = Cosine(name="dec")
+    prior["ra"] = Uniform(
+        name="ra", minimum=0, maximum=2 * np.pi, boundary="periodic"
+    )
+    prior["theta_jn"] = Sine(name="theta_jn")
+    prior["phase"] = Uniform(
+        name="phase", minimum=0, maximum=2 * np.pi, boundary="periodic"
+    )
+    prior["psi"] = Uniform(
+        name="psi", minimum=0, maximum=np.pi, boundary="periodic"
+    )
+    prior["chi_1"] = AlignedSpin(
+        name="chi_1", a_prior=Uniform(minimum=0, maximum=0.99)
+    )
+    prior["chi_2"] = AlignedSpin(
+        name="chi_2", a_prior=Uniform(minimum=0, maximum=0.99)
+    )
+
+    prior["phi_jl"] = 0
+
+    detector_frame_prior = True
+
     return prior, detector_frame_prior
 
 

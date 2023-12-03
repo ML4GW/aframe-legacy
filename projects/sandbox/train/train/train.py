@@ -221,10 +221,10 @@ def main(
     outdir.mkdir(exist_ok=True, parents=True)
     logdir.mkdir(exist_ok=True, parents=True)
     configure_logging(logdir / "train.log", verbose)
+    
     if seed is not None:
         logging.info(f"Setting global seed to {seed}")
         train_utils.seed_everything(seed)
-
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
     background_fnames, valid_fnames = train_utils.get_background_fnames(
@@ -233,6 +233,12 @@ def main(
     window_length = kernel_length + fduration
     sample_length = window_length + psd_length
     fftlength = fftlength or window_length
+
+    if psd_length < window_length:
+        raise ValueError(
+            "Can't have psd length shorter than "
+            "window length, {} < {}".format(psd_length, window_length)
+        )
 
     # create objects that we'll use for whitening the data
     fast = highpass is not None
