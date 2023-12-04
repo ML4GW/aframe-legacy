@@ -1,8 +1,12 @@
+import logging
 from typing import Dict, List, Tuple
 
 import numpy as np
-from bilby.gw.conversion import convert_to_lal_binary_black_hole_parameters
-from bilby.gw.source import lal_binary_black_hole
+from bilby.gw.conversion import (
+    convert_to_lal_binary_black_hole_parameters,
+    convert_to_lal_binary_neutron_star_parameters,
+)
+from bilby.gw.source import lal_binary_black_hole, lal_binary_neutron_star
 from bilby.gw.waveform_generator import WaveformGenerator
 
 
@@ -88,6 +92,70 @@ def generate_gw(
         polarizations = np.roll(polarizations, int(dt * sample_rate), axis=-1)
         signals[i] = polarizations
 
+    return signals
+
+
+def generate_gw_bns(
+    sample_params: Dict[List, str],
+    minimum_frequency: float,
+    reference_frequency: float,
+    sample_rate: float,
+    waveform_duration: float,
+    waveform_approximant: str,
+    detector_frame_prior: bool = False,
+):
+    # padding is used to take care of the wrap-around issue with the waveform
+    # initally waveform is elongated by padding number of seconds
+    # afterwads the padding length is chopped off to get the intended waveform
+    padding = 1
+    if not detector_frame_prior:
+        sample_params = convert_to_detector_frame(sample_params)
+
+    sample_params = [
+        dict(zip(sample_params, col)) for col in zip(*sample_params.values())
+    ]
+
+    n_samples = len(sample_params)
+
+    waveform_generator = WaveformGenerator(
+        duration=waveform_duration + padding,
+        sampling_frequency=sample_rate,
+        frequency_domain_source_model=lal_binary_neutron_star,
+        parameter_conversion=convert_to_lal_binary_neutron_star_parameters,
+        waveform_arguments={
+            "waveform_approximant": waveform_approximant,
+            "reference_frequency": reference_frequency,
+            "minimum_frequency": minimum_frequency,
+        },
+    )
+
+    logging.info("Generating BNS waveforms     : {}".format(n_samples))
+
+    waveform_size = int(sample_rate * waveform_duration)
+    num_pols = 2
+    signals = np.zeros((n_samples, num_pols, waveform_size))
+
+    for i, p in enumerate(sample_params):
+        polarizations = waveform_generator.time_domain_strain(p)
+        polarization_names = sorted(polarizations.keys())
+        polarizations = np.stack(
+            [polarizations[p] for p in polarization_names]
+        )
+
+        # just shift the coalescence to the left by 200 datapoints
+        # to cancel wraparound in the beginning
+        dt = -200
+        polarizations = np.roll(polarizations, dt, axis=-1)
+
+        # cut off the first sec of the waveform where the wraparound occurs
+        padding_length = padding * sample_rate
+        signals[i] = polarizations[:, int(padding_length) :]
+
+        # every 1000th waveform
+        if not i % 1000:
+            # note the following is  only called if verbose=True
+            logging.debug(f"{i + 1} polarizations generated")
+    logging.info("Finished generating polarizations")
     return signals
 
 
