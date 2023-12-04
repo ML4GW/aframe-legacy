@@ -52,6 +52,7 @@ def main(
     mute_frac: float = 0.0,
     trigger_distance: float = 0,
     # validation args
+    min_validation_duration: float = 15000,
     valid_frac: Optional[float] = None,
     valid_stride: Optional[float] = None,
     num_valid_views: int = 5,
@@ -171,6 +172,9 @@ def main(
             means that every kernel must contain the center
             of the corresponding segment (where the "trigger"
             or its equivalent is assumed to lie).
+        min_validation_duration:
+            The minimum amount of background data, in seconds,
+            to use for validation.
         valid_frac:
             Fraction of background, glitch, and waveform data
             to reserve for validation. Glitches and waveforms
@@ -223,7 +227,9 @@ def main(
         train_utils.seed_everything(seed)
     # grab the names of the background files and determine the
     # length of data that will be handed to the preprocessor
-    background_fnames = train_utils.get_background_fnames(background_dir)
+    background_fnames, valid_fnames = train_utils.get_background_fnames(
+        background_dir, min_validation_duration
+    )
     window_length = kernel_length + fduration
     sample_length = window_length + psd_length
     fftlength = fftlength or window_length
@@ -247,9 +253,12 @@ def main(
     )
 
     if valid_waveforms is not None:
-        valid_fname = background_fnames.pop(-1)
-        logging.info(f"Loading validation segment {valid_fname}")
-        valid_background = train_utils.get_background(valid_fname)
+        logging.info(
+            "Loading validation segments "
+            f"{','.join(fname.stem for fname in valid_fnames)} "
+            f"from directory {background_dir}"
+        )
+        valid_background = train_utils.get_background(valid_fnames)
 
         # set up a tracker which will perform evaluation,
         # model selection, and checkpointing.
@@ -331,7 +340,6 @@ def main(
     # and to balance compute vs. validation resolution
     waveforms_per_batch = batch_size * waveform_prob
     batches_per_epoch = int(4 * len(waveforms) / waveforms_per_batch)
-
     train_dataset = Hdf5TimeSeriesDataset(
         fnames=background_fnames,
         channels=ifos,

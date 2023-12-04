@@ -2,21 +2,22 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import h5py
 import numpy as np
 from astropy.cosmology import Planck15 as cosmology
 from bokeh.io import save
 from bokeh.layouts import gridplot
 from plots import compute, utils
 from plots.gwtc3 import catalog_results
+from plots.vetoes import VetoParser, get_catalog_vetoes
 from typeo import scriptify
 
-from aframe.analysis.ledger.events import (
-    RecoveredInjectionSet,
-    TimeSlideEventSet,
-)
+from aframe.analysis.ledger.events import EventSet, RecoveredInjectionSet
 from aframe.analysis.ledger.injections import InjectionParameterSet
 from aframe.logging import configure_logging
 from aframe.priors.priors import end_o3_ratesandpops, log_normal_masses
+
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 def get_prob(prior, ledger):
@@ -24,12 +25,32 @@ def get_prob(prior, ledger):
     return prior.prob(sample, axis=0)
 
 
+def normalize_path(path):
+    path = Path(path)
+    if not path.is_absolute():
+        return Path(__file__).resolve().parent / path
+    return path
+
+
+VETO_DEFINER_FILE = normalize_path(
+    "../../vizapp/vizapp/vetoes/H1L1-HOFT_C01_O3_CBC.xml"
+)
+GATE_PATHS = {
+    "H1": normalize_path(
+        "../../vizapp/vizapp/vetoes/H1-O3_GATES_1238166018-31197600.txt"
+    ),
+    "L1": normalize_path(
+        "../../vizapp/vizapp/vetoes/L1-O3_GATES_1238166018-31197600.txt"
+    ),
+}
+
+
 @scriptify
 def main(
     background_file: Path,
     foreground_file: Path,
     rejected_params: Path,
-    output_fname: Path,
+    output_dir: Path,
     log_file: Optional[Path] = None,
     max_far: float = 1000,
     sigma: float = 0.1,
@@ -38,7 +59,7 @@ def main(
     configure_logging(log_file, verbose)
 
     logging.info("Reading in inference outputs")
-    background = TimeSlideEventSet.read(background_file)
+    background = EventSet.read(background_file)
     foreground = RecoveredInjectionSet.read(foreground_file)
     rejected_params = InjectionParameterSet.read(rejected_params)
 
@@ -51,6 +72,41 @@ def main(
     logging.info(f"\t{len(background)} background events")
     logging.info(f"\t{len(foreground)} foreground events")
     logging.info(f"\t{len(rejected_params)} rejected events")
+
+    start, stop = background.time.min(), background.time.max()
+    logging.info(f"Loading in vetoes from {start} to {stop}")
+
+    ifos = ["H1", "L1"]
+
+    veto_parser = VetoParser(
+        VETO_DEFINER_FILE,
+        GATE_PATHS,
+        start,
+        stop,
+        ifos,
+    )
+
+    catalog_vetos = get_catalog_vetoes(start, stop)
+    categories = ["CAT1", "CAT2", "CAT3", "GATES", "CATALOG"]
+    for cat in categories:
+        for i, ifo in enumerate(ifos):
+            if cat == "CATALOG":
+                vetos = catalog_vetos
+            else:
+                vetos = veto_parser.get_vetoes(cat)[ifo]
+            back_count = len(background)
+            fore_count = len(foreground)
+            if len(vetos) > 0:
+                background = background.apply_vetos(vetos, i)
+                foreground = foreground.apply_vetos(vetos, i)
+            logging.info(
+                f"\t{back_count - len(background)} {cat} "
+                f"background events removed for ifo {ifo}"
+            )
+            logging.info(
+                f"\t{fore_count - len(foreground)} {cat} "
+                f"foreground events removed for ifo {ifo}"
+            )
 
     logging.info("Computing data likelihood under source prior")
     source, _ = end_o3_ratesandpops(cosmology)
@@ -81,7 +137,6 @@ def main(
     for i, combo in enumerate(mass_combos):
         logging.info(f"Computing likelihoods under {combo} log normal")
         prior, _ = log_normal_masses(*combo, sigma=sigma, cosmology=cosmology)
-
         prob = get_prob(prior, foreground)
         rejected_prob = get_prob(prior, rejected_params)
 
@@ -97,6 +152,13 @@ def main(
     )
     y *= v0
     err *= v0
+
+    with h5py.File(output_dir / "sensitive-volume.h5", "w") as f:
+        f.create_dataset("thresholds", data=thresholds)
+        for i, combo in enumerate(mass_combos):
+            g = f.create_group("-".join(map(str, combo)))
+            g.create_dataset("sv", data=y[i])
+            g.create_dataset("err", data=err[i])
 
     plots = utils.make_grid(mass_combos)
     for i, (p, color) in enumerate(zip(plots, utils.palette)):
@@ -149,7 +211,7 @@ def main(
                 p.legend.title_text_font_style = "bold"
 
     grid = gridplot(plots, toolbar_location="right", ncols=2)
-    save(grid, filename=output_fname)
+    save(grid, filename=output_dir / "sensitive_volume.html")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,15 @@
 [tool.pinto]
 steps = [
-    "datagen:deploy-background",
-    "datagen:generate-waveforms",
-    "datagen:deploy-timeslide-waveforms",
-    "train:train:resnet",
-    "export:export-model:resnet",
-    "infer:deploy-infer",
-    "plots:sensitive-volume"
+    #"datagen:deploy-background",
+    "datagen:generate-glitches"
+    #"datagen:generate-waveforms",
+    #"datagen:deploy-timeslide-waveforms",
+    #"train:train:resnet",
+    #"export:export-model:resnet",
+    #"infer:deploy-infer",
+    #"plots:sensitive-volume",
+    #"plots:1D-param-hist",
+    #"plots:2D-param-hist"
 ]
 
 [tool.typeo.base]
@@ -18,7 +21,7 @@ logdir = "${BASE_DIR}/log"
 sample_rate = 2048
 kernel_length = 1.5
 ifos = ['H1', 'L1']
-hopeless_snr_thresh = 3
+hopeless_snr_thresh = 4
 global_seed = 42
 
 train_start = 1240579783
@@ -26,7 +29,7 @@ train_stop = 1241443783  # 10 day train window
 test_stop = 1244035783 # 30 day test window
 
 channel = "OPEN"
-frame_type = "HOFT_C01"
+frame_type = "HOFT_CLEAN_SUB60HZ_C01" # corresponds to open data channel
 state_flag = "DATA" # open data segments
 resnet = {layers = [3, 4, 6, 3], norm_groups = 16}
 repository_directory = "${BASE_DIR}/model_repo/" 
@@ -69,14 +72,22 @@ accounting_group = "${base.accounting_group}"
 accounting_group_user = "${base.accounting_group_user}"
 
 [tool.typeo.scripts.generate-glitches]
-snr_thresh = 5
-window = 2
-start = "${base.glitch_start}"
+start = "${base.train_start}"
 stop = "${base.train_stop}"
 test_stop = "${base.test_stop}"
+
+# data settings
+fduration = "${base.fduration}"
+psd_length = "${base.training_psd_length}"
+kernel_length = "${base.kernel_length}"
 channel = "${base.channel}"
 frame_type = "${base.frame_type}"
 state_flag = "${base.state_flag}"
+ifos = "${base.ifos}"
+sample_rate = "${base.sample_rate}"
+
+# omicron settings
+snr_thresh = 5
 f_min = "${base.highpass}"
 q_min = 3.3166
 q_max = 108
@@ -85,13 +96,19 @@ chunk_duration = 124
 segment_duration = 64 
 overlap = 4
 mismatch_max = 0.2
-force_generation = "${base.force_generation}"
-ifos = "${base.ifos}"
-datadir = "${base.datadir}/train"
+
+# directories
+datadir = "${base.datadir}"
 logdir = "${base.logdir}"
-sample_rate = "${base.sample_rate}"
-analyze_testing_set = false
+
+# condor
+accounting_group = "${base.accounting_group}"
+accounting_group_user = "${base.accounting_group_user}"
+
+# misc
+analyze_testing_set = true
 verbose = true
+force_generation = "${base.force_generation}"
 
 [tool.typeo.scripts.generate-waveforms]
 minimum_frequency = "${base.minimum_frequency}" 
@@ -237,7 +254,7 @@ sequence_id = 1001
 # timeslide args
 Tb = "${base.Tb}"
 shifts = [0, 1]
-throughput = 640
+throughput = 1000
 
 # data args
 sample_rate = "${base.sample_rate}"
@@ -259,8 +276,22 @@ verbose = "${base.verbose}"
 background_file = "${base.basedir}/infer/background.h5"
 foreground_file = "${base.basedir}/infer/foreground.h5"
 rejected_params = "${base.datadir}/test/rejected-parameters.h5"
-output_fname = "${base.basedir}/infer/sensitive-volume.html"
+output_dir = "${base.basedir}/infer/"
 log_file = "${base.basedir}/log/sensitive_volume.log"
 max_far = 1000
 sigma = 0.1
+verbose = "${base.verbose}"
+
+[tool.typeo.scripts.1D_param_hist]
+foreground_file = "${base.basedir}/infer/foreground.h5"
+rejected_params = "${base.basedir}/test/rejected-parameters.h5"
+output_fname = "${base.basedir}/infer/1D_param_hist.html"
+log_file = "${base.basedir}/log/1D_param_hist.log"
+verbose = "${base.verbose}"
+
+[tool.typeo.scripts.2D_param_hist]
+foreground_file = "${base.basedir}/infer/foreground.h5"
+rejected_params = "${base.basedir}/test/rejected-parameters.h5"
+output_fname = "${base.basedir}/infer/2D_param_hist.html"
+log_file = "${base.basedir}/log/2D_param_hist.log"
 verbose = "${base.verbose}"
