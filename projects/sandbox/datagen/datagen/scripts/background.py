@@ -16,7 +16,7 @@ from mldatafind.segments import query_segments
 def _intify(x: float):
     """
     Converts the input float into an int if the two are equal (e.g., 4.0 == 4).
-    Otherwise, returns the input unchanged.
+    Otherwise, returns the input unchanged
     """
     return int(x) if int(x) == x else x
 
